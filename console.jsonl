@@ -27,3 +27,7 @@
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792418512788}
 {"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792418540844}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792418540844}
+{"level":"debug","message":"[vite] connected.","timestamp":1792420721514}
+{"level":"debug","message":"[vite] connected.","timestamp":1792420792200}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1792420806774}
+{"level":"debug","message":"[vite] connected.","timestamp":1792420811277}
