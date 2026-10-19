@@ -1,0 +1,29 @@
+{"level":"error","message":"[vite] failed to connect to websocket.\nyour current setup:\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io/ <--[HTTP]--> localhost:5173/ (server)\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io:/ <--[WebSocket (failing)]--> localhost:5173/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .","timestamp":1792159674782}
+{"level":"error","message":"[vite] failed to connect to websocket.\nyour current setup:\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io/ <--[HTTP]--> localhost:5173/ (server)\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io:/ <--[WebSocket (failing)]--> localhost:5173/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .","timestamp":1792161099814}
+{"level":"error","message":"[vite] failed to connect to websocket.\nyour current setup:\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io/ <--[HTTP]--> localhost:5173/ (server)\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io:/ <--[WebSocket (failing)]--> localhost:5173/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .","timestamp":1792161193672}
+{"level":"error","message":"[vite] failed to connect to websocket.\nyour current setup:\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io/ <--[HTTP]--> localhost:5173/ (server)\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io:/ <--[WebSocket (failing)]--> localhost:5173/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .","timestamp":1792161194724}
+{"level":"error","message":"[vite] failed to connect to websocket.\nyour current setup:\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io/ <--[HTTP]--> localhost:5173/ (server)\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io:/ <--[WebSocket (failing)]--> localhost:5173/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .","timestamp":1792161457809}
+{"level":"error","message":"[vite] failed to connect to websocket.\nyour current setup:\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io/ <--[HTTP]--> localhost:5173/ (server)\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io:/ <--[WebSocket (failing)]--> localhost:5173/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .","timestamp":1792163466612}
+{"level":"error","message":"[vite] failed to connect to websocket.\nyour current setup:\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io/ <--[HTTP]--> localhost:5173/ (server)\n  (browser) ix3wk2fenczn5uzp4cp8y.preview.studio.arc.io:/ <--[WebSocket (failing)]--> localhost:5173/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .","timestamp":1792163467779}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantDetail.tsx","timestamp":1792418323368}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792418323368}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantDetail.tsx","timestamp":1792418337590}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792418337590}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantDetail.tsx","timestamp":1792418351113}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792418351113}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792418373640}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792418373640}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792418419837}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792418419837}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792418431356}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792418431356}
+{"level":"error","message":"[vite] Failed to reload /src/components/AdminPanel.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1792418456251}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792418457051}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792418457051}
+{"level":"error","message":"[vite] Failed to reload /src/components/AdminPanel.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1792418472543}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792418473384}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792418473384}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792418512788}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792418512788}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792418540844}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792418540844}
