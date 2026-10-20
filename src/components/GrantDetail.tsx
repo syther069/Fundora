@@ -11,6 +11,7 @@ import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID } from '../contr
 import { getUsdc, buildTxExplorerUrl } from '@/onchain-facts'
 import { parseAmount } from '@/onchain-money'
 import { StatusBadge } from './StatusBadge'
+import { DeadlineBadge } from './DeadlineBadge'
 import {
   useMilestones,
   useIsReviewer,
@@ -256,7 +257,10 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
                 </div>
               )}
             </div>
-            <StatusBadge type="grant" status={grant.status} />
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+              <StatusBadge type="grant" status={grant.status} />
+              <DeadlineBadge deadline={grant.deadline} />
+            </div>
           </div>
 
           {/* Big USDC amount + progress */}
@@ -734,7 +738,8 @@ function MilestoneCard({
   }
 
   return (
-    <div
+    <article
+      aria-label={`Milestone ${index + 1}: ${milestone.title}`}
       className="card rounded-2xl overflow-hidden"
       style={{
         background: 'var(--warm-surface)',
@@ -950,6 +955,6 @@ function MilestoneCard({
           </div>
         )}
       </div>
-    </div>
+    </article>
   )
 }

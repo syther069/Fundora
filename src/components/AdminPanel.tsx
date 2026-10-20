@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { motion } from 'framer-motion'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi'
 import { isAddress, parseUnits, formatUnits } from 'viem'
-import { Loader2, Plus, UserCheck, UserMinus, Sliders, Ban, AlertTriangle, AlertCircle, CheckCircle2, ExternalLink } from 'lucide-react'
+import { Loader2, Plus, UserCheck, UserMinus, Sliders, Ban, AlertTriangle, AlertCircle, CheckCircle2, ExternalLink, ShieldOff, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID } from '../contracts/proofSpring'
-import { useRequiredApprovals, usePendingFunderRefund } from '../hooks/useProofSpring'
+import { useRequiredApprovals, usePendingFunderRefund, usePaused } from '../hooks/useProofSpring'
 import { useGrants } from '../context/GrantsContext'
 import type { Grant } from '../hooks/useProofSpring'
 import { parseOnchainError } from '../utils/errors'
@@ -31,6 +32,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const { chainId, address } = useAccount()
   const { switchChain } = useSwitchChain()
   const { data: requiredApprovals, refetch: refetchRA } = useRequiredApprovals()
+  const { data: isPaused, refetch: refetchPaused } = usePaused()
   const [tab, setTab] = useState<Tab>('create')
   const isWrongChain = chainId !== ARC_TESTNET_ID
 
@@ -214,6 +216,27 @@ export function AdminPanel({ onGrantCreated }: Props) {
     }, { onError: (e) => toast.error(parseOnchainError(e)) })
   })
 
+  // Pause / unpause
+  const { writeContract: pauseWrite, isPending: pausePending } = useWriteContract()
+  const { writeContract: unpauseWrite, isPending: unpausePending } = useWriteContract()
+
+  const handlePause = () => withChain(() => {
+    pauseWrite({
+      address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'pause',
+    }, {
+      onSuccess: () => { void refetchPaused(); toast.success('Contract paused') },
+      onError: (e) => toast.error(parseOnchainError(e)),
+    })
+  })
+  const handleUnpause = () => withChain(() => {
+    unpauseWrite({
+      address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'unpause',
+    }, {
+      onSuccess: () => { void refetchPaused(); toast.success('Contract unpaused') },
+      onError: (e) => toast.error(parseOnchainError(e)),
+    })
+  })
+
   const inputCls = 'w-full h-10 rounded-xl border px-3 text-sm outline-none focus:ring-2 transition-all'
   const inputStyle = {
     background: 'var(--surface-muted)',
@@ -234,7 +257,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
       className="rounded-2xl border overflow-hidden"
       style={{ background: 'var(--surface-strong)', borderColor: 'var(--border)' }}
     >
-      {/* Tabs — C2: scroll fade on mobile */}
+      {/* Tabs — ARIA tablist + keyboard nav (F7) */}
       <div className="relative" style={{ borderBottom: '1px solid var(--border)' }}>
         {/* Right-edge fade to signal horizontal scroll */}
         <div
@@ -242,35 +265,60 @@ export function AdminPanel({ onGrantCreated }: Props) {
           style={{ background: 'linear-gradient(to left, var(--surface-strong), transparent)' }}
           aria-hidden="true"
         />
-      <div
-        className="px-4 pt-4 pb-0 flex items-center gap-1 overflow-x-auto"
-        style={{ borderColor: 'var(--border)', scrollbarWidth: 'none' }}
-      >
-        <h2 className="display font-bold text-base mr-4 pb-3 shrink-0" style={{ color: 'var(--ink)' }}>
-          Admin Panel
-        </h2>
-        {tabs.map(({ id, icon: Icon, label }) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className="flex items-center gap-1.5 px-3 pb-3 text-sm font-medium border-b-2 transition-all shrink-0 btn-focus"
-            style={{
-              borderBottomColor: tab === id ? (id === 'cancel' ? 'var(--danger)' : 'var(--accent)') : 'transparent',
-              color: tab === id ? (id === 'cancel' ? 'var(--danger)' : 'var(--ink)') : 'var(--muted)',
-            }}
-          >
-            <Icon size={13} aria-hidden="true" />
-            {label}
-          </button>
-        ))}
-      </div>
-      </div>{/* end scroll fade wrapper */}
+        <div
+          role="tablist"
+          aria-label="Admin panel sections"
+          className="px-4 pt-4 pb-0 flex items-center gap-1 overflow-x-auto"
+          style={{ scrollbarWidth: 'none' }}
+          onKeyDown={e => {
+            const idx = tabs.findIndex(t => t.id === tab)
+            if (e.key === 'ArrowRight') { e.preventDefault(); setTab(tabs[(idx + 1) % tabs.length].id) }
+            if (e.key === 'ArrowLeft')  { e.preventDefault(); setTab(tabs[(idx - 1 + tabs.length) % tabs.length].id) }
+          }}
+        >
+          <h2 className="display font-bold text-base mr-4 pb-3 shrink-0" style={{ color: 'var(--ink)' }}>
+            Admin Panel
+          </h2>
+          {tabs.map(({ id, icon: Icon, label }) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={tab === id}
+              aria-controls={`tabpanel-${id}`}
+              id={`tab-${id}`}
+              tabIndex={tab === id ? 0 : -1}
+              onClick={() => setTab(id)}
+              className="relative flex items-center gap-1.5 px-3 pb-3 pt-1 text-sm font-medium transition-colors shrink-0 btn-focus"
+              style={{
+                color: tab === id ? (id === 'cancel' ? 'var(--coral)' : 'var(--ink)') : 'var(--muted)',
+                border: 'none', background: 'transparent',
+              }}
+            >
+              <Icon size={13} aria-hidden="true" />
+              {label}
+              {tab === id && (
+                <motion.span
+                  layoutId="admin-tab-indicator"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
+                  style={{ background: id === 'cancel' ? 'var(--coral)' : 'var(--brand)' }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>{/* end tab header */}
 
       <div className="p-5 space-y-4">
 
         {/* ── Create grant ── */}
         {tab === 'create' && (
-          <div className="space-y-3">
+          <div
+            role="tabpanel"
+            id="tabpanel-create"
+            aria-labelledby="tab-create"
+            className="space-y-3"
+          >
             {/* Title */}
             <div className="space-y-1">
               <input
@@ -410,7 +458,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
 
         {/* ── Reviewers ── */}
         {tab === 'reviewers' && (
-          <div className="space-y-5">
+          <div role="tabpanel" id="tabpanel-reviewers" aria-labelledby="tab-reviewers" className="space-y-5">
             {/* Add */}
             <div className="space-y-2">
               <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>
@@ -491,7 +539,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
 
         {/* ── Settings ── */}
         {tab === 'settings' && (
-          <div className="space-y-3">
+          <div role="tabpanel" id="tabpanel-settings" aria-labelledby="tab-settings" className="space-y-3">
             <div className="text-sm" style={{ color: 'var(--muted)' }}>
               Current required approvals:{' '}
               <strong style={{ color: 'var(--ink)' }}>{requiredApprovals?.toString() ?? '…'}</strong>
@@ -529,12 +577,56 @@ export function AdminPanel({ onGrantCreated }: Props) {
                 <AlertCircle size={11} /> Must be a whole number of at least 1
               </p>
             )}
+
+            {/* Contract pause (A3) */}
+            <div
+              className="rounded-xl border p-4 space-y-3 mt-2"
+              style={{
+                background: isPaused ? 'var(--coral-light)' : 'var(--surface-muted)',
+                borderColor: isPaused ? 'var(--coral-border)' : 'var(--border)',
+              }}
+            >
+              <div className="flex items-center gap-2">
+                {isPaused
+                  ? <ShieldOff size={14} style={{ color: 'var(--coral)' }} aria-hidden="true" />
+                  : <ShieldCheck size={14} style={{ color: 'var(--teal)' }} aria-hidden="true" />
+                }
+                <span className="text-sm font-semibold" style={{ color: isPaused ? 'var(--coral)' : 'var(--teal)' }}>
+                  Contract is {isPaused ? 'PAUSED' : 'active'}
+                </span>
+              </div>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                {isPaused
+                  ? 'All fund, apply, submit, and review actions are blocked. Claim and cancel still work.'
+                  : 'Pause to block new funding and submissions during an emergency.'
+                }
+              </p>
+              {isPaused ? (
+                <button
+                  onClick={handleUnpause}
+                  disabled={unpausePending || isWrongChain}
+                  className="btn btn-teal btn-sm btn-focus"
+                >
+                  {unpausePending ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
+                  Unpause Contract
+                </button>
+              ) : (
+                <button
+                  onClick={handlePause}
+                  disabled={pausePending || isWrongChain}
+                  className="btn btn-danger btn-sm btn-focus"
+                >
+                  {pausePending ? <Loader2 size={12} className="animate-spin" /> : <ShieldOff size={12} />}
+                  Pause Contract
+                </button>
+              )}
+            </div>
           </div>
         )}
 
         {/* ── Cancel grant ── */}
         {tab === 'cancel' && (
-          <div className="space-y-3">
+          <div role="tabpanel" id="tabpanel-cancel" aria-labelledby="tab-cancel" className="space-y-3">
             <p className="text-sm" style={{ color: 'var(--muted)' }}>
               Cancel an Open or Active grant. Unreleased USDC is refunded to the funder.
               Completed and already-cancelled grants cannot be cancelled.

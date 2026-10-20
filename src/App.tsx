@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react'
-import { useAccount } from 'wagmi'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
   Users, LayoutGrid, Info, AlertCircle, RefreshCw,
-  Sprout, Zap, ShieldCheck, TrendingUp,
+  Sprout, Zap, ShieldCheck, TrendingUp, AlertTriangle,
 } from 'lucide-react'
 import { formatUnits } from 'viem'
 import { Header } from './components/Header'
@@ -11,10 +12,12 @@ import { GrantCard } from './components/GrantCard'
 import { GrantSkeleton } from './components/GrantSkeleton'
 import { GrantDetail } from './components/GrantDetail'
 import { AdminPanel } from './components/AdminPanel'
+import { GrantsToolbar } from './components/GrantsToolbar'
+import type { StatusFilter } from './components/GrantsToolbar'
 import { useContractAdmin, useIsReviewer } from './hooks/useProofSpring'
 import { useGrants } from './context/GrantsContext'
 import type { Grant } from './hooks/useProofSpring'
-import { PROOF_SPRING_ADDRESS } from './contracts/proofSpring'
+import { PROOF_SPRING_ADDRESS, ARC_TESTNET_ID } from './contracts/proofSpring'
 
 type View = 'grants' | 'detail' | 'admin'
 
@@ -94,13 +97,15 @@ function StatsStrip({ grants }: { grants: Grant[] }) {
   const total   = grants.length
   const active  = grants.filter(g => g.status === 1).length
   const done    = grants.filter(g => g.status === 2).length
-  const tvl     = grants.reduce((s, g) => s + parseFloat(formatUnits(g.totalAmount, 6)), 0)
+  // Bigint sum first, then format once — no float arithmetic on money
+  const tvlRaw  = grants.reduce((s, g) => s + BigInt(g.totalAmount), 0n)
+  const tvl     = formatUnits(tvlRaw, 6)
 
   const stats = [
-    { label: 'Total Grants',     value: total.toString(),          color: 'var(--brand)' },
-    { label: 'Active',           value: active.toString(),         color: 'var(--teal)'  },
-    { label: 'Completed',        value: done.toString(),           color: 'var(--teal)'  },
-    { label: 'Total USDC',       value: `$${tvl.toFixed(0)}`,      color: 'var(--amber)' },
+    { label: 'Total Grants', value: total.toString(),                  color: 'var(--brand)' },
+    { label: 'Active',       value: active.toString(),                 color: 'var(--teal)'  },
+    { label: 'Completed',    value: done.toString(),                   color: 'var(--teal)'  },
+    { label: 'Total USDC',   value: `$${parseFloat(tvl).toFixed(0)}`,  color: 'var(--amber)' },
   ]
 
   if (total === 0) return null
@@ -147,12 +152,41 @@ function RoleBanner({ isAdmin, isReviewer }: { isAdmin: boolean; isReviewer: boo
   )
 }
 
+// ── Wrong-chain banner (A7: proactive, shown before user tries to act) ────────
+function WrongChainBanner({ chainId }: { chainId: number | undefined }) {
+  const { switchChain } = useSwitchChain()
+  if (chainId === ARC_TESTNET_ID || !chainId) return null
+  return (
+    <div
+      className="border-b py-2.5 px-4"
+      style={{ background: 'var(--amber-light)', borderColor: 'var(--amber-border)' }}
+      role="alert"
+    >
+      <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 flex-wrap">
+        <span className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--amber)' }}>
+          <AlertTriangle size={13} />
+          You are connected to the wrong network. Switch to Arc Testnet to use GrantFlow.
+        </span>
+        <button
+          className="btn btn-xs btn-focus"
+          style={{ background: 'var(--amber)', color: '#fff' }}
+          onClick={() => switchChain?.({ chainId: ARC_TESTNET_ID })}
+        >
+          Switch Network
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Main app ──────────────────────────────────────────────────────────────────
 export default function App() {
-  const { address, isConnected } = useAccount()
+  const { address, isConnected, chainId } = useAccount()
   const [view, setView]                   = useState<View>('grants')
   const [selectedGrant, setSelectedGrant] = useState<Grant | null>(null)
   const [navigating, setNavigating]       = useState<string | null>(null)
+  const [search, setSearch]               = useState('')
+  const [statusFilter, setStatusFilter]   = useState<StatusFilter>('all')
 
   const { grants, grantCount, isLoading: grantsLoading, isError: grantsError, refetch: refetchGrants } = useGrants()
   const grantCountData = grantCount > 0 ? BigInt(grantCount) : undefined
@@ -162,6 +196,18 @@ export default function App() {
 
   const isAdmin = !!(address && contractAdmin &&
     address.toLowerCase() === (contractAdmin as string).toLowerCase())
+
+  const STATUS_MAP: Record<StatusFilter, number | null> = {
+    all: null, open: 0, active: 1, completed: 2, cancelled: 3,
+  }
+  const filteredGrants = grants.filter(g => {
+    const matchesStatus = statusFilter === 'all' || g.status === STATUS_MAP[statusFilter]
+    const q = search.toLowerCase()
+    const matchesSearch = !q ||
+      g.title.toLowerCase().includes(q) ||
+      g.description.toLowerCase().includes(q)
+    return matchesStatus && matchesSearch
+  })
 
   const handleRefresh = useCallback(() => { refetchGrants() }, [refetchGrants])
 
@@ -184,8 +230,15 @@ export default function App() {
   if (NOT_DEPLOYED) {
     return (
       <div className="min-h-dvh flex flex-col" style={{ background: 'var(--warm-bg)' }}>
+        {/* Skip link — WCAG 2.4.1 */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 btn btn-primary btn-sm"
+        >
+          Skip to main content
+        </a>
         <Header />
-        <main className="flex-1 flex items-center justify-center px-4 py-12">
+        <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-12">
           <div className="max-w-sm w-full text-center space-y-5">
             <div
               className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto"
@@ -213,20 +266,47 @@ export default function App() {
   // ── Main layout ───────────────────────────────────────────────────────────
   return (
     <div className="min-h-dvh flex flex-col" style={{ background: 'var(--warm-bg)' }}>
+      {/* Skip link — WCAG 2.4.1 */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 btn btn-primary btn-sm"
+      >
+        Skip to main content
+      </a>
+
       <Header />
+
+      {/* Wrong-chain banner — proactive, before user tries to act (A7) */}
+      {isConnected && <WrongChainBanner chainId={chainId} />}
 
       {isConnected && <RoleBanner isAdmin={isAdmin} isReviewer={isReviewer} />}
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
+      <main id="main-content" className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
+        <AnimatePresence mode="wait" initial={false}>
         {/* Grant detail view */}
         {view === 'detail' && selectedGrant ? (
+          <motion.div
+            key="detail"
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+          >
           <GrantDetail
             grant={selectedGrant}
             onBack={handleBack}
             onRefresh={handleRefresh}
             isAdmin={isAdmin}
           />
+          </motion.div>
         ) : (
+          <motion.div
+            key="grants"
+            initial={{ opacity: 0, x: -24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+          >
           <div className="space-y-6">
             {/* Page header */}
             {(view === 'grants' || view === 'admin') && (
@@ -357,10 +437,40 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* Grants grid */}
+                    {/* Toolbar — shown when grants exist */}
                     {!grantsError && grants.length > 0 && (
+                      <GrantsToolbar
+                        search={search}
+                        onSearchChange={setSearch}
+                        statusFilter={statusFilter}
+                        onStatusFilterChange={setStatusFilter}
+                        totalCount={grants.length}
+                        filteredCount={filteredGrants.length}
+                      />
+                    )}
+
+                    {/* No results after filter */}
+                    {!grantsError && grants.length > 0 && filteredGrants.length === 0 && (
+                      <div className="card rounded-2xl p-10 text-center space-y-2">
+                        <p className="font-jakarta font-bold text-base" style={{ color: 'var(--ink)' }}>
+                          No grants match your search
+                        </p>
+                        <p className="text-sm" style={{ color: 'var(--muted)' }}>
+                          Try a different keyword or filter.
+                        </p>
+                        <button
+                          onClick={() => { setSearch(''); setStatusFilter('all') }}
+                          className="btn btn-ghost btn-sm btn-focus inline-flex mx-auto mt-1"
+                        >
+                          Clear filters
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Grants grid */}
+                    {!grantsError && filteredGrants.length > 0 && (
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-fade-in">
-                        {grants.map(grant => (
+                        {filteredGrants.map(grant => (
                           <GrantCard
                             key={grant.id.toString()}
                             grant={grant}
@@ -375,7 +485,9 @@ export default function App() {
               </>
             )}
           </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </main>
 
       {/* Footer */}
@@ -388,9 +500,16 @@ export default function App() {
             GrantFlow — built on Arc Testnet
           </span>
           <span className="text-xs" style={{ color: 'var(--subtle)' }}>
-            Need test USDC? Use the{' '}
-            <strong style={{ color: 'var(--brand)' }}>Get test USDC</strong>
-            {' '}button in the sidebar.
+            Need test USDC?{' '}
+            <a
+              href="https://faucet.circle.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--brand)' }}
+              className="font-semibold hover:underline"
+            >
+              Get test USDC ↗
+            </a>
           </span>
         </div>
       </footer>

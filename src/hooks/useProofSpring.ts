@@ -159,6 +159,29 @@ export function useApprovalCount(grantId: bigint | null, milestoneIndex: number)
   })
 }
 
+// Contract pause state
+export function usePaused() {
+  return useReadContract({
+    address: PROOF_SPRING_ADDRESS,
+    abi: PROOF_SPRING_ABI,
+    functionName: 'paused',
+    query: { refetchInterval: POLL_INTERVAL },
+    chainId: ARC_TESTNET_ID,
+  })
+}
+
+// Pending funder refund for expireGrant callers
+export function useExpireGrantEligible(grantId: bigint | null) {
+  return useReadContract({
+    address: PROOF_SPRING_ADDRESS,
+    abi: PROOF_SPRING_ABI,
+    functionName: 'getGrant',
+    args: grantId !== null ? [grantId] : undefined,
+    query: { enabled: grantId !== null, refetchInterval: POLL_INTERVAL },
+    chainId: ARC_TESTNET_ID,
+  })
+}
+
 // A1: check whether a specific reviewer already voted on a milestone in the current round
 export function useReviewerVote(
   grantId: bigint | null,

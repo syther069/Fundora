@@ -36,3 +36,55 @@
 {"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1792422674302}
 {"level":"debug","message":"[vite] connected.","timestamp":1792482047280}
 {"level":"debug","message":"[vite] connected.","timestamp":1792483777771}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792499863849}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792499883206}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792499883206}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792499965151}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792499965151}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792499971681}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792499971681}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792499976172}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792499976173}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792500012173}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500012173}
+{"level":"error","message":"[vite] Failed to reload /src/components/AdminPanel.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1792500017092}
+{"level":"debug","message":"[vite] hot updated: /src/components/AdminPanel.tsx","timestamp":1792500017092}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500017092}
+{"level":"error","message":"[vite] Failed to reload /src/components/GrantDetail.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1792500083360}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantDetail.tsx","timestamp":1792500089708}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500089708}
+{"level":"error","message":"[vite] Failed to reload /src/components/GrantDetail.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1792500099548}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantDetail.tsx","timestamp":1792500099548}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500099548}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantDetail.tsx","timestamp":1792500206404}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500206404}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantCard.tsx","timestamp":1792500256440}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500256441}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantCard.tsx","timestamp":1792500277884}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500277884}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantCard.tsx","timestamp":1792500292489}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500292489}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantDetail.tsx","timestamp":1792500345412}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500345412}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantDetail.tsx","timestamp":1792500345813}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500345813}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantDetail.tsx","timestamp":1792500365308}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500365308}
+{"level":"debug","message":"[vite] hot updated: /src/components/GrantDetail.tsx","timestamp":1792500367310}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500367310}
+{"level":"debug","message":"[vite] hot updated: /src/App.tsx","timestamp":1792500443088}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500443088}
+{"level":"error","message":"[vite] Failed to reload /src/App.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1792500443790}
+{"level":"debug","message":"[vite] hot updated: /src/App.tsx","timestamp":1792500443790}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500443790}
+{"level":"debug","message":"[vite] hot updated: /src/App.tsx","timestamp":1792500467139}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500467139}
+{"level":"error","message":"[vite] Failed to reload /src/App.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1792500475743}
+{"level":"debug","message":"[vite] hot updated: /src/App.tsx","timestamp":1792500475743}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500475743}
+{"level":"debug","message":"[vite] hot updated: /src/App.tsx","timestamp":1792500492504}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500492504}
+{"level":"error","message":"[vite] Failed to reload /src/App.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1792500495458}
+{"level":"debug","message":"[vite] hot updated: /src/App.tsx","timestamp":1792500495458}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792500495458}
+{"level":"debug","message":"[vite] connected.","timestamp":1792502312801}

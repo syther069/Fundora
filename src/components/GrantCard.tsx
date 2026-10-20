@@ -1,6 +1,7 @@
 import { formatUnits } from 'viem'
 import { ArrowRight, Layers } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
+import { DeadlineBadge } from './DeadlineBadge'
 import type { Grant } from '../hooks/useProofSpring'
 
 // Accent bar colour per grant status
@@ -41,9 +42,14 @@ interface Props {
 }
 
 export function GrantCard({ grant, onClick, isNavigating }: Props) {
-  const total      = parseFloat(formatUnits(grant.totalAmount, 6))
-  const released   = parseFloat(formatUnits(grant.releasedAmount, 6))
-  const progressPct = total > 0 ? Math.round((released / total) * 100) : 0
+  // Bigint arithmetic first, then format once — no float arithmetic on money paths
+  const totalAmt    = BigInt(grant.totalAmount)
+  const releasedAmt = BigInt(grant.releasedAmount)
+  const totalStr    = formatUnits(totalAmt, 6)
+  const releasedStr = formatUnits(releasedAmt, 6)
+  const total       = parseFloat(totalStr)
+  const released    = parseFloat(releasedStr)
+  const progressPct = totalAmt > 0n ? Math.round(Number((releasedAmt * 100n) / totalAmt)) : 0
   const noBuilder  = grant.builder === '0x0000000000000000000000000000000000000000'
   const createdDate = formatGrantDate(grant.createdAt)
   const accentColor = STATUS_ACCENT[grant.status] ?? '#6366f1'
@@ -88,7 +94,7 @@ export function GrantCard({ grant, onClick, isNavigating }: Props) {
         </div>
 
         {/* USDC amount — prominent */}
-        <UsdcAmount amount={total.toFixed(2)} />
+        <UsdcAmount amount={parseFloat(totalStr).toFixed(2)} />
 
         {/* Progress bar */}
         {total > 0 && (
@@ -108,7 +114,7 @@ export function GrantCard({ grant, onClick, isNavigating }: Props) {
             </div>
             <div className="flex items-center justify-between mt-1">
               <span className="label-caps">{progressPct}% released</span>
-              <span className="label-caps">{released.toFixed(0)} / {total.toFixed(0)} USDC</span>
+              <span className="label-caps">{parseFloat(releasedStr).toFixed(0)} / {parseFloat(totalStr).toFixed(0)} USDC</span>
             </div>
           </div>
         )}
@@ -140,6 +146,7 @@ export function GrantCard({ grant, onClick, isNavigating }: Props) {
           </div>
 
           <div className="flex items-center gap-2">
+            <DeadlineBadge deadline={grant.deadline} />
             {createdDate && (
               <span className="text-xs" style={{ color: 'var(--subtle)' }}>{createdDate}</span>
             )}

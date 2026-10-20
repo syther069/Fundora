@@ -12,11 +12,11 @@ export default {
         mono:    ['"JetBrains Mono"', 'Menlo', 'monospace'],
       },
       colors: {
-        brand:  { DEFAULT: '#6366f1', hover: '#4f46e5', light: '#eef2ff', border: '#c7d2fe' },
-        teal:   { DEFAULT: '#0d9488', hover: '#0f766e', light: '#f0fdfa', border: '#99f6e4' },
-        amber:  { DEFAULT: '#d97706', light: '#fffbeb', border: '#fde68a' },
-        coral:  { DEFAULT: '#e11d48', light: '#fff1f2', border: '#fecdd3' },
-        violet: { DEFAULT: '#7c3aed', light: '#f5f3ff', border: '#ddd6fe' },
+        brand:  { DEFAULT: '#4F46E5', hover: '#4338CA', light: '#EEF2FF', border: '#C7D2FE' },
+        teal:   { DEFAULT: '#0F766E', hover: '#0D5F58', light: '#F0FDFA', border: '#99F6E4' },
+        amber:  { DEFAULT: '#B45309', light: '#FFFBEB', border: '#FDE68A' },
+        coral:  { DEFAULT: '#BE123C', light: '#FFF1F2', border: '#FECDD3' },
+        violet: { DEFAULT: '#6D28D9', light: '#F5F3FF', border: '#DDD6FE' },
         warm: {
           bg:      '#fffbf5',
           'bg-2':  '#fdf8f0',

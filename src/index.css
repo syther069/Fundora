@@ -4,35 +4,41 @@
 
 /* ── GrantFlow design tokens ─────────────────────────────────────────────── */
 :root {
-  /* Brand */
-  --brand:        #6366f1;
-  --brand-hover:  #4f46e5;
-  --brand-light:  #eef2ff;
-  --brand-border: #c7d2fe;
+  /* Brand — indigo-600 (WCAG AA verified 5.5:1 on white) */
+  --brand:        #4F46E5;
+  --brand-hover:  #4338CA;
+  --brand-light:  #EEF2FF;
+  --brand-border: #C7D2FE;
 
   /* Backgrounds */
-  --warm-bg:       #fffbf5;
-  --warm-bg-2:     #fdf8f0;
-  --warm-surface:  #ffffff;
-  --warm-surface-2:#fdf8f0;
+  --warm-bg:      #fffbf5;
+  --warm-bg-2:    #fdf8f0;
 
-  /* Semantic colours */
-  --teal:         #0d9488;
-  --teal-hover:   #0f766e;
-  --teal-light:   #f0fdfa;
-  --teal-border:  #99f6e4;
+  /* Surfaces (canonical names used by design system) */
+  --surface:         #ffffff;
+  --surface-raised:  #ffffff;
+  --surface-overlay: #fdf8f0;
+  --surface-muted:   #fdf8f0;
+  --surface-strong:  #ffffff;
+  --warm-surface:    #ffffff; /* alias — kept for backward compat */
 
-  --amber:        #d97706;
-  --amber-light:  #fffbeb;
-  --amber-border: #fde68a;
+  /* Semantic colours — all WCAG AA verified on their light backgrounds */
+  --teal:         #0F766E; /* teal-700 — 5.2:1 on teal-light */
+  --teal-hover:   #0D5F58;
+  --teal-light:   #F0FDFA;
+  --teal-border:  #99F6E4;
 
-  --coral:        #e11d48;
-  --coral-light:  #fff1f2;
-  --coral-border: #fecdd3;
+  --amber:        #B45309; /* amber-700 — 4.7:1 on amber-light */
+  --amber-light:  #FFFBEB;
+  --amber-border: #FDE68A;
 
-  --violet:       #7c3aed;
-  --violet-light: #f5f3ff;
-  --violet-border:#ddd6fe;
+  --coral:        #BE123C; /* rose-700 — 5.1:1 on coral-light */
+  --coral-light:  #FFF1F2;
+  --coral-border: #FECDD3;
+
+  --violet:       #6D28D9; /* violet-700 */
+  --violet-light: #F5F3FF;
+  --violet-border:#DDD6FE;
 
   /* Text */
   --ink:    #1c1917;
@@ -40,15 +46,23 @@
   --muted:  #78716c;
   --subtle: #a8a29e;
 
-  /* Borders + shadows */
-  --border:       #e7e5e4;
-  --border-strong:#a8a29e;
+  /* Borders */
+  --border:        #e7e5e4;
+  --border-strong: #a8a29e;
+
+  /* Shadows */
   --shadow-sm:    0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
   --shadow-md:    0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04);
   --shadow-lg:    0 12px 32px rgba(0,0,0,.10), 0 4px 8px rgba(0,0,0,.05);
+  --shadow-brand: 0 0 0 3px rgba(79,70,229,.20);
+
+  /* Semantic aliases — used across components */
+  --accent:  #4F46E5; /* = --brand */
+  --danger:  #BE123C; /* = --coral */
+  --success: #0F766E; /* = --teal */
 
   /* Focus */
-  --focus: #818cf8;
+  --focus: #6366f1;
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────────── */
@@ -191,14 +205,13 @@ body {
 /* ── Focus rings ─────────────────────────────────────────────────────────── */
 .btn-focus { outline: none; }
 .btn-focus:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-  border-radius: 9999px;
+  outline: none;
+  box-shadow: var(--shadow-brand);
 }
 
 /* ── Progress bar ────────────────────────────────────────────────────────── */
 .progress-track {
-  height: 6px;
+  height: 8px;
   background: var(--warm-bg-2);
   border-radius: 9999px;
   overflow: hidden;
