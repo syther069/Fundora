@@ -6,7 +6,7 @@ import artifact from '../../contracts/out/ProofSpring.sol/ProofSpring.json'
 
 export const ARC_TESTNET_ID = 5042002
 
-export const PROOF_SPRING_ADDRESS = '0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388' as `0x${string}`
+export const PROOF_SPRING_ADDRESS = '0x433cc087e4daf08f7875c9621c7a3efd950ef016' as `0x${string}`
 
 // Cast through unknown so TypeScript accepts the wide artifact type as our strict const.
 export const PROOF_SPRING_ABI = artifact.abi as unknown as typeof PROOF_SPRING_ABI_CONST

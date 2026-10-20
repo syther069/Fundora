@@ -1,5 +1,7 @@
 // GrantFlow — warm filled status badges with Lucide icons (colour + icon, never colour alone)
+import type { LucideProps } from 'lucide-react'
 import { Circle, Zap, CheckCircle2, XCircle, Clock, Eye } from 'lucide-react'
+import type { ForwardRefExoticComponent, RefAttributes } from 'react'
 
 interface Props {
   type: 'grant' | 'milestone'
@@ -10,12 +12,14 @@ interface Props {
 // Grant statuses: 0=Open, 1=Active, 2=Completed, 3=Cancelled
 // Milestone statuses: 0=Pending, 1=SubmittedForReview, 2=Approved, 3=Rejected
 
+type LucideIcon = ForwardRefExoticComponent<Omit<LucideProps, 'ref'> & RefAttributes<SVGSVGElement>>
+
 type Config = {
   label: string
   bg: string
   color: string
   border: string
-  Icon: React.FC<{ size?: number; 'aria-hidden'?: boolean }>
+  Icon: LucideIcon
 }
 
 const GRANT_CONFIGS: Record<number, Config> = {

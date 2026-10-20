@@ -14,13 +14,14 @@ ProofSpring is a full-stack onchain microgrants platform. Grant admins create mi
 
 | Contract | Version | Network | Address |
 |----------|---------|---------|---------|
-| ProofSpring | v2 (current) | Arc Testnet | `0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388` |
+| ProofSpring | v3 (current) | Arc Testnet | `0x433cc087e4daf08f7875c9621c7a3efd950ef016` |
+| ProofSpring | v2 (superseded — wrong USDC) | Arc Testnet | `0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388` |
 | ProofSpring | v1 (superseded) | Arc Testnet | `0x090e040f2a56676d3f91c773ea8a42106435f920` |
 
-v2 Constructor args: `_usdc=0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, _initialAdmin=0x5B12Ce46C7194aD57d143bC22847224047b1Ef42, _requiredApprovals=1`
-v2 Tx hash: `0x22083b6d552784a87e7eb62a153b1b208dfb52b452f6d8d39c10f58506322305`
+v3 Constructor args: `_usdc=0x3600000000000000000000000000000000000000 (Arc USDC), _initialAdmin=0x5B12Ce46C7194aD57d143bC22847224047b1Ef42, _requiredApprovals=1`
+v3 Tx hash: `0x61f7e6357b3e4c0d37a153f8951c09619fcf660ce0ab04d388de32af46c02f8d`
 
-Explorer (v2): https://explorer.testnet.arc.io/address/0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388
+Explorer (v3): https://explorer.testnet.arc.io/address/0x433cc087e4daf08f7875c9621c7a3efd950ef016
 
 ## Post-Deploy Checklist (run after each redeployment)
 

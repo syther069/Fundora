@@ -6,7 +6,6 @@ import {
   Users, LayoutGrid, Info, AlertCircle, RefreshCw,
   Sprout, Zap, ShieldCheck, TrendingUp, AlertTriangle,
 } from 'lucide-react'
-import { formatUnits } from 'viem'
 import { Header } from './components/Header'
 import { GrantCard } from './components/GrantCard'
 import { GrantSkeleton } from './components/GrantSkeleton'
@@ -99,13 +98,14 @@ function StatsStrip({ grants }: { grants: Grant[] }) {
   const done    = grants.filter(g => g.status === 2).length
   // Bigint sum first, then format once — no float arithmetic on money
   const tvlRaw  = grants.reduce((s, g) => s + BigInt(g.totalAmount), 0n)
-  const tvl     = formatUnits(tvlRaw, 6)
+  // Drop sub-dollar cents: divide bigint by 1_000_000 (6 decimals) to get whole dollars
+  const tvlDollars = tvlRaw / 1_000_000n
 
   const stats = [
     { label: 'Total Grants', value: total.toString(),                  color: 'var(--brand)' },
     { label: 'Active',       value: active.toString(),                 color: 'var(--teal)'  },
     { label: 'Completed',    value: done.toString(),                   color: 'var(--teal)'  },
-    { label: 'Total USDC',   value: `$${parseFloat(tvl).toFixed(0)}`,  color: 'var(--amber)' },
+    { label: 'Total USDC',   value: `$${tvlDollars.toString()}`,       color: 'var(--amber)' },
   ]
 
   if (total === 0) return null

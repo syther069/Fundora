@@ -16,7 +16,7 @@
 
   /* Surfaces (canonical names used by design system) */
   --surface:         #ffffff;
-  --surface-raised:  #ffffff;
+  --surface-raised:  #FAFAF8;
   --surface-overlay: #fdf8f0;
   --surface-muted:   #fdf8f0;
   --surface-strong:  #ffffff;
@@ -41,14 +41,14 @@
   --violet-border:#DDD6FE;
 
   /* Text */
-  --ink:    #1c1917;
+  --ink:    #18181B;
   --ink-2:  #44403c;
-  --muted:  #78716c;
-  --subtle: #a8a29e;
+  --muted:  #71717A;
+  --subtle: #A1A1AA;
 
   /* Borders */
-  --border:        #e7e5e4;
-  --border-strong: #a8a29e;
+  --border:        #E8E6E3;
+  --border-strong: #D5D3D0;
 
   /* Shadows */
   --shadow-sm:    0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
