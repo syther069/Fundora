@@ -45,6 +45,24 @@ Explorer (v2): https://explorer.testnet.arc.io/address/0x956b9d4b1c4a5f8ec2f647b
 - `src/components/` - UI components
 - `src/config.ts` - wagmi config (chains, connectors, transports)
 
+## Design Phase 3 — Docs
+
+Full design specs live in `docs/design/`:
+- `DESIGN_SYSTEM.md` — colour tokens, typography, spacing, component specs
+- `MOTION_GUIDELINES.md` — Framer Motion system, per-component animation specs
+- `COMPONENT_REGISTRY.md` — external component status, internal component inventory
+- `FRONTEND_ARCHITECTURE.md` — missing feature classification, page-by-page specs
+- `ARC_STUDIO_HANDOFF.md` — implementation order, constraints
+
+## External Component Rule
+
+If source code for an animation, component, or design pattern from an external library
+(Watermelon UI, 21st.dev, Skiper UI, Motion-Primitives, etc.) cannot be accessed or extracted,
+STOP for that specific component and ask the user for the exact source code.
+Provide: component name, direct URL, dependencies, and what you need pasted.
+Continue working on all unrelated components while waiting.
+Never skip this rule and never fabricate component implementations.
+
 ## To Run
 
 ```bash
