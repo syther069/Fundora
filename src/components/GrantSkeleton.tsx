@@ -1,42 +1,42 @@
-// Skeleton matching GrantCard anatomy exactly:
-// accent bar (3px) → header row → amount → progress → meta row
+// Skeleton card matching new GrantCard proportions
+
 export function GrantSkeleton() {
   return (
-    <div
-      className="gf-card overflow-hidden"
-      style={{ background: 'var(--surface)' }}
-      aria-hidden="true"
-    >
+    <div className="card rounded-2xl overflow-hidden" aria-hidden="true">
       {/* Accent bar */}
-      <div className="gf-accent-bar gf-skeleton" style={{ borderRadius: 0 }} />
+      <div className="h-1.5 skeleton" />
 
-      <div className="p-5 space-y-4">
-        {/* Title + badge row */}
-        <div className="flex items-start justify-between gap-3">
+      <div className="p-5">
+        {/* Title + badge */}
+        <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 space-y-2">
-            <div className="gf-skeleton h-[15px] w-3/4" />
-            <div className="gf-skeleton h-[13px] w-full" />
-            <div className="gf-skeleton h-[13px] w-2/3" />
+            <div className="skeleton h-5 w-3/4 rounded-md" />
+            <div className="skeleton h-3.5 w-full rounded-md" />
+            <div className="skeleton h-3.5 w-2/3 rounded-md" />
           </div>
-          <div className="gf-skeleton h-6 w-20 shrink-0" style={{ borderRadius: '9999px' }} />
+          <div className="skeleton h-6 w-20 rounded-full shrink-0" />
         </div>
 
-        {/* USDC amount */}
-        <div className="gf-skeleton h-[22px] w-32" />
+        {/* Amount */}
+        <div className="skeleton h-8 w-28 rounded-md mb-4" />
 
-        {/* Progress */}
-        <div className="space-y-1.5">
-          <div className="flex justify-between gap-2">
-            <div className="gf-skeleton h-[11px] w-14" />
-            <div className="gf-skeleton h-[11px] w-24" />
-          </div>
-          <div className="gf-skeleton h-[6px] w-full" style={{ borderRadius: '9999px' }} />
+        {/* Progress bar */}
+        <div className="skeleton h-1.5 w-full rounded-full mb-1" />
+        <div className="flex justify-between">
+          <div className="skeleton h-3 w-16 rounded-md" />
+          <div className="skeleton h-3 w-24 rounded-md" />
         </div>
 
-        {/* Meta row */}
-        <div className="flex items-center justify-between">
-          <div className="gf-skeleton h-5 w-24" style={{ borderRadius: '9999px' }} />
-          <div className="gf-skeleton h-4 w-4" style={{ borderRadius: '9999px' }} />
+        {/* Footer */}
+        <div
+          className="flex items-center justify-between mt-4 pt-3"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="skeleton h-3.5 w-20 rounded-md" />
+            <div className="skeleton h-3.5 w-28 rounded-md" />
+          </div>
+          <div className="skeleton h-3.5 w-16 rounded-md" />
         </div>
       </div>
     </div>

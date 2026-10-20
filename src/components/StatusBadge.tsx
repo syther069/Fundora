@@ -1,81 +1,4 @@
-import { clsx } from 'clsx'
-import { Circle, Zap, CheckCircle2, XCircle, Clock, Eye } from 'lucide-react'
-
-// ── Grant status ──────────────────────────────────────────────────────────────
-const GRANT_STATUS: Record<number, {
-  label: string
-  bg: string
-  text: string
-  border: string
-  Icon: React.ElementType
-}> = {
-  0: {
-    label:  'Open',
-    bg:     'var(--brand-light)',
-    text:   'var(--brand)',
-    border: 'var(--brand-border)',
-    Icon:   Circle,
-  },
-  1: {
-    label:  'Active',
-    bg:     'var(--success-light)',
-    text:   'var(--success)',
-    border: 'var(--success-border)',
-    Icon:   Zap,
-  },
-  2: {
-    label:  'Completed',
-    bg:     'var(--success-light)',
-    text:   'var(--success)',
-    border: 'var(--success-border)',
-    Icon:   CheckCircle2,
-  },
-  3: {
-    label:  'Cancelled',
-    bg:     'var(--danger-light)',
-    text:   'var(--danger)',
-    border: 'var(--danger-border)',
-    Icon:   XCircle,
-  },
-}
-
-// ── Milestone status ──────────────────────────────────────────────────────────
-const MILESTONE_STATUS: Record<number, {
-  label: string
-  bg: string
-  text: string
-  border: string
-  Icon: React.ElementType
-}> = {
-  0: {
-    label:  'Pending',
-    bg:     'var(--surface-muted)',
-    text:   'var(--text-secondary)',
-    border: 'var(--border)',
-    Icon:   Clock,
-  },
-  1: {
-    label:  'In Review',
-    bg:     'var(--warning-light)',
-    text:   'var(--warning)',
-    border: 'var(--warning-border)',
-    Icon:   Eye,
-  },
-  2: {
-    label:  'Approved',
-    bg:     'var(--success-light)',
-    text:   'var(--success)',
-    border: 'var(--success-border)',
-    Icon:   CheckCircle2,
-  },
-  3: {
-    label:  'Rejected',
-    bg:     'var(--danger-light)',
-    text:   'var(--danger)',
-    border: 'var(--danger-border)',
-    Icon:   XCircle,
-  },
-}
+// GrantFlow — warm filled status badges for all grant + milestone states
 
 interface Props {
   type: 'grant' | 'milestone'
@@ -83,21 +6,47 @@ interface Props {
   className?: string
 }
 
-export function StatusBadge({ type, status, className }: Props) {
-  const map   = type === 'grant' ? GRANT_STATUS : MILESTONE_STATUS
-  const entry = map[status] ?? map[0]
-  const { label, bg, text, border, Icon } = entry
+// Grant statuses (from Solidity enum):
+// 0 = Open, 1 = Active, 2 = Completed, 3 = Cancelled
+// Milestone statuses:
+// 0 = Pending, 1 = SubmittedForReview, 2 = Approved, 3 = Rejected
+
+const GRANT_CONFIGS: Record<number, { label: string; bg: string; color: string; border: string; dot: string }> = {
+  0: { label: 'Open',      bg: 'var(--brand-light)',  color: 'var(--brand)',  border: 'var(--brand-border)', dot: '#6366f1' },
+  1: { label: 'Active',    bg: 'var(--teal-light)',   color: 'var(--teal)',   border: 'var(--teal-border)',  dot: '#0d9488' },
+  2: { label: 'Completed', bg: 'var(--teal-light)',   color: 'var(--teal)',   border: 'var(--teal-border)',  dot: '#0d9488' },
+  3: { label: 'Cancelled', bg: 'var(--coral-light)',  color: 'var(--coral)',  border: 'var(--coral-border)', dot: '#e11d48' },
+}
+
+const MILESTONE_CONFIGS: Record<number, { label: string; bg: string; color: string; border: string; dot: string }> = {
+  0: { label: 'Pending',     bg: 'var(--warm-bg-2)',    color: 'var(--muted)',  border: 'var(--border)',       dot: '#a8a29e' },
+  1: { label: 'In Review',   bg: 'var(--amber-light)',  color: 'var(--amber)',  border: 'var(--amber-border)', dot: '#d97706' },
+  2: { label: 'Approved',    bg: 'var(--teal-light)',   color: 'var(--teal)',   border: 'var(--teal-border)',  dot: '#0d9488' },
+  3: { label: 'Rejected',    bg: 'var(--coral-light)',  color: 'var(--coral)',  border: 'var(--coral-border)', dot: '#e11d48' },
+}
+
+export function StatusBadge({ type, status, className = '' }: Props) {
+  const configs = type === 'grant' ? GRANT_CONFIGS : MILESTONE_CONFIGS
+  const cfg = configs[status] ?? {
+    label: 'Unknown',
+    bg: 'var(--warm-bg-2)',
+    color: 'var(--muted)',
+    border: 'var(--border)',
+    dot: '#a8a29e',
+  }
 
   return (
     <span
-      className={clsx(
-        'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border',
-        className,
-      )}
-      style={{ background: bg, color: text, borderColor: border }}
+      className={`badge ${className}`}
+      style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}
+      aria-label={`Status: ${cfg.label}`}
     >
-      <Icon size={10} aria-hidden="true" />
-      {label}
+      <span
+        className="w-1.5 h-1.5 rounded-full shrink-0"
+        style={{ background: cfg.dot }}
+        aria-hidden="true"
+      />
+      {cfg.label}
     </span>
   )
 }

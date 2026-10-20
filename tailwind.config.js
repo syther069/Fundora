@@ -7,77 +7,56 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ['"Plus Jakarta Sans"', 'sans-serif'],
-        sans:    ['Inter', 'system-ui', 'sans-serif'],
-        mono:    ['"JetBrains Mono"', 'Menlo', '"Courier New"', 'monospace'],
+        jakarta: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        inter:   ['Inter', 'system-ui', 'sans-serif'],
+        mono:    ['"JetBrains Mono"', 'Menlo', 'monospace'],
       },
       colors: {
-        /* Brand */
-        brand: {
-          DEFAULT: '#4f46e5',
-          hover:   '#4338ca',
-          light:   '#eef2ff',
-          border:  '#c7d2fe',
+        brand:  { DEFAULT: '#6366f1', hover: '#4f46e5', light: '#eef2ff', border: '#c7d2fe' },
+        teal:   { DEFAULT: '#0d9488', hover: '#0f766e', light: '#f0fdfa', border: '#99f6e4' },
+        amber:  { DEFAULT: '#d97706', light: '#fffbeb', border: '#fde68a' },
+        coral:  { DEFAULT: '#e11d48', light: '#fff1f2', border: '#fecdd3' },
+        violet: { DEFAULT: '#7c3aed', light: '#f5f3ff', border: '#ddd6fe' },
+        warm: {
+          bg:      '#fffbf5',
+          'bg-2':  '#fdf8f0',
+          surface: '#ffffff',
+          's2':    '#fdf8f0',
+          border:  '#e7e5e4',
+          ink:     '#1c1917',
+          muted:   '#78716c',
+          subtle:  '#a8a29e',
         },
-        /* Surfaces */
-        surface: {
-          DEFAULT: '#ffffff',
-          raised:  '#f9f8f6',
-          overlay: '#f0ede8',
-          muted:   '#f4f3f1',
-        },
-        /* Typography */
-        ink:    '#18181b',
-        muted:  '#71717a',
-        subtle: '#a1a1aa',
-        /* Semantic — success/teal */
-        teal: {
-          DEFAULT: '#0f766e',
-          hover:   '#0d9488',
-          light:   '#f0fdfa',
-          border:  '#99f6e4',
-        },
-        /* Semantic — warning/amber */
-        amber: {
-          DEFAULT: '#b45309',
-          light:   '#fffbeb',
-          border:  '#fde68a',
-        },
-        /* Semantic — danger/rose (coral kept as alias) */
-        coral: {
-          DEFAULT: '#be123c',
-          hover:   '#9f1239',
-          light:   '#fff1f2',
-          border:  '#fecdd3',
-        },
-        border: '#e8e6e3',
-      },
-      borderColor: {
-        DEFAULT: '#e8e6e3',
       },
       boxShadow: {
-        card:    '0 1px 3px rgba(24,24,27,0.06), 0 1px 2px rgba(24,24,27,0.04)',
-        hover:   '0 4px 16px rgba(24,24,27,0.08), 0 2px 6px rgba(24,24,27,0.05)',
-        brand:   '0 4px 14px rgba(79,70,229,0.28)',
-        success: '0 2px 8px rgba(15,118,110,0.22)',
+        'warm-sm': '0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04)',
+        'warm-md': '0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04)',
+        'warm-lg': '0 12px 32px rgba(0,0,0,.10), 0 4px 8px rgba(0,0,0,.05)',
+        'brand':   '0 4px 14px rgba(99,102,241,.35)',
       },
       borderRadius: {
-        card: '0.875rem',
-        panel: '0.625rem',
+        '2xl': '1rem',
+        '3xl': '1.25rem',
+        '4xl': '1.5rem',
       },
       keyframes: {
-        'pulse-glow': {
-          '0%, 100%': { boxShadow: '0 0 0 0 rgba(79,70,229,0.25)' },
-          '50%':       { boxShadow: '0 0 0 6px rgba(79,70,229,0)' },
+        shimmer: {
+          '0%':   { backgroundPosition: '-400px 0' },
+          '100%': { backgroundPosition: '400px 0' },
         },
-        'gf-shimmer': {
-          '0%, 100%': { opacity: '1' },
-          '50%':       { opacity: '0.55' },
+        'fade-in': {
+          '0%':   { opacity: '0', transform: 'translateY(6px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'pulse-glow': {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(99,102,241,0)' },
+          '50%':      { boxShadow: '0 0 0 6px rgba(99,102,241,.15)' },
         },
       },
       animation: {
-        'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
-        shimmer:      'gf-shimmer 1.6s ease-in-out infinite',
+        shimmer:     'shimmer 1.6s ease-in-out infinite',
+        'fade-in':   'fade-in 0.25s ease forwards',
+        'pulse-glow':'pulse-glow 2s ease-in-out infinite',
       },
     },
   },

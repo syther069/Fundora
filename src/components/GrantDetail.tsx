@@ -226,7 +226,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
 
       {/* ── Hero band ─────────────────────────────────────────────────────── */}
       <div
-        className="rounded-2xl border overflow-hidden card-shadow"
+        className="card rounded-2xl overflow-hidden"
         style={{ background: 'var(--warm-surface)', borderColor: 'var(--border)' }}
       >
         {/* Coloured top band */}
@@ -262,7 +262,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
           {/* Big USDC amount + progress */}
           <div
             className="rounded-xl p-4 space-y-3"
-            style={{ background: 'var(--warm-surface-2)', border: '1px solid var(--border)' }}
+            style={{ background: 'var(--warm-bg-2)', border: '1px solid var(--border)' }}
           >
             <div className="flex items-end justify-between gap-3">
               <div>
@@ -317,7 +317,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
           {!noBuilder && (
             <div
               className="text-xs rounded-xl px-3 py-2.5 flex items-center gap-2"
-              style={{ background: 'var(--warm-surface-2)', color: 'var(--muted)', border: '1px solid var(--border)' }}
+              style={{ background: 'var(--warm-bg-2)', color: 'var(--muted)', border: '1px solid var(--border)' }}
             >
               <span style={{ color: 'var(--subtle)' }}>Builder:</span>
               <span className="mono font-medium" style={{ color: 'var(--ink)', fontSize: '11px' }}>
@@ -424,7 +424,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
             {isObserver && grant.status === 1 && noBuilder && (
               <div
                 className="rounded-xl px-3 py-2.5 flex items-start gap-2 text-xs mb-3"
-                style={{ background: 'var(--warm-surface-2)', color: 'var(--muted)', border: '1px solid var(--border)' }}
+                style={{ background: 'var(--warm-bg-2)', color: 'var(--muted)', border: '1px solid var(--border)' }}
               >
                 <Info size={12} className="shrink-0 mt-0.5" style={{ color: 'var(--subtle)' }} />
                 This grant is open for applications. Connect a non-reviewer wallet to apply as the builder.
@@ -433,7 +433,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
             {isObserver && grant.status === 1 && !noBuilder && (
               <div
                 className="rounded-xl px-3 py-2.5 flex items-start gap-2 text-xs mb-3"
-                style={{ background: 'var(--warm-surface-2)', color: 'var(--muted)', border: '1px solid var(--border)' }}
+                style={{ background: 'var(--warm-bg-2)', color: 'var(--muted)', border: '1px solid var(--border)' }}
               >
                 <Info size={12} className="shrink-0 mt-0.5" style={{ color: 'var(--subtle)' }} />
                 A builder is actively working on this grant. Milestone submissions and reviewer votes appear below.
@@ -735,7 +735,7 @@ function MilestoneCard({
 
   return (
     <div
-      className="rounded-2xl border overflow-hidden card-shadow"
+      className="card rounded-2xl overflow-hidden"
       style={{
         background: 'var(--warm-surface)',
         borderColor: 'var(--border)',
@@ -779,7 +779,7 @@ function MilestoneCard({
         {evidenceSubmitted && (
           <div
             className="rounded-xl px-3 py-2.5 text-xs space-y-2"
-            style={{ background: 'var(--warm-surface-2)', border: '1px solid var(--border)' }}
+            style={{ background: 'var(--warm-bg-2)', border: '1px solid var(--border)' }}
           >
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div>
@@ -846,7 +846,7 @@ function MilestoneCard({
                 maxLength={500}
                 className="w-full h-10 rounded-xl border px-3 text-sm outline-none disabled:opacity-50 btn-focus transition-all"
                 style={{
-                  background: 'var(--warm-surface-2)',
+                  background: 'var(--warm-bg-2)',
                   borderColor: 'var(--border)',
                   color: 'var(--ink)',
                 }}

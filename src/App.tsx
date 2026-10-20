@@ -1,7 +1,11 @@
 import { useState, useCallback } from 'react'
 import { useAccount } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
-import { Users, LayoutGrid, Info, AlertCircle, RefreshCw, Sprout, Zap, ShieldCheck } from 'lucide-react'
+import {
+  Users, LayoutGrid, Info, AlertCircle, RefreshCw,
+  Sprout, Zap, ShieldCheck, TrendingUp,
+} from 'lucide-react'
+import { formatUnits } from 'viem'
 import { Header } from './components/Header'
 import { GrantCard } from './components/GrantCard'
 import { GrantSkeleton } from './components/GrantSkeleton'
@@ -16,74 +20,62 @@ type View = 'grants' | 'detail' | 'admin'
 
 const NOT_DEPLOYED = PROOF_SPRING_ADDRESS === '0x0000000000000000000000000000000000000000'
 
-// ── Hero disconnect state ─────────────────────────────────────────────────────
+// ── Hero: disconnected state ──────────────────────────────────────────────────
 function HeroConnect() {
+  const features = [
+    { icon: <Zap size={12} />,        label: 'Instant USDC payouts',   color: 'var(--amber)'  },
+    { icon: <ShieldCheck size={12} />, label: 'Onchain evidence',       color: 'var(--teal)'   },
+    { icon: <Users size={12} />,       label: 'Reviewer governance',    color: 'var(--brand)'  },
+    { icon: <TrendingUp size={12} />,  label: 'Transparent milestones', color: 'var(--violet)' },
+  ]
+
   return (
     <div
-      className="gf-card overflow-hidden max-w-md mx-auto"
-      style={{ background: 'var(--surface)' }}
+      className="card rounded-3xl overflow-hidden max-w-lg mx-auto"
+      style={{ boxShadow: 'var(--shadow-lg)' }}
     >
-      {/* Brand gradient bar */}
+      {/* Gradient top bar */}
       <div
-        className="h-1"
-        style={{ background: 'linear-gradient(90deg, var(--brand) 0%, var(--success) 100%)' }}
+        className="h-2"
+        style={{ background: 'linear-gradient(90deg, #6366f1 0%, #0d9488 50%, #d97706 100%)' }}
         aria-hidden="true"
       />
 
-      <div className="px-8 py-12 text-center space-y-6">
-        {/* Logo mark */}
+      <div className="px-8 py-10 text-center">
+        {/* Logo */}
         <div
-          className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center"
+          className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center"
           style={{
-            background: 'linear-gradient(135deg, var(--brand) 0%, var(--success) 100%)',
-            boxShadow:  '0 8px 24px rgba(79,70,229,0.22)',
+            background: 'linear-gradient(135deg, #6366f1 0%, #0d9488 100%)',
+            boxShadow: '0 8px 24px rgba(99,102,241,.28)',
           }}
           aria-hidden="true"
         >
-          <svg width="26" height="26" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M3 8h7M7 5l3 3-3 3"
-              stroke="white"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="13" cy="8" r="1.5" fill="white" />
+          <svg width="28" height="28" viewBox="0 0 16 16" fill="none">
+            <circle cx="6"  cy="8" r="4.5" stroke="white" strokeWidth="1.5" fill="none" opacity="0.9" />
+            <circle cx="10" cy="8" r="4.5" stroke="white" strokeWidth="1.5" fill="none" opacity="0.6" />
+            <path d="M10 6h1.5v2H10" stroke="white" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
 
-        <div>
-          <h1
-            className="t-h1 mb-2"
-            style={{
-              fontFamily:    '"Plus Jakarta Sans", sans-serif',
-              fontSize:      '1.75rem',
-              fontWeight:    800,
-              letterSpacing: '-0.03em',
-            }}
-          >
-            GrantFlow
-          </h1>
-          <p className="t-body text-sm leading-relaxed max-w-xs mx-auto">
-            Milestone-based USDC grants with onchain evidence, reviewer votes, and transparent payouts.
-          </p>
-        </div>
+        {/* Headline */}
+        <h1
+          className="font-jakarta font-extrabold text-3xl mb-3"
+          style={{ color: 'var(--ink)', letterSpacing: '-0.03em' }}
+        >
+          GrantFlow
+        </h1>
+        <p className="text-base leading-relaxed max-w-sm mx-auto mb-6" style={{ color: 'var(--muted)' }}>
+          Milestone-based USDC grants with onchain evidence, reviewer votes, and transparent payouts — built on Arc.
+        </p>
 
         {/* Feature pills */}
-        <div className="flex flex-wrap gap-2 justify-center">
-          {[
-            { icon: <Zap size={11} />, label: 'Instant USDC payouts' },
-            { icon: <ShieldCheck size={11} />, label: 'Onchain evidence' },
-            { icon: <Users size={11} />, label: 'Reviewer governance' },
-          ].map(({ icon, label }) => (
+        <div className="flex flex-wrap gap-2 justify-center mb-8">
+          {features.map(({ icon, label, color }) => (
             <span
               key={label}
-              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border"
-              style={{
-                background:  'var(--surface-raised)',
-                color:       'var(--text-secondary)',
-                borderColor: 'var(--border)',
-              }}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border"
+              style={{ background: 'var(--warm-bg-2)', color, borderColor: 'var(--border)' }}
             >
               {icon}
               {label}
@@ -97,24 +89,56 @@ function HeroConnect() {
   )
 }
 
+// ── Stats strip ───────────────────────────────────────────────────────────────
+function StatsStrip({ grants }: { grants: Grant[] }) {
+  const total   = grants.length
+  const active  = grants.filter(g => g.status === 1).length
+  const done    = grants.filter(g => g.status === 2).length
+  const tvl     = grants.reduce((s, g) => s + parseFloat(formatUnits(g.totalAmount, 6)), 0)
+
+  const stats = [
+    { label: 'Total Grants',     value: total.toString(),          color: 'var(--brand)' },
+    { label: 'Active',           value: active.toString(),         color: 'var(--teal)'  },
+    { label: 'Completed',        value: done.toString(),           color: 'var(--teal)'  },
+    { label: 'Total USDC',       value: `$${tvl.toFixed(0)}`,      color: 'var(--amber)' },
+  ]
+
+  if (total === 0) return null
+
+  return (
+    <div
+      className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-2xl p-4 border"
+      style={{ background: 'var(--warm-surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}
+    >
+      {stats.map(({ label, value, color }) => (
+        <div key={label} className="text-center">
+          <div className="font-jakarta font-bold text-xl tabular-nums" style={{ color }}>
+            {value}
+          </div>
+          <div className="label-caps mt-0.5">{label}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Role banner ───────────────────────────────────────────────────────────────
 function RoleBanner({ isAdmin, isReviewer }: { isAdmin: boolean; isReviewer: boolean | undefined }) {
   if (!isAdmin && !isReviewer) return null
 
-  const adminStyle  = { background: 'var(--brand-light)', borderColor: 'var(--brand-border)', color: 'var(--brand)' }
-  const reviewStyle = { background: 'var(--success-light)', borderColor: 'var(--success-border)', color: 'var(--success)' }
-  const s = isAdmin ? adminStyle : reviewStyle
-
   return (
     <div
-      className="border-b py-2 px-4"
-      style={{ background: s.background, borderColor: s.borderColor }}
+      className="border-b py-2.5 px-4"
+      style={{
+        background:  isAdmin ? 'var(--brand-light)' : 'var(--teal-light)',
+        borderColor: isAdmin ? 'var(--brand-border)' : 'var(--teal-border)',
+      }}
     >
       <div
         className="max-w-6xl mx-auto flex items-center gap-2 text-xs font-semibold"
-        style={{ color: s.color }}
+        style={{ color: isAdmin ? 'var(--brand)' : 'var(--teal)' }}
       >
-        {isAdmin ? <ShieldCheck size={12} /> : <Info size={12} />}
+        {isAdmin ? <ShieldCheck size={13} /> : <Info size={13} />}
         {isAdmin
           ? 'You are the grant admin — manage grants, reviewers, and settings from the Admin panel.'
           : 'You are a reviewer — open a grant to vote on submitted milestones.'}
@@ -123,7 +147,7 @@ function RoleBanner({ isAdmin, isReviewer }: { isAdmin: boolean; isReviewer: boo
   )
 }
 
-// ── App ───────────────────────────────────────────────────────────────────────
+// ── Main app ──────────────────────────────────────────────────────────────────
 export default function App() {
   const { address, isConnected } = useAccount()
   const [view, setView]                   = useState<View>('grants')
@@ -136,7 +160,8 @@ export default function App() {
   const { data: contractAdmin } = useContractAdmin()
   const { data: isReviewer }    = useIsReviewer(address)
 
-  const isAdmin = !!(address && contractAdmin && address.toLowerCase() === (contractAdmin as string).toLowerCase())
+  const isAdmin = !!(address && contractAdmin &&
+    address.toLowerCase() === (contractAdmin as string).toLowerCase())
 
   const handleRefresh = useCallback(() => { refetchGrants() }, [refetchGrants])
 
@@ -158,9 +183,9 @@ export default function App() {
   // ── Not deployed ──────────────────────────────────────────────────────────
   if (NOT_DEPLOYED) {
     return (
-      <div className="min-h-dvh flex flex-col" style={{ background: 'var(--bg)' }}>
+      <div className="min-h-dvh flex flex-col" style={{ background: 'var(--warm-bg)' }}>
         <Header />
-        <main className="flex-1 flex items-center justify-center px-4">
+        <main className="flex-1 flex items-center justify-center px-4 py-12">
           <div className="max-w-sm w-full text-center space-y-5">
             <div
               className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto"
@@ -170,16 +195,12 @@ export default function App() {
             </div>
             <div>
               <h1
-                className="font-extrabold text-2xl mb-2"
-                style={{
-                  fontFamily:    '"Plus Jakarta Sans", sans-serif',
-                  color:         'var(--text-primary)',
-                  letterSpacing: '-0.03em',
-                }}
+                className="font-jakarta font-extrabold text-2xl mb-2"
+                style={{ color: 'var(--ink)', letterSpacing: '-0.03em' }}
               >
                 Awaiting Deployment
               </h1>
-              <p className="t-body text-sm">
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>
                 The GrantFlow contract is not yet deployed. Deploy it from the Contracts panel to activate the platform.
               </p>
             </div>
@@ -191,12 +212,13 @@ export default function App() {
 
   // ── Main layout ───────────────────────────────────────────────────────────
   return (
-    <div className="min-h-dvh flex flex-col" style={{ background: 'var(--bg)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ background: 'var(--warm-bg)' }}>
       <Header />
 
       {isConnected && <RoleBanner isAdmin={isAdmin} isReviewer={isReviewer} />}
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
+        {/* Grant detail view */}
         {view === 'detail' && selectedGrant ? (
           <GrantDetail
             grant={selectedGrant}
@@ -211,31 +233,28 @@ export default function App() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h1
-                    className="font-extrabold mb-1"
-                    style={{
-                      fontFamily:    '"Plus Jakarta Sans", sans-serif',
-                      fontSize:      '1.375rem',
-                      color:         'var(--text-primary)',
-                      letterSpacing: '-0.025em',
-                    }}
+                    className="font-jakarta font-extrabold text-2xl mb-1"
+                    style={{ color: 'var(--ink)', letterSpacing: '-0.025em' }}
                   >
                     {view === 'admin' ? 'Admin Panel' : 'Active Grants'}
                   </h1>
-                  <p className="t-body text-sm">
-                    Fund ideas. Verify progress. Release grants with proof.
+                  <p className="text-sm" style={{ color: 'var(--muted)' }}>
+                    {view === 'admin'
+                      ? 'Manage grants, reviewers, and settings.'
+                      : 'Fund ideas. Verify progress. Release grants with proof.'}
                   </p>
                 </div>
+
                 {isAdmin && (
                   <button
                     onClick={() => setView(view === 'admin' ? 'grants' : 'admin')}
-                    className="gf-btn gf-focus shrink-0"
+                    className="btn btn-focus shrink-0"
                     style={{
-                      height:      '2.25rem',
-                      padding:     '0 1rem',
-                      background:  view === 'admin' ? 'var(--brand)' : 'var(--surface)',
+                      background:  view === 'admin' ? 'var(--brand)' : 'var(--warm-surface)',
                       border:      `1px solid ${view === 'admin' ? 'var(--brand)' : 'var(--border)'}`,
-                      color:       view === 'admin' ? 'var(--text-invert)' : 'var(--text-primary)',
-                      boxShadow:   view === 'admin' ? 'var(--shadow-brand)' : undefined,
+                      color:       view === 'admin' ? '#fff' : 'var(--ink)',
+                      padding:     '0.5rem 1.125rem',
+                      boxShadow:   view === 'admin' ? '0 4px 14px rgba(99,102,241,.3)' : 'var(--shadow-sm)',
                     }}
                   >
                     <LayoutGrid size={13} />
@@ -257,22 +276,32 @@ export default function App() {
                   <HeroConnect />
                 ) : (
                   <>
+                    {/* Stats strip — shown when grants exist */}
+                    {grants.length > 0 && <StatsStrip grants={grants} />}
+
                     {/* Error state */}
                     {grantsError && (
                       <div
-                        className="gf-card p-8 text-center space-y-4"
-                        style={{ borderColor: 'var(--danger-border)' }}
+                        className="card rounded-2xl p-8 text-center space-y-4"
+                        style={{ borderColor: 'var(--coral-border)' }}
                       >
-                        <AlertCircle size={22} className="mx-auto" style={{ color: 'var(--danger)' }} />
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center mx-auto"
+                          style={{ background: 'var(--coral-light)' }}
+                        >
+                          <AlertCircle size={18} style={{ color: 'var(--coral)' }} />
+                        </div>
                         <div>
-                          <p className="t-h3 mb-1">Could not load grants</p>
-                          <p className="t-body text-sm">
+                          <p className="font-jakarta font-bold text-base mb-1" style={{ color: 'var(--ink)' }}>
+                            Could not load grants
+                          </p>
+                          <p className="text-sm" style={{ color: 'var(--muted)' }}>
                             A network error occurred while reading the contract. Check your connection and try again.
                           </p>
                         </div>
                         <button
                           onClick={handleRefresh}
-                          className="gf-btn gf-btn-ghost gf-focus inline-flex mx-auto"
+                          className="btn btn-ghost btn-sm btn-focus inline-flex mx-auto"
                         >
                           <RefreshCw size={13} />
                           Retry
@@ -298,25 +327,39 @@ export default function App() {
 
                     {/* Empty state */}
                     {!grantsError && grantCountData !== undefined && !grantsLoading && grants.length === 0 && (
-                      <div className="gf-card p-12 text-center space-y-3">
+                      <div
+                        className="card rounded-2xl p-12 text-center space-y-4"
+                      >
                         <div
-                          className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
-                          style={{ background: 'var(--surface-raised)' }}
+                          className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto"
+                          style={{ background: 'var(--brand-light)' }}
                         >
-                          <Sprout size={22} style={{ color: 'var(--text-tertiary)' }} />
+                          <Sprout size={24} style={{ color: 'var(--brand)' }} />
                         </div>
-                        <p className="t-h3">No grants yet</p>
-                        <p className="t-body text-sm">
-                          {isAdmin
-                            ? 'Open the Admin panel to create the first grant.'
-                            : 'Check back soon — grants will appear here once created by the admin.'}
-                        </p>
+                        <div>
+                          <p className="font-jakarta font-bold text-lg mb-1" style={{ color: 'var(--ink)' }}>
+                            No grants yet
+                          </p>
+                          <p className="text-sm" style={{ color: 'var(--muted)' }}>
+                            {isAdmin
+                              ? 'Open the Admin panel to create the first grant.'
+                              : 'Check back soon — grants will appear here once created by the admin.'}
+                          </p>
+                        </div>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setView('admin')}
+                            className="btn btn-primary btn-sm btn-focus inline-flex mx-auto"
+                          >
+                            Create First Grant
+                          </button>
+                        )}
                       </div>
                     )}
 
                     {/* Grants grid */}
                     {!grantsError && grants.length > 0 && (
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-fade-in">
                         {grants.map(grant => (
                           <GrantCard
                             key={grant.id.toString()}
@@ -337,12 +380,14 @@ export default function App() {
 
       {/* Footer */}
       <footer
-        className="py-4 px-4 border-t mt-auto"
-        style={{ borderColor: 'var(--border)' }}
+        className="py-4 px-4 sm:px-6 border-t mt-auto"
+        style={{ borderColor: 'var(--border)', background: 'var(--warm-surface)' }}
       >
         <div className="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-2">
-          <span className="t-meta">GrantFlow — built on Arc Testnet</span>
-          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+          <span className="text-xs font-medium" style={{ color: 'var(--subtle)' }}>
+            GrantFlow — built on Arc Testnet
+          </span>
+          <span className="text-xs" style={{ color: 'var(--subtle)' }}>
             Need test USDC? Use the{' '}
             <strong style={{ color: 'var(--brand)' }}>Get test USDC</strong>
             {' '}button in the sidebar.
