@@ -1,0 +1,275 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── GrantFlow design tokens ─────────────────────────────────────────────── */
+:root {
+  /* Brand — indigo-600 (WCAG AA verified 5.5:1 on white) */
+  --brand:        #4F46E5;
+  --brand-hover:  #4338CA;
+  --brand-light:  #EEF2FF;
+  --brand-border: #C7D2FE;
+
+  /* Backgrounds */
+  --warm-bg:      #fffbf5;
+  --warm-bg-2:    #fdf8f0;
+
+  /* Surfaces (canonical names used by design system) */
+  --surface:         #ffffff;
+  --surface-raised:  #FAFAF8;
+  --surface-overlay: #fdf8f0;
+  --surface-muted:   #fdf8f0;
+  --surface-strong:  #ffffff;
+  --warm-surface:    #ffffff; /* alias — kept for backward compat */
+
+  /* Semantic colours — all WCAG AA verified on their light backgrounds */
+  --teal:         #0F766E; /* teal-700 — 5.2:1 on teal-light */
+  --teal-hover:   #0D5F58;
+  --teal-light:   #F0FDFA;
+  --teal-border:  #99F6E4;
+
+  --amber:        #B45309; /* amber-700 — 4.7:1 on amber-light */
+  --amber-light:  #FFFBEB;
+  --amber-border: #FDE68A;
+
+  --coral:        #BE123C; /* rose-700 — 5.1:1 on coral-light */
+  --coral-light:  #FFF1F2;
+  --coral-border: #FECDD3;
+
+  --violet:       #6D28D9; /* violet-700 */
+  --violet-light: #F5F3FF;
+  --violet-border:#DDD6FE;
+
+  /* Text */
+  --ink:    #18181B;
+  --ink-2:  #44403c;
+  --muted:  #71717A;
+  --subtle: #A1A1AA;
+
+  /* Borders */
+  --border:        #E8E6E3;
+  --border-strong: #D5D3D0;
+
+  /* Shadows */
+  --shadow-sm:    0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:    0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04);
+  --shadow-lg:    0 12px 32px rgba(0,0,0,.10), 0 4px 8px rgba(0,0,0,.05);
+  --shadow-brand: 0 0 0 3px rgba(79,70,229,.20);
+
+  /* Semantic aliases — used across components */
+  --accent:  #4F46E5; /* = --brand */
+  --danger:  #BE123C; /* = --coral */
+  --success: #0F766E; /* = --teal */
+
+  /* Focus */
+  --focus: #6366f1;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height: 100dvh;
+  background-color: var(--warm-bg);
+  background-image:
+    radial-gradient(ellipse 80% 40% at 50% -10%, rgba(99,102,241,.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 30% at 90% 80%, rgba(13,148,136,.06) 0%, transparent 60%);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Typography ──────────────────────────────────────────────────────────── */
+.display {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', Menlo, monospace;
+}
+
+.heading-1 {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.heading-2 {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.label-caps {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--subtle);
+}
+
+/* ── Card ────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--warm-surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.card-interactive:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.card-interactive:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-primary {
+  background: var(--brand);
+  color: #fff;
+  padding: 0.5rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(99,102,241,.3);
+}
+.btn-primary:hover:not(:disabled) { background: var(--brand-hover); box-shadow: 0 4px 12px rgba(99,102,241,.35); }
+
+.btn-teal {
+  background: var(--teal);
+  color: #fff;
+  padding: 0.5rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(13,148,136,.3);
+}
+.btn-teal:hover:not(:disabled) { background: var(--teal-hover); }
+
+.btn-danger {
+  background: var(--coral);
+  color: #fff;
+  padding: 0.5rem 1.25rem;
+}
+.btn-danger:hover:not(:disabled) { background: #be123c; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover:not(:disabled) { background: var(--warm-bg-2); color: var(--ink); border-color: var(--border-strong); }
+
+.btn-sm {
+  font-size: 0.8125rem;
+  padding: 0.375rem 0.875rem;
+}
+
+.btn-xs {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+}
+
+/* ── Focus rings ─────────────────────────────────────────────────────────── */
+.btn-focus { outline: none; }
+.btn-focus:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-brand);
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+.progress-track {
+  height: 8px;
+  background: var(--warm-bg-2);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--teal), var(--brand));
+  transition: width 0.4s ease;
+}
+
+/* ── Status badges ───────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  border-width: 1px;
+  border-style: solid;
+  white-space: nowrap;
+}
+
+/* ── Skeleton shimmer ────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f3ede6 25%, #faf5ef 50%, #f3ede6 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+/* ── Tab scroll fade ─────────────────────────────────────────────────────── */
+.tab-scroll-container {
+  position: relative;
+}
+.tab-scroll-container::after {
+  content: '';
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 2rem;
+  background: linear-gradient(to left, var(--warm-surface), transparent);
+  pointer-events: none;
+}
+
+/* ── Reduced-motion ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
