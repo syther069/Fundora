@@ -3,7 +3,7 @@ export const ARC_MAINNET_ID  = 5042
 
 // Deployed contract addresses per network
 export const PROOF_SPRING_ADDRESS          = '0xef34036dda3960a1cd57b1368329bfcf29700259' as `0x${string}` // Arc Testnet v4
-export const PROOF_SPRING_ADDRESS_MAINNET  = '0x0000000000000000000000000000000000000000' as `0x${string}` // Arc Mainnet — update after deploy
+export const PROOF_SPRING_ADDRESS_MAINNET  = '0xd473c4557D50D354667d9109a41634c98d5cdd3e' as `0x${string}` // Arc Mainnet
 
 export function getContractAddress(chainId: number): `0x${string}` {
   return chainId === ARC_MAINNET_ID ? PROOF_SPRING_ADDRESS_MAINNET : PROOF_SPRING_ADDRESS

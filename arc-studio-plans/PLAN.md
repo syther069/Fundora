@@ -96,18 +96,18 @@ In `GrantDetail.tsx` lines 188–191, `total`, `released`, `refundable`, and `pr
 
 ## Done When
 
-- [ ] Zero TypeScript errors, zero lint errors
-- [ ] `parseFloat` on money paths: none — `formatUnits` used only at render time
-- [ ] App renders correctly at 320px, 375px, 768px, 1280px widths
-- [ ] Network switcher: user can switch between Arc Testnet and Arc Mainnet in the UI
-- [ ] Wrong-chain banner resolves to whichever supported network is appropriate
-- [ ] Explorer links use the correct chain's explorer for the active network
-- [ ] `expireGrant` button visible in GrantDetail when grant is expired and admin is connected
-- [ ] `claimFunderRefund` panel visible to funder on cancelled grants
-- [ ] `adminReassignBuilder` UI present in AdminPanel
-- [ ] Keyboard left/right arrow nav works on AdminPanel tabs
-- [ ] Plus Jakarta Sans and Inter fonts load (not system-ui fallback)
-- [ ] `index.html` has title, description, and OG meta tags
-- [ ] ProofSpring deployed on Arc Mainnet with correct USDC address
-- [ ] All changes committed and pushed to `syther069/grantflow` main
-- [ ] Vercel deployment live and production-ready
+- [x] Zero TypeScript errors, zero lint errors
+- [x] `parseFloat` on money paths: none — `formatUnits` used only at render time
+- [x] App renders correctly at 320px, 375px, 768px, 1280px widths
+- [x] Network switcher: user can switch between Arc Testnet and Arc Mainnet in the UI
+- [x] Wrong-chain banner resolves to whichever supported network is appropriate
+- [x] Explorer links use the correct chain's explorer for the active network
+- [x] `expireGrant` button visible in GrantDetail when grant is expired and admin is connected
+- [x] `claimFunderRefund` panel visible to funder on cancelled grants
+- [x] `adminReassignBuilder` UI present in AdminPanel
+- [x] Keyboard left/right arrow nav works on AdminPanel tabs
+- [x] Plus Jakarta Sans and Inter fonts load (not system-ui fallback)
+- [x] `index.html` has title, description, and OG meta tags
+- [x] ProofSpring deployed on Arc Mainnet with correct USDC address (`0xd473c4557D50D354667d9109a41634c98d5cdd3e`)
+- [x] All changes committed and pushed to `syther069/grantflow` main
+- [x] Vercel deployment live and production-ready

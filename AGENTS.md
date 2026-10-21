@@ -18,12 +18,15 @@ ProofSpring is a full-stack onchain microgrants platform. Grant admins create mi
 | ProofSpring | v3 (superseded) | Arc Testnet | `0x433cc087e4daf08f7875c9621c7a3efd950ef016` |
 | ProofSpring | v2 (superseded — wrong USDC) | Arc Testnet | `0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388` |
 | ProofSpring | v1 (superseded) | Arc Testnet | `0x090e040f2a56676d3f91c773ea8a42106435f920` |
-| ProofSpring | (pending) | Arc Mainnet | `0x0000000000000000000000000000000000000000` |
+| ProofSpring | v1 (active) | Arc Mainnet | `0xd473c4557D50D354667d9109a41634c98d5cdd3e` |
 
-v4 Constructor args: `_usdc=0x3600000000000000000000000000000000000000 (Arc USDC), _initialAdmin=0x5B12Ce46C7194aD57d143bC22847224047b1Ef42, _requiredApprovals=1`
-v4 Tx hash: `0x448a0a8ad34372769102d87a6c9379665b1adb37d675685350baf09da718496c`
+Mainnet Constructor args: `_usdc=0x3600000000000000000000000000000000000000 (Arc USDC), _initialAdmin=0xD68d8c72b3289899Df3c41f2DE51d76817694eEE, _requiredApprovals=1`
+Mainnet Tx hash: `0xa050cab947cbebebc5fa3f3b804162734f6a9d220159d0d716b0f236343bad2d`
+Explorer (Mainnet): https://explorer.arc.io/address/0xd473c4557D50D354667d9109a41634c98d5cdd3e
 
-Explorer (v4): https://explorer.testnet.arc.io/address/0xef34036dda3960a1cd57b1368329bfcf29700259
+v4 Constructor args (Testnet): `_usdc=0x3600000000000000000000000000000000000000 (Arc USDC), _initialAdmin=0x5B12Ce46C7194aD57d143bC22847224047b1Ef42, _requiredApprovals=1`
+v4 Tx hash (Testnet): `0x448a0a8ad34372769102d87a6c9379665b1adb37d675685350baf09da718496c`
+Explorer (Testnet v4): https://explorer.testnet.arc.io/address/0xef34036dda3960a1cd57b1368329bfcf29700259
 
 ## Post-Deploy Checklist (run after each redeployment)
 
