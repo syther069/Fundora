@@ -1,9 +1,3 @@
-// ProofSpring contract config — v4
-// ABI is imported from the Foundry artifact for runtime use; the const below
-// provides full TypeScript inference for wagmi/viem callsites.
-// After any contract change: run `forge build` — the artifact auto-updates.
-import artifact from '../../contracts/out/ProofSpring.sol/ProofSpring.json'
-
 export const ARC_TESTNET_ID  = 5042002
 export const ARC_MAINNET_ID  = 5042
 
@@ -17,14 +11,11 @@ export function getContractAddress(chainId: number): `0x${string}` {
 
 export const SUPPORTED_CHAIN_IDS = [ARC_TESTNET_ID, ARC_MAINNET_ID] as const
 
-// Cast through unknown so TypeScript accepts the wide artifact type as our strict const.
-export const PROOF_SPRING_ABI = artifact.abi as unknown as typeof PROOF_SPRING_ABI_CONST
-
 // ── ABI const ─────────────────────────────────────────────────────────────────
 // Reflects the v2 contract: Grant struct has no `id` field, amounts are uint128,
 // Milestone has evidenceHash (bytes32) instead of evidenceUri (string),
 // createGrant takes a `deadline` (uint40) parameter, and new functions are added.
-const PROOF_SPRING_ABI_CONST = [
+export const PROOF_SPRING_ABI = [
   // Constructor
   { type: 'constructor', inputs: [{ name: '_usdc', type: 'address' }, { name: '_initialAdmin', type: 'address' }, { name: '_requiredApprovals', type: 'uint256' }], stateMutability: 'nonpayable' },
 
