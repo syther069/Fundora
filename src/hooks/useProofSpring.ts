@@ -1,7 +1,23 @@
-import { useReadContract, useReadContracts } from 'wagmi'
+import { useReadContract, useReadContracts, useAccount } from 'wagmi'
 import { useMemo } from 'react'
-import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI } from '../contracts/proofSpring'
-import { ARC_TESTNET_ID } from '../contracts/proofSpring'
+import {
+  PROOF_SPRING_ABI,
+  ARC_TESTNET_ID,
+  ARC_MAINNET_ID,
+  SUPPORTED_CHAIN_IDS,
+  getContractAddress,
+} from '../contracts/proofSpring'
+
+// Returns the active supported chain ID (testnet or mainnet); defaults to testnet
+export function useActiveChainId(): number {
+  const { chainId } = useAccount()
+  return chainId !== undefined && (SUPPORTED_CHAIN_IDS as readonly number[]).includes(chainId)
+    ? chainId
+    : ARC_TESTNET_ID
+}
+
+// Re-export for convenience
+export { ARC_TESTNET_ID, ARC_MAINNET_ID }
 
 // Grant as returned by the contract (no id field — removed from struct in v2)
 // We inject `id` on the frontend from the mapping key / array index.
@@ -36,25 +52,26 @@ export interface Milestone {
 const POLL_INTERVAL = 12_000
 
 export function useGrantCount() {
+  const chainId = useActiveChainId()
   return useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: getContractAddress(chainId),
     abi: PROOF_SPRING_ABI,
     functionName: 'grantCount',
-    chainId: ARC_TESTNET_ID,
+    chainId,
     query: { refetchInterval: POLL_INTERVAL },
   })
 }
 
 export function useGrant(grantId: bigint | null) {
+  const chainId = useActiveChainId()
   const result = useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: getContractAddress(chainId),
     abi: PROOF_SPRING_ABI,
     functionName: 'getGrant',
     args: grantId ? [grantId] : undefined,
     query: { enabled: grantId !== null && grantId > 0n, refetchInterval: POLL_INTERVAL },
-    chainId: ARC_TESTNET_ID,
+    chainId,
   })
-  // Inject `id` from the argument since the struct no longer stores it
   const data = result.data
     ? ({ ...(result.data as object), id: grantId! } as Grant)
     : undefined
@@ -62,15 +79,16 @@ export function useGrant(grantId: bigint | null) {
 }
 
 export function useAllGrants(count: number) {
+  const chainId = useActiveChainId()
   const contracts = useMemo(() =>
     Array.from({ length: count }, (_, i) => ({
-      address: PROOF_SPRING_ADDRESS,
+      address: getContractAddress(chainId),
       abi: PROOF_SPRING_ABI,
       functionName: 'getGrant' as const,
       args: [BigInt(i + 1)] as [bigint],
-      chainId: ARC_TESTNET_ID,
+      chainId,
     })),
-    [count]
+    [count, chainId]
   )
 
   return useReadContracts({
@@ -80,16 +98,17 @@ export function useAllGrants(count: number) {
 }
 
 export function useMilestones(grantId: bigint | null, milestoneCount: number) {
+  const chainId = useActiveChainId()
   const contracts = useMemo(() => {
     if (!grantId || milestoneCount === 0) return []
     return Array.from({ length: milestoneCount }, (_, i) => ({
-      address: PROOF_SPRING_ADDRESS,
+      address: getContractAddress(chainId),
       abi: PROOF_SPRING_ABI,
       functionName: 'getMilestone' as const,
       args: [grantId, BigInt(i)] as [bigint, bigint],
-      chainId: ARC_TESTNET_ID,
+      chainId,
     }))
-  }, [grantId, milestoneCount])
+  }, [grantId, milestoneCount, chainId])
 
   return useReadContracts({
     contracts,
@@ -98,98 +117,104 @@ export function useMilestones(grantId: bigint | null, milestoneCount: number) {
 }
 
 export function useContractAdmin() {
+  const chainId = useActiveChainId()
   return useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: getContractAddress(chainId),
     abi: PROOF_SPRING_ABI,
     functionName: 'admin',
-    chainId: ARC_TESTNET_ID,
+    chainId,
   })
 }
 
 export function useIsReviewer(address: `0x${string}` | undefined) {
+  const chainId = useActiveChainId()
   return useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: getContractAddress(chainId),
     abi: PROOF_SPRING_ABI,
     functionName: 'isReviewer',
     args: address ? [address] : undefined,
     query: { enabled: !!address },
-    chainId: ARC_TESTNET_ID,
+    chainId,
   })
 }
 
 export function useRequiredApprovals() {
+  const chainId = useActiveChainId()
   return useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: getContractAddress(chainId),
     abi: PROOF_SPRING_ABI,
     functionName: 'requiredApprovals',
-    chainId: ARC_TESTNET_ID,
+    chainId,
   })
 }
 
 export function usePendingWithdrawal(address: `0x${string}` | undefined) {
+  const chainId = useActiveChainId()
   return useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: getContractAddress(chainId),
     abi: PROOF_SPRING_ABI,
     functionName: 'pendingWithdrawals',
     args: address ? [address] : undefined,
     query: { enabled: !!address, refetchInterval: POLL_INTERVAL },
-    chainId: ARC_TESTNET_ID,
+    chainId,
   })
 }
 
 export function usePendingFunderRefund(address: `0x${string}` | undefined) {
+  const chainId = useActiveChainId()
   return useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: getContractAddress(chainId),
     abi: PROOF_SPRING_ABI,
     functionName: 'pendingFunderRefunds',
     args: address ? [address] : undefined,
     query: { enabled: !!address, refetchInterval: POLL_INTERVAL },
-    chainId: ARC_TESTNET_ID,
+    chainId,
   })
 }
 
 export function useApprovalCount(grantId: bigint | null, milestoneIndex: number) {
+  const chainId = useActiveChainId()
   return useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: getContractAddress(chainId),
     abi: PROOF_SPRING_ABI,
     functionName: 'getMilestoneApprovalCount',
     args: grantId !== null ? [grantId, BigInt(milestoneIndex)] : undefined,
     query: { enabled: grantId !== null, refetchInterval: POLL_INTERVAL },
-    chainId: ARC_TESTNET_ID,
+    chainId,
   })
 }
 
-// Contract pause state
 export function usePaused() {
+  const chainId = useActiveChainId()
   return useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: getContractAddress(chainId),
     abi: PROOF_SPRING_ABI,
     functionName: 'paused',
     query: { refetchInterval: POLL_INTERVAL },
-    chainId: ARC_TESTNET_ID,
+    chainId,
   })
 }
 
-// Pending funder refund for expireGrant callers
 export function useExpireGrantEligible(grantId: bigint | null) {
+  const chainId = useActiveChainId()
   return useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: getContractAddress(chainId),
     abi: PROOF_SPRING_ABI,
     functionName: 'getGrant',
     args: grantId !== null ? [grantId] : undefined,
     query: { enabled: grantId !== null, refetchInterval: POLL_INTERVAL },
-    chainId: ARC_TESTNET_ID,
+    chainId,
   })
 }
 
-// A1: check whether a specific reviewer already voted on a milestone in the current round
 export function useReviewerVote(
   grantId: bigint | null,
   milestoneIndex: number,
   reviewer: `0x${string}` | undefined,
 ) {
+  const chainId = useActiveChainId()
   return useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: getContractAddress(chainId),
     abi: PROOF_SPRING_ABI,
     functionName: 'getReviewerVote',
     args:
@@ -200,6 +225,6 @@ export function useReviewerVote(
       enabled: grantId !== null && !!reviewer,
       refetchInterval: POLL_INTERVAL,
     },
-    chainId: ARC_TESTNET_ID,
+    chainId,
   })
 }

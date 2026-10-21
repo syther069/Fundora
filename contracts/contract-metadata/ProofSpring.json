@@ -1,13 +1,20 @@
 {
-  "contractAddress": "0x433cc087e4daf08f7875c9621c7a3efd950ef016",
+  "contractAddress": "0xef34036dda3960a1cd57b1368329bfcf29700259",
   "network": "ARC-TESTNET",
   "deployerWalletId": "3c2464b2-8369-52e2-a782-800bbeca5396",
   "contract_code_path": "/home/user/app/contracts/ProofSpring.sol",
   "contract_compiled_code_path": "/home/user/app/contracts/out/ProofSpring.sol/ProofSpring.json",
   "contract_network_and_links": {
-    "Arc Testnet": "https://explorer.testnet.arc.io/address/0x433cc087e4daf08f7875c9621c7a3efd950ef016"
+    "Arc Testnet": "https://explorer.testnet.arc.io/address/0xef34036dda3960a1cd57b1368329bfcf29700259"
   },
   "contract_deployments": [
+    {
+      "chain": "Arc Testnet",
+      "address": "0xef34036dda3960a1cd57b1368329bfcf29700259",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0xef34036dda3960a1cd57b1368329bfcf29700259",
+      "txHash": "0x448a0a8ad34372769102d87a6c9379665b1adb37d675685350baf09da718496c",
+      "deployedAt": "2026-10-21T08:24:01.498Z"
+    },
     {
       "chain": "Arc Testnet",
       "address": "0x433cc087e4daf08f7875c9621c7a3efd950ef016",

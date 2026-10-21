@@ -7,12 +7,13 @@ import {
   CalendarDays, CheckCircle2,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID } from '../contracts/proofSpring'
+import { PROOF_SPRING_ABI, ARC_TESTNET_ID, ARC_MAINNET_ID, getContractAddress } from '../contracts/proofSpring'
 import { getUsdc, buildTxExplorerUrl } from '@/onchain-facts'
 import { parseAmount } from '@/onchain-money'
 import { StatusBadge } from './StatusBadge'
 import { DeadlineBadge } from './DeadlineBadge'
 import {
+  usePendingFunderRefund,
   useMilestones,
   useIsReviewer,
   useRequiredApprovals,
@@ -29,6 +30,7 @@ interface Props {
   onBack: () => void
   onRefresh: () => void
   isAdmin: boolean
+  activeChainId?: number
 }
 
 // v2: evidenceUri is no longer stored onchain — only its keccak256 hash is stored.
@@ -67,9 +69,11 @@ const STATUS_BAND: Record<number, string> = {
   3: '#e11d48',
 }
 
-export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Props) {
+export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, activeChainId: propChainId }: Props) {
   const { address, chainId } = useAccount()
   const { switchChain } = useSwitchChain()
+  const activeChainId = propChainId ?? ARC_TESTNET_ID
+  const PROOF_SPRING_ADDRESS = getContractAddress(activeChainId)
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
 
@@ -92,22 +96,22 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
 
   const isBuilder = address?.toLowerCase() === grant.builder?.toLowerCase()
   const noBuilder = grant.builder === '0x0000000000000000000000000000000000000000'
-  const isWrongChain = chainId !== ARC_TESTNET_ID
+  const isWrongChain = chainId !== activeChainId
 
-  const usdcFact = getUsdc(ARC_TESTNET_ID)!
+  const usdcFact = getUsdc(activeChainId) ?? getUsdc(ARC_TESTNET_ID)!
   const USDC_ADDRESS = usdcFact.address as `0x${string}`
 
   const withChain = useCallback((action: () => void) => {
     if (isWrongChain) {
       setPendingAction(() => action)
       switchChain(
-        { chainId: ARC_TESTNET_ID },
+        { chainId: activeChainId },
         { onSuccess: () => { action(); setPendingAction(null) } },
       )
       return
     }
     action()
-  }, [isWrongChain, switchChain])
+  }, [isWrongChain, switchChain, activeChainId])
 
   // ── Apply for grant ──
   const { writeContract: applyWrite, data: applyHash, isPending: applyPending } = useWriteContract()
@@ -139,6 +143,22 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
   // ── Cancel grant ──
   const { writeContract: cancelWrite, data: cancelHash, isPending: cancelPending } = useWriteContract()
   const { isLoading: cancelConfirming, isSuccess: cancelSuccess } = useWaitForTransactionReceipt({ hash: cancelHash })
+
+  // expireGrant — admin can trigger after deadline passes
+  const { writeContract: expireWrite, data: expireHash, isPending: expirePending } = useWriteContract()
+  const { isLoading: expireConfirming, isSuccess: expireSuccess } = useWaitForTransactionReceipt({ hash: expireHash })
+  useEffect(() => {
+    if (expireSuccess) { onRefresh(); toast.success('Grant expired and USDC refunded to funder.') }
+  }, [expireSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // claimFunderRefund — funder claims after grant cancellation
+  const { data: pendingFunderRefund, refetch: refetchFunderRefund } = usePendingFunderRefund(address)
+  const hasFunderRefund = pendingFunderRefund !== undefined && pendingFunderRefund > 0n
+  const { writeContract: funderClaimWrite, data: funderClaimHash, isPending: funderClaimPending } = useWriteContract()
+  const { isLoading: funderClaimConfirming, isSuccess: funderClaimSuccess } = useWaitForTransactionReceipt({ hash: funderClaimHash })
+  useEffect(() => {
+    if (funderClaimSuccess) { void refetchFunderRefund(); toast.success('Refund claimed successfully!') }
+  }, [funderClaimSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (cancelSuccess) { onRefresh(); toast.success('Grant cancelled. Unreleased USDC refunded.') }
   }, [cancelSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -152,8 +172,35 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
     }, { onError: (e) => toast.error(parseOnchainError(e)) })
   })
 
+  // Capture current time once at mount for deadline comparison
+  const [mountTimeSec] = useState<bigint>(() => BigInt(Math.floor(Date.now() / 1000)))
+  const isExpiredGrant = grant.deadline > 0n
+    && mountTimeSec > grant.deadline
+    && grant.status !== 2
+    && grant.status !== 3
+
+  const handleExpire = () => withChain(() => {
+    expireWrite(
+      { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'expireGrant', args: [grant.id] },
+      {
+        onSuccess: (hash) => { void (hash) },
+        onError: (e) => toast.error(parseOnchainError(e)),
+      }
+    )
+  })
+
+  const handleFunderClaim = () => withChain(() => {
+    funderClaimWrite(
+      { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'claimFunderRefund' },
+      {
+        onSuccess: (hash) => { void (hash) },
+        onError: (e) => toast.error(parseOnchainError(e)),
+      }
+    )
+  })
+
   const handleFund = () => withChain(() => {
-    const amount = parseAmount(ARC_TESTNET_ID, formatUnits(grant.totalAmount, 6))
+    const amount = parseAmount(activeChainId, formatUnits(grant.totalAmount, 6))
     approveWrite(
       { address: USDC_ADDRESS, abi: erc20Abi, functionName: 'approve', args: [PROOF_SPRING_ADDRESS, amount.raw] },
       {
@@ -185,10 +232,15 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
     )
   })
 
-  const total = parseFloat(formatUnits(grant.totalAmount, 6))
-  const released = parseFloat(formatUnits(grant.releasedAmount, 6))
-  const refundable = total - released
-  const progressPct = total > 0 ? Math.round((released / total) * 100) : 0
+  // Bigint arithmetic — no floats on money paths
+  const totalAmt    = BigInt(grant.totalAmount)
+  const releasedAmt = BigInt(grant.releasedAmount)
+  const refundableAmt = totalAmt - releasedAmt
+  const progressPct = totalAmt > 0n ? Math.round(Number((releasedAmt * 100n) / totalAmt)) : 0
+  // Display strings — formatUnits used only at render time, never stored as number
+  const totalStr    = formatUnits(totalAmt, 6)
+  const releasedStr = formatUnits(releasedAmt, 6)
+  const refundableStr = formatUnits(refundableAmt, 6)
   const hasPendingWithdrawal = pendingWithdrawal !== undefined && pendingWithdrawal > 0n
   const canCancel = isAdmin && (grant.status === 0 || grant.status === 1)
   const claimConfirmed = claimHash !== undefined && !claimConfirming && !claimPending
@@ -208,7 +260,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
     : fundStep === 1 ? 'Step 1/2 — Approving USDC spend…'
     : fundStep === 2 && fundPending ? 'Step 2/2 — Confirm funding in wallet…'
     : fundStep === 2 ? 'Step 2/2 — Funding grant…'
-    : `Fund Grant — $${total.toFixed(2)} USDC`
+    : `Fund Grant — $${totalStr} USDC`
 
   const isObserver = !!address && !isAdmin && !isReviewer && !isBuilder
 
@@ -233,12 +285,12 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
         {/* Coloured top band */}
         <div className="h-1.5 w-full" style={{ background: bandColor }} aria-hidden="true" />
 
-        <div className="p-6 space-y-5">
-          {/* Title + status */}
-          <div className="flex items-start justify-between gap-4">
+        <div className="p-4 sm:p-6 space-y-5">
+          {/* Title + status — stacks on mobile */}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div className="min-w-0 flex-1">
               <h1
-                className="font-extrabold text-2xl mb-1.5 leading-tight"
+                className="font-extrabold text-xl sm:text-2xl mb-1.5 leading-tight break-words"
                 style={{
                   fontFamily: '"Plus Jakarta Sans", sans-serif',
                   color: 'var(--ink)',
@@ -257,7 +309,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
                 </div>
               )}
             </div>
-            <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <div className="flex flex-row sm:flex-col items-center sm:items-end gap-1.5 shrink-0">
               <StatusBadge type="grant" status={grant.status} />
               <DeadlineBadge deadline={grant.deadline} />
             </div>
@@ -268,7 +320,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
             className="rounded-xl p-4 space-y-3"
             style={{ background: 'var(--warm-bg-2)', border: '1px solid var(--border)' }}
           >
-            <div className="flex items-end justify-between gap-3">
+            <div className="flex items-end justify-between flex-wrap gap-3">
               <div>
                 <div className="text-xs font-medium mb-1 uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>
                   Total Grant
@@ -281,7 +333,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
                     letterSpacing: '-0.03em',
                   }}
                 >
-                  ${total.toFixed(2)}
+                  ${totalStr}
                   <span className="text-base font-semibold ml-1" style={{ color: 'var(--teal)', opacity: 0.7 }}>USDC</span>
                 </div>
               </div>
@@ -290,7 +342,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
                   Released
                 </div>
                 <div className="text-xl font-bold tabular-nums" style={{ color: 'var(--ink)', letterSpacing: '-0.02em', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
-                  ${released.toFixed(2)}
+                  ${releasedStr}
                 </div>
               </div>
             </div>
@@ -324,7 +376,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
               style={{ background: 'var(--warm-bg-2)', color: 'var(--muted)', border: '1px solid var(--border)' }}
             >
               <span style={{ color: 'var(--subtle)' }}>Builder:</span>
-              <span className="mono font-medium" style={{ color: 'var(--ink)', fontSize: '11px' }}>
+              <span className="mono font-medium break-all" style={{ color: 'var(--ink)', fontSize: '11px' }}>
                 {grant.builder.slice(0, 10)}…{grant.builder.slice(-6)}
               </span>
               {isBuilder && (
@@ -351,11 +403,11 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
                 style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' }}
               >
                 <AlertCircle size={14} className="shrink-0" />
-                <span className="flex-1">You are on the wrong network. Switch to Arc Testnet to interact.</span>
+                <span className="flex-1">Wrong network. Switch to Arc {activeChainId === ARC_MAINNET_ID ? 'Mainnet' : 'Testnet'} to interact.</span>
                 <button
                   onClick={() => withChain(() => { /* fires queued action after switch */ })}
                   className="text-xs font-semibold underline shrink-0 btn-focus rounded"
-                  aria-label="Switch to Arc Testnet"
+                  aria-label="Switch network"
                 >
                   Switch
                 </button>
@@ -372,7 +424,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
                   onClick={handleFund}
                   disabled={fundBusy || isWrongChain || grant.totalAmount === 0n}
                   title={
-                    isWrongChain ? 'Switch to Arc Testnet first'
+                    isWrongChain ? 'Switch network first'
                     : grant.totalAmount === 0n ? 'Grant has no milestone amounts set'
                     : undefined
                   }
@@ -412,7 +464,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
               <button
                 onClick={handleApply}
                 disabled={applyPending || applyConfirming || isWrongChain}
-                title={isWrongChain ? 'Switch to Arc Testnet first' : undefined}
+                title={isWrongChain ? 'Switch network first' : undefined}
                 className="w-full h-11 rounded-full text-sm font-bold text-white transition-all disabled:opacity-60 flex items-center justify-center gap-2 btn-focus mb-3"
                 style={{
                   background: 'var(--brand)',
@@ -452,7 +504,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
               >
                 <div>
                   <div className="text-sm font-bold" style={{ color: 'var(--teal)', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
-                    ${parseFloat(formatUnits(pendingWithdrawal, 6)).toFixed(2)} USDC ready to claim
+                    ${formatUnits(pendingWithdrawal, 6)} USDC ready to claim
                   </div>
                   <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
                     Approved milestone payment — claim to your wallet
@@ -461,7 +513,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
                 <button
                   onClick={handleClaim}
                   disabled={claimPending || claimConfirming || isWrongChain}
-                  title={isWrongChain ? 'Switch to Arc Testnet first' : undefined}
+                  title={isWrongChain ? 'Switch network first' : undefined}
                   className="px-4 h-9 rounded-full text-sm font-bold text-white flex items-center gap-1.5 disabled:opacity-60 shrink-0 btn-focus"
                   style={{ background: 'var(--teal)', boxShadow: '0 2px 8px rgba(13,148,136,0.25)' }}
                 >
@@ -473,7 +525,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
 
             {claimHash && (
               <a
-                href={buildTxExplorerUrl(ARC_TESTNET_ID, claimHash)}
+                href={buildTxExplorerUrl(activeChainId, claimHash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs mb-3"
@@ -489,7 +541,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
               <button
                 onClick={() => setConfirmCancel(true)}
                 disabled={isWrongChain}
-                title={isWrongChain ? 'Switch to Arc Testnet first' : undefined}
+                title={isWrongChain ? 'Switch network first' : undefined}
                 className="w-full h-9 rounded-full text-sm font-semibold flex items-center justify-center gap-1.5 border transition-all hover:opacity-80 disabled:opacity-50 btn-focus"
                 style={{ color: 'var(--coral)', borderColor: 'var(--coral-border)', background: 'var(--coral-light)' }}
               >
@@ -507,7 +559,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
                 <div className="flex items-start gap-2 text-sm" style={{ color: '#7f1d1d' }}>
                   <AlertTriangle size={15} className="shrink-0 mt-0.5" />
                   <span>
-                    Cancel this grant? <strong>${refundable.toFixed(2)} USDC</strong> of unreleased funds will
+                    Cancel this grant? <strong>${refundableStr} USDC</strong> of unreleased funds will
                     be returned to the funder. This cannot be undone.
                   </span>
                 </div>
@@ -532,7 +584,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
                 </div>
                 {cancelHash && (
                   <a
-                    href={buildTxExplorerUrl(ARC_TESTNET_ID, cancelHash)}
+                    href={buildTxExplorerUrl(activeChainId, cancelHash)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 text-xs btn-focus rounded"
@@ -543,6 +595,72 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
                   </a>
                 )}
               </div>
+            )}
+            {/* Expire grant — admin, when deadline has passed */}
+            {isAdmin && isExpiredGrant && (
+              <div className="space-y-2 mt-1">
+                <button
+                  onClick={handleExpire}
+                  disabled={expirePending || expireConfirming || isWrongChain}
+                  title={isWrongChain ? 'Switch network first' : undefined}
+                  className="w-full h-9 rounded-full text-sm font-semibold flex items-center justify-center gap-1.5 border transition-all hover:opacity-80 disabled:opacity-50 btn-focus"
+                  style={{ color: 'var(--amber)', borderColor: 'var(--amber-border)', background: 'var(--amber-light)' }}
+                >
+                  {(expirePending || expireConfirming) && <Loader2 size={13} className="animate-spin" />}
+                  {expirePending ? 'Confirm in wallet…' : expireConfirming ? 'Expiring…' : 'Expire Grant (deadline passed)'}
+                </button>
+                {expireHash && (
+                  <a
+                    href={buildTxExplorerUrl(activeChainId, expireHash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs"
+                    style={{ color: 'var(--brand)' }}
+                  >
+                    <ExternalLink size={10} />
+                    {expireConfirming ? 'Confirming expiry…' : 'Expiry confirmed — view on explorer'}
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Funder refund claim — funder on cancelled/expired grant */}
+            {hasFunderRefund && (
+              <div
+                className="rounded-xl border p-4 flex items-center justify-between gap-3 mt-1"
+                style={{ background: 'var(--teal-light)', borderColor: 'var(--teal-border)' }}
+              >
+                <div>
+                  <div className="text-sm font-bold" style={{ color: 'var(--teal)', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                    ${formatUnits(pendingFunderRefund, 6)} USDC refund available
+                  </div>
+                  <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+                    Grant cancelled — claim your unreleased USDC
+                  </div>
+                </div>
+                <button
+                  onClick={handleFunderClaim}
+                  disabled={funderClaimPending || funderClaimConfirming || isWrongChain}
+                  title={isWrongChain ? 'Switch network first' : undefined}
+                  className="px-4 h-9 rounded-full text-sm font-bold text-white flex items-center gap-1.5 disabled:opacity-60 shrink-0 btn-focus"
+                  style={{ background: 'var(--teal)', boxShadow: '0 2px 8px rgba(13,148,136,0.25)' }}
+                >
+                  {(funderClaimPending || funderClaimConfirming) && <Loader2 size={12} className="animate-spin" />}
+                  {funderClaimPending ? 'Confirm…' : funderClaimConfirming ? 'Claiming…' : 'Claim Refund'}
+                </button>
+              </div>
+            )}
+            {funderClaimHash && (
+              <a
+                href={buildTxExplorerUrl(activeChainId, funderClaimHash)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs"
+                style={{ color: 'var(--brand)' }}
+              >
+                <ExternalLink size={10} />
+                {funderClaimConfirming ? 'View pending refund on explorer' : 'Refund confirmed — view on explorer'}
+              </a>
             )}
           </div>{/* end actions */}
         </div>
@@ -621,6 +739,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
             isReviewer={!!isReviewer}
             requiredApprovals={Number(requiredApprovals ?? 1n)}
             isWrongChain={isWrongChain}
+            activeChainId={activeChainId}
             onRefreshMilestones={() => void refetchMilestones()}
             onRefresh={onRefresh}
           />
@@ -639,6 +758,7 @@ interface MilestoneCardProps {
   isReviewer: boolean
   requiredApprovals: number
   isWrongChain: boolean
+  activeChainId: number
   onRefreshMilestones: () => void
   onRefresh: () => void
 }
@@ -654,7 +774,7 @@ const MILESTONE_BORDER_COLOR: Record<number, string> = {
 function MilestoneCard({
   milestone, index, grant,
   isBuilder, isReviewer, requiredApprovals,
-  isWrongChain, onRefreshMilestones, onRefresh,
+  isWrongChain, activeChainId, onRefreshMilestones, onRefresh,
 }: MilestoneCardProps) {
   const { address } = useAccount()
   const { data: approvalCount } = useApprovalCount(grant.id, index)
@@ -663,7 +783,8 @@ function MilestoneCard({
     index,
     address,
   )
-  const amount = parseFloat(formatUnits(milestone.amount, 6))
+  const PROOF_SPRING_ADDRESS = getContractAddress(activeChainId)
+  const amountStr = formatUnits(milestone.amount, 6)
 
   const [evidenceInput, setEvidenceInput] = useState('')
   const [submitHash, setSubmitHash] = useState<`0x${string}` | undefined>()
@@ -762,7 +883,7 @@ function MilestoneCard({
                   fontFamily: '"Plus Jakarta Sans", sans-serif',
                 }}
               >
-                ${amount.toFixed(2)} USDC
+                ${amountStr} USDC
               </span>
             </div>
             <h4
@@ -795,7 +916,7 @@ function MilestoneCard({
               </div>
               {submitHash && (
                 <a
-                  href={buildTxExplorerUrl(ARC_TESTNET_ID, submitHash)}
+                  href={buildTxExplorerUrl(activeChainId, submitHash)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 font-semibold btn-focus rounded"
@@ -870,7 +991,7 @@ function MilestoneCard({
               onClick={handleSubmit}
               disabled={isSubmitting || !evidenceInput.trim() || isWrongChain}
               title={
-                isWrongChain ? 'Switch to Arc Testnet first'
+                isWrongChain ? 'Switch network first'
                 : !evidenceInput.trim() ? 'Enter an evidence URL first'
                 : undefined
               }
@@ -887,7 +1008,7 @@ function MilestoneCard({
             </button>
             {submitHash && (
               <a
-                href={buildTxExplorerUrl(ARC_TESTNET_ID, submitHash)}
+                href={buildTxExplorerUrl(activeChainId, submitHash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs"
@@ -920,7 +1041,7 @@ function MilestoneCard({
               <button
                 onClick={() => handleReview(true)}
                 disabled={isReviewing || isWrongChain}
-                title={isWrongChain ? 'Switch to Arc Testnet first' : undefined}
+                title={isWrongChain ? 'Switch network first' : undefined}
                 className="flex-1 h-9 rounded-full text-sm font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all border btn-focus"
                 style={{ background: 'var(--teal-light)', color: 'var(--teal)', borderColor: 'var(--teal-border)' }}
                 aria-label="Approve milestone"
@@ -931,7 +1052,7 @@ function MilestoneCard({
               <button
                 onClick={() => handleReview(false)}
                 disabled={isReviewing || isWrongChain}
-                title={isWrongChain ? 'Switch to Arc Testnet first' : undefined}
+                title={isWrongChain ? 'Switch network first' : undefined}
                 className="flex-1 h-9 rounded-full text-sm font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all border btn-focus"
                 style={{ background: 'var(--coral-light)', color: 'var(--coral)', borderColor: 'var(--coral-border)' }}
                 aria-label="Reject milestone"
@@ -942,7 +1063,7 @@ function MilestoneCard({
             </div>
             {reviewHash && (
               <a
-                href={buildTxExplorerUrl(ARC_TESTNET_ID, reviewHash)}
+                href={buildTxExplorerUrl(activeChainId, reviewHash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs"

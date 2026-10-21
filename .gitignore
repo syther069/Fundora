@@ -1,0 +1,28 @@
+# build output
+dist/
+build/
+
+# dependencies
+node_modules/
+
+# environment & secrets
+.env
+.env.*
+!.env.example
+
+# Circle
+.circle/
+
+# Foundry build artifacts (keep source, ignore compiled output)
+contracts/out/
+contracts/cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# logs
+*.log
+/tmp/

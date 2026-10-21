@@ -16,7 +16,8 @@ import type { StatusFilter } from './components/GrantsToolbar'
 import { useContractAdmin, useIsReviewer } from './hooks/useProofSpring'
 import { useGrants } from './context/GrantsContext'
 import type { Grant } from './hooks/useProofSpring'
-import { PROOF_SPRING_ADDRESS, ARC_TESTNET_ID } from './contracts/proofSpring'
+import { PROOF_SPRING_ADDRESS, ARC_TESTNET_ID, ARC_MAINNET_ID, SUPPORTED_CHAIN_IDS } from './contracts/proofSpring'
+import { useActiveChainId } from './hooks/useProofSpring'
 
 type View = 'grants' | 'detail' | 'admin'
 
@@ -43,7 +44,7 @@ function HeroConnect() {
         aria-hidden="true"
       />
 
-      <div className="px-8 py-10 text-center">
+      <div className="px-5 py-8 sm:px-8 sm:py-10 text-center">
         {/* Logo */}
         <div
           className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center"
@@ -152,10 +153,41 @@ function RoleBanner({ isAdmin, isReviewer }: { isAdmin: boolean; isReviewer: boo
   )
 }
 
+// ── Network toggle (testnet ↔ mainnet) ───────────────────────────────────────
+function NetworkToggle({ chainId }: { chainId: number | undefined }) {
+  const { switchChain } = useSwitchChain()
+  if (!chainId) return null
+  const isTestnet = chainId === ARC_TESTNET_ID
+  const isMainnet = chainId === ARC_MAINNET_ID
+  // Only show toggle when on a supported Arc network
+  if (!isTestnet && !isMainnet) return null
+  return (
+    <div className="flex items-center gap-1 rounded-full border p-0.5" style={{ borderColor: 'var(--border)', background: 'var(--surface-raised)' }}>
+      <button
+        onClick={() => switchChain?.({ chainId: ARC_TESTNET_ID })}
+        className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-all btn-focus ${isTestnet ? 'text-white' : ''}`}
+        style={isTestnet ? { background: 'var(--teal)', color: '#fff' } : { color: 'var(--muted)' }}
+        aria-pressed={isTestnet}
+      >
+        Testnet
+      </button>
+      <button
+        onClick={() => switchChain?.({ chainId: ARC_MAINNET_ID })}
+        className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-all btn-focus ${isMainnet ? 'text-white' : ''}`}
+        style={isMainnet ? { background: 'var(--brand)', color: '#fff' } : { color: 'var(--muted)' }}
+        aria-pressed={isMainnet}
+      >
+        Mainnet
+      </button>
+    </div>
+  )
+}
+
 // ── Wrong-chain banner (A7: proactive, shown before user tries to act) ────────
 function WrongChainBanner({ chainId }: { chainId: number | undefined }) {
   const { switchChain } = useSwitchChain()
-  if (chainId === ARC_TESTNET_ID || !chainId) return null
+  const isSupported = chainId !== undefined && (SUPPORTED_CHAIN_IDS as readonly number[]).includes(chainId)
+  if (!chainId || isSupported) return null
   return (
     <div
       className="border-b py-2.5 px-4"
@@ -165,14 +197,14 @@ function WrongChainBanner({ chainId }: { chainId: number | undefined }) {
       <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 flex-wrap">
         <span className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--amber)' }}>
           <AlertTriangle size={13} />
-          You are connected to the wrong network. Switch to Arc Testnet to use GrantFlow.
+          Connected to an unsupported network. Switch to Arc Testnet or Arc Mainnet.
         </span>
         <button
           className="btn btn-xs btn-focus"
           style={{ background: 'var(--amber)', color: '#fff' }}
           onClick={() => switchChain?.({ chainId: ARC_TESTNET_ID })}
         >
-          Switch Network
+          Switch to Arc
         </button>
       </div>
     </div>
@@ -182,6 +214,7 @@ function WrongChainBanner({ chainId }: { chainId: number | undefined }) {
 // ── Main app ──────────────────────────────────────────────────────────────────
 export default function App() {
   const { address, isConnected, chainId } = useAccount()
+  const activeChainId = useActiveChainId()
   const [view, setView]                   = useState<View>('grants')
   const [selectedGrant, setSelectedGrant] = useState<Grant | null>(null)
   const [navigating, setNavigating]       = useState<string | null>(null)
@@ -281,7 +314,14 @@ export default function App() {
 
       {isConnected && <RoleBanner isAdmin={isAdmin} isReviewer={isReviewer} />}
 
-      <main id="main-content" className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
+      {/* Network toggle — between banners and content */}
+      {isConnected && (
+        <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-4 flex justify-end">
+          <NetworkToggle chainId={chainId} />
+        </div>
+      )}
+
+      <main id="main-content" className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-8">
         <AnimatePresence mode="wait" initial={false}>
         {/* Grant detail view */}
         {view === 'detail' && selectedGrant ? (
@@ -297,6 +337,7 @@ export default function App() {
             onBack={handleBack}
             onRefresh={handleRefresh}
             isAdmin={isAdmin}
+            activeChainId={activeChainId}
           />
           </motion.div>
         ) : (
@@ -310,7 +351,7 @@ export default function App() {
           <div className="space-y-6">
             {/* Page header */}
             {(view === 'grants' || view === 'admin') && (
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start justify-between flex-wrap gap-3">
                 <div>
                   <h1
                     className="font-jakarta font-extrabold text-2xl mb-1"

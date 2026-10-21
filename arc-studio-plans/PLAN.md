@@ -1,76 +1,113 @@
-# GrantFlow Frontend Redesign
+# GrantFlow — Submission-Ready Implementation Plan
 
 ## Summary
-Full visual redesign of GrantFlow (formerly ProofSpring) — a milestone-based USDC microgrants platform — into a warm, community-first aesthetic inspired by Gitcoin and Giveth. No changes to contract logic, hooks, context, or ABI. Pure visual layer.
+GrantFlow is a milestone-based USDC microgrants platform on Arc. The contract (ProofSpring v3) is deployed on Arc Testnet at `0x433cc087e4daf08f7875c9621c7a3efd950ef016`. The frontend is largely built. This plan makes it submission-ready: dual-network support (testnet + mainnet), mobile responsiveness, remaining UX gaps, and production polish.
+
+---
+
+## What Already Exists (Do Not Duplicate)
+
+- ProofSpring v3 on Arc Testnet with 23/23 unit tests passing
+- Full wagmi hooks in `src/hooks/useProofSpring.ts`
+- `src/context/GrantsContext.tsx` — event-invalidated grant list
+- All core flows in `src/components/GrantDetail.tsx` (apply, fund, vote, claim, cancel, evidence)
+- Warm design token system in `src/index.css` and `tailwind.config.js`
+- Admin panel with create grant, reviewer management, pause/unpause
+- Framer Motion transitions, AnimatePresence, skip link, ARIA roles
+- `src/components/GrantsToolbar.tsx`, `DeadlineBadge.tsx`, `GrantSkeleton.tsx`
+
+---
 
 ## Architecture
-- Blockchain: Arc Testnet (unchanged)
-- Contract: Unchanged — same address, hooks, context
-- Frontend: React + Vite + Tailwind — all hook imports and data flows preserved exactly
-- Wallet: ConnectKit (unchanged)
-- What changes: index.css tokens, tailwind.config.js font/colour extensions, and all five component files + App.tsx
 
-## Design Language
+- **Blockchain:** Arc Testnet (chain ID `5042002`) + Arc Mainnet (chain ID `5042`), user-switchable in UI
+- **Contract:** ProofSpring v3 — same ABI on both networks; separate deployed addresses
+- **Frontend:** Vite + React + TypeScript + wagmi + ConnectKit + Tailwind CSS + Framer Motion
+- **Wallet:** ConnectKit (already wired)
+- **USDC:** `0x3600000000000000000000000000000000000000` on both Arc Testnet and Arc Mainnet
 
-### Colour palette — warm community
-| Token | Value | Use |
-|---|---|---|
-| --brand | #6366f1 (indigo) | Primary CTA, links, focus |
-| --brand-light | #eef2ff | Brand pill backgrounds |
-| --warm-bg | #fffbf5 | Page background |
-| --warm-surface | #ffffff | Card surfaces |
-| --warm-surface-2 | #fdf8f0 | Inset / muted surfaces |
-| --teal | #0d9488 | Success, approved, USDC amounts |
-| --teal-light | #f0fdfa | Teal badge backgrounds |
-| --amber | #d97706 | In-review, pending states |
-| --amber-light | #fffbeb | Amber badge backgrounds |
-| --coral | #e11d48 | Danger, rejected, cancel |
-| --ink | #1c1917 | Primary text (warm near-black) |
-| --muted | #78716c | Secondary text |
-| --subtle | #a8a29e | Placeholder, metadata |
-| --border | #e7e5e4 | Card borders |
+---
 
-### Typography
-- Display/headings: Plus Jakarta Sans (warm, rounded, community feel)
-- Body: Inter (clean readability)
-- Mono: JetBrains Mono (unchanged, for hashes/addresses)
+## Files to Create / Modify
 
-### Motion
-- Cards: hover:shadow-lg hover:-translate-y-1 with transition-all duration-200
-- Status badges: soft colour fills, rounded-full, icon + label
-- Progress bars: rounded-full with a gradient fill from --teal to --brand
-- Buttons: filled with --brand, pill-shaped (rounded-full for primary CTAs)
+### Phase 1 — Money Path Fixes (Blockers)
 
-## Files to Create/Modify
-1. index.html — add Google Fonts import for Plus Jakarta Sans + Inter
-2. src/index.css — full token replacement, new warm palette, updated type scale, card shadows
-3. tailwind.config.js — add font families, custom colours, animation keyframe for pulse-glow
-4. src/components/Header.tsx — new logo mark (colourful gradient icon), GrantFlow name, warm nav
-5. src/App.tsx — redesigned hero connect state, role banners, page layout with sidebar stats strip
-6. src/components/GrantCard.tsx — new card layout: coloured top accent bar per status, large USDC amount, avatar-style milestone count, hover shadow
-7. src/components/GrantSkeleton.tsx — warm skeleton matching new card shape
-8. src/components/StatusBadge.tsx — warm filled colour badges (not just border), pill shape
-9. src/components/GrantDetail.tsx — new detail layout: full-width hero band with grant title + amount + status; milestone cards with coloured left border; action zone redesigned with pill buttons
+In `GrantDetail.tsx` lines 188–191, `total`, `released`, `refundable`, and `progressPct` all use `parseFloat(formatUnits(...))`. The `.toFixed(2)` display calls on lines 211, 284, 293, 510 must be replaced with bigint integer arithmetic + `formatUnits` used at render time only. The `Fund Grant — $X USDC` label on line 211 also uses a float — fix to bigint display.
+
+1. `src/components/GrantDetail.tsx` — Replace all `parseFloat(formatUnits(...))` money logic with bigint arithmetic. Use `formatUnits` only at the final render step, never store the result in a `number` variable that participates in math.
+2. `src/components/GrantCard.tsx` — Remove unused `total` and `released` float vars (lines 50–51). Already uses bigint `progressPct`; clean up the now-dead float code.
+
+### Phase 2 — Dual Network Support
+
+3. `src/contracts/proofSpring.ts` — Add `ARC_MAINNET_ID = 5042`, `PROOF_SPRING_ADDRESS_MAINNET` (placeholder until mainnet deploy), and a `getContractAddress(chainId)` helper that returns the right address per chain.
+4. `src/config.ts` — Add `arc` (mainnet) from `viem/chains` alongside `arcTestnet`. Add explicit transport `https://rpc.mainnet.arc.io`. Register mainnet chain with tracing.
+5. `src/hooks/useProofSpring.ts` — Accept an optional `chainId` parameter (default `ARC_TESTNET_ID`) on all `useReadContract` hooks so reads follow the active network.
+6. `src/context/GrantsContext.tsx` — Pass dynamic `chainId` + contract address so the grant list switches when the network changes.
+7. `src/App.tsx` — Replace `ARC_TESTNET_ID` wrong-chain guard with `SUPPORTED_CHAIN_IDS = [ARC_TESTNET_ID, ARC_MAINNET_ID]`. Update `WrongChainBanner` to suggest switching to the nearest supported network. Add a small network toggle pill (Testnet / Mainnet) near the header or stats strip.
+8. `src/components/Header.tsx` — Show active network badge dynamically: "Arc Testnet" (teal) or "Arc Mainnet" (brand-indigo) based on connected `chainId`.
+9. `src/components/GrantDetail.tsx` — Replace all `buildTxExplorerUrl(ARC_TESTNET_ID, ...)` hardcoded calls (6 places) with `buildTxExplorerUrl(activeChainId, ...)`. Replace "Switch to Arc Testnet" text with "Switch to Arc" generically.
+
+### Phase 3 — Mobile Responsiveness
+
+10. `src/components/GrantDetail.tsx` — Fix mobile overflow:
+    - Hero band title + status: `flex-col sm:flex-row` on narrow screens
+    - Amount block: stack total/released vertically on mobile
+    - Builder address: add `break-all` wrapper
+    - Milestone header row: add `flex-wrap` so badge doesn't clip
+    - Approve/Reject buttons: `flex-col xs:flex-row` fallback
+11. `src/components/GrantCard.tsx` — Reduce `UsdcAmount` to `text-xl sm:text-2xl`. Add `min-h-[72px]` to description area for uniform card height. Add `flex-wrap` to the footer row (date + arrow).
+12. `src/App.tsx` — HeroConnect: `px-5 sm:px-8 py-8 sm:py-10`. Page header: add `flex-wrap` so admin toggle button wraps cleanly on narrow screens.
+13. `src/components/AdminPanel.tsx` — Tabs: add `overflow-x-auto` scrollable row for 4 tabs on 320px. Milestone amount inputs in create form: `flex-col sm:flex-row`. Cancel tab grant addresses: add `truncate`.
+
+### Phase 4 — Missing UI / UX Gaps
+
+14. `src/components/GrantDetail.tsx` — Add `expireGrant` button in the actions zone for grants where `deadline > 0 && BigInt(Math.floor(Date.now()/1000)) > grant.deadline && grant.status !== 2 && grant.status !== 3`. Show only to admin. Use `useExpireGrant` hook (already exists).
+15. `src/components/GrantDetail.tsx` — Add `claimFunderRefund` panel. When `grant.status === 3` and connected address matches `grant.funder`, show `usePendingFunderRefund` amount and a "Claim Refund" button. Contract function and hook exist; UI is missing.
+16. `src/components/AdminPanel.tsx` — Add `adminReassignBuilder` UI: address input + "Reassign Builder" button in the existing settings or cancel tab. Hook exists in `useProofSpring.ts`.
+17. `src/components/AdminPanel.tsx` — Add `onKeyDown` arrow-key handler on each tab button for Left/Right keyboard navigation per ARIA `role="tablist"` pattern.
+
+### Phase 5 — Production Polish
+
+18. `index.html` — Add `<meta name="description" content="Milestone-based USDC grants with onchain evidence and reviewer votes — built on Arc.">`, OG title/description tags, and an inline SVG favicon using the GrantFlow G mark.
+19. `src/index.css` — Add Google Fonts `@import` at the top for Plus Jakarta Sans (600/700/800), Inter (400/500/600), and JetBrains Mono (400/500). Currently referenced but never loaded — text falls back to system-ui on first load.
+20. `tailwind.config.js` — Sync `warm.ink`, `warm.muted`, `warm.subtle` to corrected spec values (`#18181B`, `#71717A`, `#A1A1AA`) to match the CSS vars already corrected in `index.css`.
+
+### Phase 6 — Mainnet Deploy + Final Commit
+
+21. Deploy ProofSpring to Arc Mainnet (`forge script` against `https://rpc.mainnet.arc.io`) with `_usdc=0x3600000000000000000000000000000000000000`.
+22. Update `PROOF_SPRING_ADDRESS_MAINNET` in `src/contracts/proofSpring.ts`.
+23. Update `AGENTS.md` with mainnet contract address and tx hash.
+24. Commit `.gitignore` (already staged), all Phase 1–5 changes, and mainnet address in one commit.
+25. `git push` → Vercel redeploy.
+
+---
 
 ## Build Sequence
-1. Update index.html fonts (Google Fonts CDN link for Plus Jakarta Sans + Inter)
-2. Replace src/index.css with new warm token system + type scale + shadow utilities
-3. Update tailwind.config.js with font + colour extensions
-4. Redesign Header.tsx — new logo, GrantFlow name, warm chain badge
-5. Redesign StatusBadge.tsx — new warm filled pill badges for all 8 states
-6. Redesign GrantCard.tsx — new card layout with accent bar and big amount
-7. Redesign GrantSkeleton.tsx — match new card proportions
-8. Redesign App.tsx — hero, role banners, stats strip, grants grid layout
-9. Redesign GrantDetail.tsx — hero band, milestone cards, action zone
-10. Lint + typecheck — zero errors required
+
+1. Fix money paths — GrantDetail.tsx + GrantCard.tsx (no network changes, safest first)
+2. Wire dual-network — proofSpring.ts, config.ts, hooks, context, App.tsx, Header.tsx, GrantDetail.tsx
+3. Mobile fixes — GrantDetail.tsx, GrantCard.tsx, App.tsx, AdminPanel.tsx
+4. Missing UI — expireGrant, claimFunderRefund, adminReassignBuilder, keyboard tab nav
+5. Production polish — index.html, font imports, tailwind sync
+6. Deploy Arc Mainnet contract; update addresses
+7. Final lint + typecheck + commit + push + Vercel
+
+---
 
 ## Done When
-- [ ] All grant cards show coloured accent bar, large USDC amount, warm typography
-- [ ] Status badges are filled warm pills with icons, not just coloured borders
-- [ ] Header shows GrantFlow (not ProofSpring), with gradient logo mark
-- [ ] Disconnected state shows a welcoming hero with value proposition
-- [ ] Grant detail has a prominent hero band and readable milestone cards
-- [ ] All buttons are pill-shaped primary with --brand indigo for CTAs
-- [ ] All hook imports, contract calls, and data flows are completely unchanged
-- [ ] Zero lint errors, zero TypeScript errors
-- [ ] App running on port 5173
+
+- [ ] Zero TypeScript errors, zero lint errors
+- [ ] `parseFloat` on money paths: none — `formatUnits` used only at render time
+- [ ] App renders correctly at 320px, 375px, 768px, 1280px widths
+- [ ] Network switcher: user can switch between Arc Testnet and Arc Mainnet in the UI
+- [ ] Wrong-chain banner resolves to whichever supported network is appropriate
+- [ ] Explorer links use the correct chain's explorer for the active network
+- [ ] `expireGrant` button visible in GrantDetail when grant is expired and admin is connected
+- [ ] `claimFunderRefund` panel visible to funder on cancelled grants
+- [ ] `adminReassignBuilder` UI present in AdminPanel
+- [ ] Keyboard left/right arrow nav works on AdminPanel tabs
+- [ ] Plus Jakarta Sans and Inter fonts load (not system-ui fallback)
+- [ ] `index.html` has title, description, and OG meta tags
+- [ ] ProofSpring deployed on Arc Mainnet with correct USDC address
+- [ ] All changes committed and pushed to `syther069/grantflow` main
+- [ ] Vercel deployment live and production-ready

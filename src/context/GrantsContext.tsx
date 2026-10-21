@@ -20,7 +20,8 @@ import {
   type ReactNode,
 } from 'react'
 import { useReadContract, useReadContracts, useWatchContractEvent } from 'wagmi'
-import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID } from '../contracts/proofSpring'
+import { PROOF_SPRING_ABI, getContractAddress } from '../contracts/proofSpring'
+import { useActiveChainId } from '../hooks/useProofSpring'
 import type { Grant } from '../hooks/useProofSpring'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -46,6 +47,9 @@ const GrantsContext = createContext<GrantsState>({
 const BATCH_SIZE = 50  // getGrantsBatch max per contract
 
 export function GrantsProvider({ children }: { children: ReactNode }) {
+  const chainId = useActiveChainId()
+  const contractAddress = getContractAddress(chainId)
+
   const [eventTick, setEventTick] = useState(0)
 
   // Bump this counter on any relevant contract event to trigger a refetch
@@ -53,45 +57,45 @@ export function GrantsProvider({ children }: { children: ReactNode }) {
 
   // 3.5 — watch all state-changing events and invalidate the cache
   useWatchContractEvent({
-    address: PROOF_SPRING_ADDRESS,
+    address: contractAddress,
     abi: PROOF_SPRING_ABI,
     eventName: 'GrantCreated',
-    chainId: ARC_TESTNET_ID,
+    chainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
-    address: PROOF_SPRING_ADDRESS,
+    address: contractAddress,
     abi: PROOF_SPRING_ABI,
     eventName: 'GrantFunded',
-    chainId: ARC_TESTNET_ID,
+    chainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
-    address: PROOF_SPRING_ADDRESS,
+    address: contractAddress,
     abi: PROOF_SPRING_ABI,
     eventName: 'GrantApplied',
-    chainId: ARC_TESTNET_ID,
+    chainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
-    address: PROOF_SPRING_ADDRESS,
+    address: contractAddress,
     abi: PROOF_SPRING_ABI,
     eventName: 'MilestoneApproved',
-    chainId: ARC_TESTNET_ID,
+    chainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
-    address: PROOF_SPRING_ADDRESS,
+    address: contractAddress,
     abi: PROOF_SPRING_ABI,
     eventName: 'GrantCompleted',
-    chainId: ARC_TESTNET_ID,
+    chainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
-    address: PROOF_SPRING_ADDRESS,
+    address: contractAddress,
     abi: PROOF_SPRING_ABI,
     eventName: 'GrantCancelled',
-    chainId: ARC_TESTNET_ID,
+    chainId,
     onLogs: invalidate,
   })
 
@@ -102,12 +106,11 @@ export function GrantsProvider({ children }: { children: ReactNode }) {
     isLoading: countLoading,
     isError: countError,
   } = useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: contractAddress,
     abi: PROOF_SPRING_ABI,
     functionName: 'grantCount',
-    chainId: ARC_TESTNET_ID,
+    chainId,
     query: {
-      // 3.2 — 5-minute stale time: data is shown immediately from cache, revalidated in background
       staleTime: 5 * 60 * 1000,
       refetchInterval: 30_000,
     },
@@ -124,11 +127,11 @@ export function GrantsProvider({ children }: { children: ReactNode }) {
     isLoading: batchLoading,
     isError: batchError,
   } = useReadContract({
-    address: PROOF_SPRING_ADDRESS,
+    address: contractAddress,
     abi: PROOF_SPRING_ABI,
     functionName: 'getGrantsBatch',
     args: useBatch ? [1n, BigInt(grantCount)] : undefined,
-    chainId: ARC_TESTNET_ID,
+    chainId,
     query: {
       enabled: useBatch,
       staleTime: 5 * 60 * 1000,
@@ -140,13 +143,13 @@ export function GrantsProvider({ children }: { children: ReactNode }) {
   const multicallContracts = useMemo(() => {
     if (useBatch || grantCount === 0) return []
     return Array.from({ length: grantCount }, (_, i) => ({
-      address: PROOF_SPRING_ADDRESS,
+      address: contractAddress,
       abi: PROOF_SPRING_ABI,
       functionName: 'getGrant' as const,
       args: [BigInt(i + 1)] as [bigint],
-      chainId: ARC_TESTNET_ID,
+      chainId,
     }))
-  }, [useBatch, grantCount])
+  }, [useBatch, grantCount, contractAddress, chainId])
 
   const {
     data: multicallData,

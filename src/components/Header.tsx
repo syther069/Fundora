@@ -1,4 +1,6 @@
+import { useAccount } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
+import { ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/proofSpring'
 
 function LogoMark() {
   return (
@@ -11,7 +13,6 @@ function LogoMark() {
       aria-hidden="true"
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        {/* Stylised G mark — two overlapping circles representing community + flow */}
         <circle cx="6" cy="8" r="4.5" stroke="white" strokeWidth="1.5" fill="none" opacity="0.9" />
         <circle cx="10" cy="8" r="4.5" stroke="white" strokeWidth="1.5" fill="none" opacity="0.6" />
         <path d="M10 6h1.5v2H10" stroke="white" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
@@ -21,10 +22,20 @@ function LogoMark() {
 }
 
 function ChainBadge() {
+  const { chainId } = useAccount()
+  const isMainnet = chainId === ARC_MAINNET_ID
+  const isTestnet = chainId === ARC_TESTNET_ID
+  // Show nothing for unsupported chains — WrongChainBanner handles that
+  if (chainId && !isMainnet && !isTestnet) return null
+
   return (
     <span
       className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border"
-      style={{
+      style={isMainnet ? {
+        background: 'var(--brand-light)',
+        color: 'var(--brand)',
+        borderColor: 'var(--brand-border)',
+      } : {
         background: 'var(--teal-light)',
         color: 'var(--teal)',
         borderColor: 'var(--teal-border)',
@@ -32,10 +43,10 @@ function ChainBadge() {
     >
       <span
         className="w-1.5 h-1.5 rounded-full animate-pulse"
-        style={{ background: 'var(--teal)' }}
+        style={{ background: isMainnet ? 'var(--brand)' : 'var(--teal)' }}
         aria-hidden="true"
       />
-      Arc Testnet
+      {isMainnet ? 'Arc Mainnet' : 'Arc Testnet'}
     </span>
   )
 }
@@ -53,11 +64,11 @@ export function Header() {
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         {/* Left: logo + name + badge */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <LogoMark />
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 min-w-0">
             <span
-              className="font-jakarta font-bold text-lg tracking-tight"
+              className="font-jakarta font-bold text-lg tracking-tight shrink-0"
               style={{ color: 'var(--ink)', letterSpacing: '-0.025em' }}
             >
               GrantFlow
@@ -67,7 +78,9 @@ export function Header() {
         </div>
 
         {/* Right: wallet connect */}
-        <ConnectKitButton />
+        <div className="shrink-0">
+          <ConnectKitButton />
+        </div>
       </div>
     </header>
   )

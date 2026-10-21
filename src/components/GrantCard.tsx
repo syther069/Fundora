@@ -25,7 +25,7 @@ function UsdcAmount({ amount }: { amount: string }) {
   return (
     <div className="flex items-baseline gap-1">
       <span
-        className="font-jakarta font-bold text-2xl tabular-nums"
+        className="font-jakarta font-bold text-xl sm:text-2xl tabular-nums"
         style={{ color: 'var(--teal)', letterSpacing: '-0.02em' }}
       >
         {amount}
@@ -46,9 +46,6 @@ export function GrantCard({ grant, onClick, isNavigating }: Props) {
   const totalAmt    = BigInt(grant.totalAmount)
   const releasedAmt = BigInt(grant.releasedAmount)
   const totalStr    = formatUnits(totalAmt, 6)
-  const releasedStr = formatUnits(releasedAmt, 6)
-  const total       = parseFloat(totalStr)
-  const released    = parseFloat(releasedStr)
   const progressPct = totalAmt > 0n ? Math.round(Number((releasedAmt * 100n) / totalAmt)) : 0
   const noBuilder  = grant.builder === '0x0000000000000000000000000000000000000000'
   const createdDate = formatGrantDate(grant.createdAt)
@@ -94,10 +91,10 @@ export function GrantCard({ grant, onClick, isNavigating }: Props) {
         </div>
 
         {/* USDC amount — prominent */}
-        <UsdcAmount amount={parseFloat(totalStr).toFixed(2)} />
+        <UsdcAmount amount={totalStr} />
 
         {/* Progress bar */}
-        {total > 0 && (
+        {totalAmt > 0n && (
           <div className="mt-3 mb-1">
             <div
               className="progress-track"
@@ -114,13 +111,13 @@ export function GrantCard({ grant, onClick, isNavigating }: Props) {
             </div>
             <div className="flex items-center justify-between mt-1">
               <span className="label-caps">{progressPct}% released</span>
-              <span className="label-caps">{parseFloat(releasedStr).toFixed(0)} / {parseFloat(totalStr).toFixed(0)} USDC</span>
+              <span className="label-caps">{formatUnits(releasedAmt, 6)} / {totalStr} USDC</span>
             </div>
           </div>
         )}
 
         {/* Footer: milestones + builder + date */}
-        <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="flex items-center justify-between flex-wrap gap-y-2 mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
           <div className="flex items-center gap-3">
             {/* Milestone count */}
             <span

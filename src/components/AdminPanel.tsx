@@ -4,8 +4,9 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchCh
 import { isAddress, parseUnits, formatUnits } from 'viem'
 import { Loader2, Plus, UserCheck, UserMinus, Sliders, Ban, AlertTriangle, AlertCircle, CheckCircle2, ExternalLink, ShieldOff, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
-import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID } from '../contracts/proofSpring'
-import { useRequiredApprovals, usePendingFunderRefund, usePaused } from '../hooks/useProofSpring'
+import { PROOF_SPRING_ABI, getContractAddress } from '../contracts/proofSpring'
+import { useRequiredApprovals, usePendingFunderRefund, usePaused, useActiveChainId } from '../hooks/useProofSpring'
+import { buildTxExplorerUrl } from '@/onchain-facts'
 import { useGrants } from '../context/GrantsContext'
 import type { Grant } from '../hooks/useProofSpring'
 import { parseOnchainError } from '../utils/errors'
@@ -31,18 +32,20 @@ type Tab = 'create' | 'reviewers' | 'settings' | 'cancel'
 export function AdminPanel({ onGrantCreated }: Props) {
   const { chainId, address } = useAccount()
   const { switchChain } = useSwitchChain()
+  const activeChainId = useActiveChainId()
+  const PROOF_SPRING_ADDRESS = getContractAddress(activeChainId)
   const { data: requiredApprovals, refetch: refetchRA } = useRequiredApprovals()
   const { data: isPaused, refetch: refetchPaused } = usePaused()
   const [tab, setTab] = useState<Tab>('create')
-  const isWrongChain = chainId !== ARC_TESTNET_ID
+  const isWrongChain = chainId !== activeChainId
 
   const withChain = useCallback((action: () => void) => {
     if (isWrongChain) {
-      switchChain({ chainId: ARC_TESTNET_ID }, { onSuccess: () => action() })
+      switchChain({ chainId: activeChainId }, { onSuccess: () => action() })
       return
     }
     action()
-  }, [isWrongChain, switchChain])
+  }, [isWrongChain, switchChain, activeChainId])
 
   // ── Create grant ──
   const [grantTitle, setGrantTitle] = useState('')
@@ -214,6 +217,27 @@ export function AdminPanel({ onGrantCreated }: Props) {
       abi: PROOF_SPRING_ABI,
       functionName: 'claimFunderRefund',
     }, { onError: (e) => toast.error(parseOnchainError(e)) })
+  })
+
+  // ── Reassign builder ──
+  const [reassignGrantId, setReassignGrantId] = useState('')
+  const [reassignBuilderAddr, setReassignBuilderAddr] = useState('')
+  const reassignBuilderValid = isAddress(reassignBuilderAddr) || !reassignBuilderAddr
+  const { writeContract: reassignWrite, data: reassignHash, isPending: reassignPending } = useWriteContract()
+  const { isLoading: reassignConfirming } = useWaitForTransactionReceipt({ hash: reassignHash })
+  const handleReassign = () => withChain(() => {
+    const gid = parseInt(reassignGrantId)
+    if (isNaN(gid) || gid < 1) { toast.error('Enter a valid grant ID.'); return }
+    if (!isAddress(reassignBuilderAddr)) { toast.error('Enter a valid builder address.'); return }
+    reassignWrite({
+      address: PROOF_SPRING_ADDRESS,
+      abi: PROOF_SPRING_ABI,
+      functionName: 'adminReassignBuilder',
+      args: [BigInt(gid), reassignBuilderAddr],
+    }, {
+      onSuccess: () => { toast.success('Builder reassigned.'); setReassignGrantId(''); setReassignBuilderAddr('') },
+      onError: (e) => toast.error(parseOnchainError(e)),
+    })
   })
 
   // Pause / unpause
@@ -429,7 +453,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
               onClick={handleCreate}
               disabled={createPending || createConfirming || !canCreate || isWrongChain || justCreated}
               title={
-                isWrongChain ? 'Switch to Arc Testnet first'
+                isWrongChain ? 'Switch network first'
                 : createDisabledReason ?? undefined
               }
               className="w-full h-10 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50 transition-all btn-focus"
@@ -484,7 +508,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
                 onClick={handleAddReviewer}
                 disabled={addRPending || addRConfirming || !addReviewerAddr || isWrongChain}
                 title={
-                  isWrongChain ? 'Switch to Arc Testnet first'
+                  isWrongChain ? 'Switch network first'
                   : !addReviewerAddr ? 'Enter an address first'
                   : undefined
                 }
@@ -523,7 +547,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
                 onClick={handleRemoveReviewer}
                 disabled={removeRPending || removeRConfirming || !removeReviewerAddr || isWrongChain}
                 title={
-                  isWrongChain ? 'Switch to Arc Testnet first'
+                  isWrongChain ? 'Switch network first'
                   : !removeReviewerAddr ? 'Enter an address first'
                   : undefined
                 }
@@ -561,7 +585,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
                 onClick={handleSetRA}
                 disabled={setRAPending || setRAConfirming || !newRequired || !newRequiredValid || isWrongChain}
                 title={
-                  isWrongChain ? 'Switch to Arc Testnet first'
+                  isWrongChain ? 'Switch network first'
                   : !newRequiredValid ? 'Must be a whole number ≥ 1'
                   : undefined
                 }
@@ -621,6 +645,55 @@ export function AdminPanel({ onGrantCreated }: Props) {
                 </button>
               )}
             </div>
+            {/* Reassign Builder */}
+            <div
+              className="rounded-xl border p-4 space-y-3 mt-2"
+              style={{ background: 'var(--surface-muted)', borderColor: 'var(--border)' }}
+            >
+              <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>
+                Reassign Builder
+              </div>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                Replaces the assigned builder on a grant (e.g. if the original builder abandons work).
+              </p>
+              <div className="space-y-2">
+                <input
+                  value={reassignGrantId}
+                  onChange={e => setReassignGrantId(e.target.value)}
+                  placeholder="Grant ID (e.g. 1)"
+                  inputMode="numeric"
+                  className={`${inputCls} tabular-nums`}
+                  style={inputStyle}
+                  aria-label="Grant ID to reassign builder"
+                />
+                <input
+                  value={reassignBuilderAddr}
+                  onChange={e => setReassignBuilderAddr(e.target.value)}
+                  placeholder="New builder 0x… address"
+                  className={`${inputCls} mono`}
+                  style={{
+                    ...inputStyle,
+                    borderColor: reassignBuilderAddr && !reassignBuilderValid ? 'var(--danger)' : 'var(--border)',
+                  }}
+                  aria-label="New builder address"
+                />
+                {reassignBuilderAddr && !reassignBuilderValid && (
+                  <p className="text-xs flex items-center gap-1" style={{ color: 'var(--danger)' }}>
+                    <AlertCircle size={11} /> Not a valid 0x address
+                  </p>
+                )}
+                <button
+                  onClick={handleReassign}
+                  disabled={reassignPending || reassignConfirming || !reassignGrantId || !reassignBuilderAddr || isWrongChain}
+                  title={isWrongChain ? 'Switch network first' : undefined}
+                  className="w-full h-10 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-50 btn-focus"
+                  style={{ background: 'var(--brand)' }}
+                >
+                  {(reassignPending || reassignConfirming) ? <Loader2 size={13} className="animate-spin" /> : <UserCheck size={13} aria-hidden="true" />}
+                  {reassignPending ? 'Confirm in wallet…' : reassignConfirming ? 'Reassigning…' : 'Reassign Builder'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -646,9 +719,12 @@ export function AdminPanel({ onGrantCreated }: Props) {
               </div>
             ) : (
               cancellableGrants.map(g => {
-                const total = parseFloat(formatUnits(g.totalAmount, 6))
-                const released = parseFloat(formatUnits(g.releasedAmount, 6))
-                const refundable = total - released
+                const gTotalAmt    = BigInt(g.totalAmount)
+                const gReleasedAmt = BigInt(g.releasedAmount)
+                const gRefundableAmt = gTotalAmt - gReleasedAmt
+                const gTotalStr    = formatUnits(gTotalAmt, 6)
+                const gReleasedStr = formatUnits(gReleasedAmt, 6)
+                const gRefundableStr = formatUnits(gRefundableAmt, 6)
                 const isThisOne = cancelGrantId === g.id
                 const confirmingThis = confirmCancelId === g.id
 
@@ -667,9 +743,9 @@ export function AdminPanel({ onGrantCreated }: Props) {
                           {g.title}
                         </div>
                         <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-                          ${total.toFixed(2)} total · ${released.toFixed(2)} released ·{' '}
-                          <strong style={{ color: refundable > 0 ? 'var(--spring)' : 'var(--subtle)' }}>
-                            ${refundable.toFixed(2)} refundable
+                          ${gTotalStr} total · ${gReleasedStr} released ·{' '}
+                          <strong style={{ color: gRefundableAmt > 0n ? 'var(--spring)' : 'var(--subtle)' }}>
+                            ${gRefundableStr} refundable
                           </strong>
                         </div>
                       </div>
@@ -697,7 +773,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
                           <AlertTriangle size={13} className="shrink-0 mt-0.5" />
                           <span>
                             This will permanently cancel the grant and refund{' '}
-                            <strong>${refundable.toFixed(2)} USDC</strong> to the funder.
+                            <strong>${gRefundableStr} USDC</strong> to the funder.
                             This cannot be undone.
                           </span>
                         </div>
@@ -743,7 +819,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
               >
                 <div>
                   <div className="text-sm font-semibold" style={{ color: 'var(--spring)' }}>
-                    ${parseFloat(formatUnits(pendingFunderRefund, 6)).toFixed(2)} USDC refund ready
+                    ${formatUnits(pendingFunderRefund, 6)} USDC refund ready
                   </div>
                   <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
                     From cancelled grant — claim to your wallet
@@ -752,7 +828,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
                 <button
                   onClick={handleClaimRefund}
                   disabled={claimRefundPending || claimRefundConfirming || isWrongChain}
-                  title={isWrongChain ? 'Switch to Arc Testnet first' : undefined}
+                  title={isWrongChain ? 'Switch network first' : undefined}
                   className="px-4 h-9 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 disabled:opacity-60 shrink-0 btn-focus"
                   style={{ background: 'var(--spring)' }}
                 >
@@ -765,7 +841,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
             )}
             {claimRefundHash && (
               <a
-                href={`https://explorer.testnet.arc.io/tx/${claimRefundHash}`}
+                href={buildTxExplorerUrl(activeChainId, claimRefundHash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs btn-focus rounded"
