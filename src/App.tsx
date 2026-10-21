@@ -231,7 +231,6 @@ export default function App() {
   const [statusFilter, setStatusFilter]   = useState<StatusFilter>('all')
 
   const { grants, grantCount, isLoading: grantsLoading, isError: grantsError, refetch: refetchGrants } = useGrants()
-  const grantCountData = grantCount > 0 ? BigInt(grantCount) : undefined
 
   const { data: contractAdmin } = useContractAdmin()
   const { data: isReviewer }    = useIsReviewer(address)
@@ -439,24 +438,17 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* Skeleton — grantCount resolving */}
-                    {!grantsError && grantCountData === undefined && (
+                    {/* Skeleton — grants loading */}
+                    {!grantsError && grantsLoading && grants.length === 0 && (
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {Array.from({ length: 3 }, (_, i) => <GrantSkeleton key={i} />)}
-                      </div>
-                    )}
-
-                    {/* Skeleton — grants fetching */}
-                    {!grantsError && grantCountData !== undefined && grantsLoading && grantCount > 0 && grants.length === 0 && (
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {Array.from({ length: Math.min(grantCount, 6) }, (_, i) => (
+                        {Array.from({ length: grantCount > 0 ? Math.min(grantCount, 6) : 3 }, (_, i) => (
                           <GrantSkeleton key={i} />
                         ))}
                       </div>
                     )}
 
                     {/* Empty state */}
-                    {!grantsError && grantCountData !== undefined && !grantsLoading && grants.length === 0 && (
+                    {!grantsError && !grantsLoading && grants.length === 0 && (
                       <div
                         className="card rounded-2xl p-12 text-center space-y-4"
                       >

@@ -195,8 +195,8 @@ export function GrantsProvider({ children, chainId: propChainId }: { children: R
     else void refetchMulticall()
   }, [refetchCount, refetchBatch, refetchMulticall, useBatch])
 
-  const isLoading = countLoading || (useBatch ? batchLoading : multicallLoading)
-  const isError = countError || (useBatch ? batchError : multicallError)
+  const isLoading = countLoading || (grantCount > 0 ? (useBatch ? batchLoading : multicallLoading) : false)
+  const isError = countError || (grantCount > 0 ? (useBatch ? batchError : multicallError) : false)
 
   return (
     <GrantsContext.Provider value={{ grants, grantCount, isLoading, isError, refetch }}>
