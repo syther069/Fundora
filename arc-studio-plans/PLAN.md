@@ -1,3 +1,83 @@
+# GrantFlow — Passkey + Gasless Onboarding (Circle Modular Wallets on Arc)
+
+## Implementation Plan: Passkey + Gasless Onboarding
+
+### Summary
+Add a passkey (FaceID / TouchID / Windows Hello) sign-in path to GrantFlow that creates a Circle MSCA (smart contract account) on Arc Testnet, with gas sponsored entirely by Circle Gas Station. Existing ConnectKit/wagmi wallet users are completely unaffected.
+
+---
+
+### ABI verification (confirmed)
+
+| Function | ABI signature | Status |
+|---|---|---|
+| `applyForGrant` | `(grantId: uint256)` | Correct |
+| `submitMilestoneEvidence` | `(grantId: uint256, milestoneIndex: uint256, evidenceUri: string)` | Correct — cast index to `BigInt` at callsite |
+| `claimPayment` | `()` | Correct |
+
+---
+
+### Gas Station setup — required before transactions work
+
+Complete in Circle Console (Testnet mode) before testing:
+1. Console → **Gas Station** → **Create Policy**
+2. Select **Arc Testnet**, sponsorship type "All user operations"
+3. Save — without this, every `paymaster: true` call fails with AA33
+
+---
+
+### Architecture
+
+- **Blockchain:** Arc Testnet only (chain ID 5042002)
+- **Contract:** Existing ProofSpring at `0xef34036dda3960a1cd57b1368329bfcf29700259` — no contract changes
+- **Passkey SDK:** `@circle-fin/modular-wallets-core` (^1.0.16, already installed) + `viem/account-abstraction`
+- **Chain import:** `arcTestnet` from `viem/chains` (confirmed in viem ^2.56.3)
+- **Transport path:** `${clientUrl}/arcTestnet`
+- **Frontend:** React context + modal + Header patch + GrantDetail patch; existing CSS vars
+- **Wallet:** ConnectKit untouched; passkey is a parallel sign-in path
+
+---
+
+### Files to Create / Modify
+
+1. **`src/utils/modularWallet.ts`** — New. Engine: `getModularClients`, `registerPasskey`, `loginPasskey`, `sendGaslessContractCall`. Typed with `P256Credential`, `SmartAccount`, `BundlerClient`.
+2. **`src/context/PasskeyContext.tsx`** — New. Provider with localStorage credential persistence. Exposes: `smartAccountAddress`, `account`, `isPasskeyConnected`, `isLoading`, `error`, `register(username)`, `login()`, `disconnect()`, `executeGaslessAction(functionName, args)`.
+3. **`src/components/PasskeyAuthModal.tsx`** — New. Two-tab modal (Create / Sign In). Gasless badge. Loading + readable errors for `NotAllowedError`, `SecurityError`, `InvalidStateError`. Missing-key guard shows setup notice instead of crashing.
+4. **`src/components/Header.tsx`** — Modify. Keep ConnectKitButton untouched. Add passkey button when disconnected; show smart account address + Disconnect when passkey-connected.
+5. **`src/components/GrantDetail.tsx`** — Modify. Branch `applyForGrant`, `submitMilestoneEvidence`, `claimPayment` to gasless path when `isPasskeyConnected`; all other actions stay wagmi-only.
+6. **`src/App.tsx`** — Modify. Wrap provider tree with `<PasskeyProvider>`.
+7. **`.env`** — Add `VITE_CLIENT_KEY=` placeholder and `VITE_CLIENT_URL=https://modular-sdk.circle.com/v1/rpc/w3s/buidl`.
+
+---
+
+### Build Sequence
+
+1. Write `src/utils/modularWallet.ts`
+2. Write `src/context/PasskeyContext.tsx`
+3. Write `src/components/PasskeyAuthModal.tsx`
+4. Patch `src/components/Header.tsx`
+5. Patch `src/components/GrantDetail.tsx`
+6. Patch `src/App.tsx`
+7. Add env var placeholders to `.env`
+8. Run `tsc --noEmit`, fix type errors
+
+---
+
+### Done When
+
+- [ ] `npm run typecheck` passes with zero errors
+- [ ] "Passkey (Gasless)" button appears in Header when no wallet is connected
+- [ ] Create account tab triggers a browser passkey prompt on submit
+- [ ] Smart account address is displayed in Header after registration
+- [ ] Sign out and sign back in restores the same smart account address
+- [ ] Apply, submit evidence, and claim all work via gasless path with zero USDC in account
+- [ ] ConnectKit wallet users retain all existing functionality unchanged
+- [ ] Admin and Reviewer flows are ConnectKit-only and untouched
+- [ ] Missing `VITE_CLIENT_KEY` shows a setup notice instead of crashing
+- [ ] Gas Station policy configured in Circle Console before testing
+
+---
+
 # GrantFlow — Cross-Chain Grant Funding via CCTP
 
 ## Implementation Plan: Cross-Chain Grant Funding (CCTP via Circle App Kit)

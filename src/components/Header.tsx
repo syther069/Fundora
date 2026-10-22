@@ -1,6 +1,11 @@
+import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
+import { Fingerprint } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
 import { ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/proofSpring'
+import { usePasskeyContext } from '../context/PasskeyContext'
+import { PasskeyAuthModal } from './PasskeyAuthModal'
 
 function LogoMark() {
   return (
@@ -52,36 +57,113 @@ function ChainBadge() {
 }
 
 export function Header() {
+  const { isConnected } = useAccount()
+  const { isPasskeyConnected, smartAccountAddress, disconnect: passkeyDisconnect } = usePasskeyContext()
+  const [showPasskeyModal, setShowPasskeyModal] = useState(false)
+
+  // Short address display: 0x1234…abcd
+  const shortAddr = smartAccountAddress
+    ? `${smartAccountAddress.slice(0, 6)}…${smartAccountAddress.slice(-4)}`
+    : ''
+
   return (
-    <header
-      className="sticky top-0 z-40 border-b"
-      style={{
-        background: 'rgba(255,251,245,0.85)',
-        borderColor: 'var(--border)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-      }}
-    >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-        {/* Left: logo + name + badge */}
-        <div className="flex items-center gap-3 min-w-0">
-          <LogoMark />
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className="font-jakarta font-bold text-lg tracking-tight shrink-0"
-              style={{ color: 'var(--ink)', letterSpacing: '-0.025em' }}
-            >
-              GrantFlow
-            </span>
-            <ChainBadge />
+    <>
+      <header
+        className="sticky top-0 z-40 border-b"
+        style={{
+          background: 'rgba(255,251,245,0.85)',
+          borderColor: 'var(--border)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+        }}
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+          {/* Left: logo + name + badge */}
+          <div className="flex items-center gap-3 min-w-0">
+            <LogoMark />
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className="font-jakarta font-bold text-lg tracking-tight shrink-0"
+                style={{ color: 'var(--ink)', letterSpacing: '-0.025em' }}
+              >
+                GrantFlow
+              </span>
+              <ChainBadge />
+            </div>
+          </div>
+
+          {/* Right: wallet area */}
+          <div className="shrink-0 flex items-center gap-2">
+            {/* ConnectKit button — always present */}
+            <ConnectKitButton />
+
+            {/* Passkey: connected state */}
+            {isPasskeyConnected && smartAccountAddress && (
+              <div className="flex items-center gap-1.5">
+                <div
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold"
+                  style={{
+                    background: 'var(--brand-light)',
+                    borderColor: 'var(--brand-border)',
+                    color: 'var(--brand)',
+                  }}
+                >
+                  <Fingerprint size={11} aria-hidden="true" />
+                  Smart Account (Gasless)
+                </div>
+                <span
+                  className="hidden md:block text-xs font-mono px-2 py-1 rounded-lg border"
+                  style={{
+                    background: 'var(--warm-bg-2)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--ink)',
+                  }}
+                  title={smartAccountAddress}
+                >
+                  {shortAddr}
+                </span>
+                <button
+                  onClick={passkeyDisconnect}
+                  className="text-xs font-semibold px-2.5 py-1 rounded-full border transition-all hover:opacity-70 btn-focus"
+                  style={{
+                    color: 'var(--muted)',
+                    borderColor: 'var(--border)',
+                    background: 'var(--warm-surface)',
+                  }}
+                  aria-label="Disconnect passkey account"
+                >
+                  Disconnect
+                </button>
+              </div>
+            )}
+
+            {/* Passkey: sign-in button — only when no wallet AND no passkey */}
+            {!isConnected && !isPasskeyConnected && (
+              <button
+                onClick={() => setShowPasskeyModal(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full border transition-all hover:opacity-80 btn-focus"
+                style={{
+                  background: 'var(--brand-light)',
+                  borderColor: 'var(--brand-border)',
+                  color: 'var(--brand)',
+                }}
+                aria-label="Sign in with passkey — gasless account"
+              >
+                <Fingerprint size={13} aria-hidden="true" />
+                <span className="hidden sm:inline">Passkey (Gasless)</span>
+                <span className="sm:hidden">Passkey</span>
+              </button>
+            )}
           </div>
         </div>
+      </header>
 
-        {/* Right: wallet connect */}
-        <div className="shrink-0">
-          <ConnectKitButton />
-        </div>
-      </div>
-    </header>
+      {/* Passkey modal — AnimatePresence for enter/exit animation */}
+      <AnimatePresence>
+        {showPasskeyModal && (
+          <PasskeyAuthModal onClose={() => setShowPasskeyModal(false)} />
+        )}
+      </AnimatePresence>
+    </>
   )
 }
