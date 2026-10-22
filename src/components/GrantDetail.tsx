@@ -4,7 +4,7 @@ import { erc20Abi, formatUnits } from 'viem'
 import {
   ArrowLeft, ExternalLink, Send, CheckCircle, XCircle,
   AlertCircle, Loader2, Ban, AlertTriangle, Info,
-  CalendarDays, CheckCircle2,
+  CalendarDays, CheckCircle2, Globe,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PROOF_SPRING_ABI, ARC_TESTNET_ID, ARC_MAINNET_ID, getContractAddress } from '../contracts/proofSpring'
@@ -24,6 +24,8 @@ import {
 } from '../hooks/useProofSpring'
 import type { Grant, Milestone } from '../hooks/useProofSpring'
 import { parseOnchainError } from '../utils/errors'
+import { CrossChainFundModal } from './CrossChainFundModal'
+import { getCCTPChain } from '../utils/cctpFunding'
 
 interface Props {
   grant: Grant
@@ -76,6 +78,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
   const PROOF_SPRING_ADDRESS = getContractAddress(activeChainId)
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
+  const [showCrossChainModal, setShowCrossChainModal] = useState(false)
 
   const { data: liveGrant } = useGrant(grantProp.id)
   const grant = liveGrant ?? grantProp
@@ -265,6 +268,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
   const isObserver = !!address && !isAdmin && !isReviewer && !isBuilder
 
   return (
+    <>
     <div className="max-w-2xl mx-auto space-y-5">
       {/* Back link */}
       <button
@@ -455,6 +459,25 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
                       Fund grant
                     </span>
                   </div>
+                )}
+
+                {/* Cross-chain funding option — visible on Arc or any CCTP source chain */}
+                {!fundBusy && (chainId === activeChainId || (chainId !== undefined && getCCTPChain(chainId) !== undefined)) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCrossChainModal(true)}
+                    disabled={grant.totalAmount === 0n}
+                    className="w-full h-9 rounded-full text-xs font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 btn-focus"
+                    style={{
+                      background: 'var(--warm-surface)',
+                      border: '1.5px solid var(--brand-border)',
+                      color: 'var(--brand)',
+                    }}
+                    title="Bridge USDC from Base, Arbitrum, or Ethereum to Arc via CCTP, then fund the grant"
+                  >
+                    <Globe size={12} />
+                    Fund from Base / Arbitrum / ETH via CCTP
+                  </button>
                 )}
               </div>
             )}
@@ -746,6 +769,22 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
         ))}
       </div>
     </div>
+
+    {/* Cross-chain funding modal — outside the layout div so it overlays correctly */}
+    {showCrossChainModal && (
+      <CrossChainFundModal
+        grant={grant}
+        activeChainId={activeChainId}
+        onClose={() => { setShowCrossChainModal(false) }}
+        onBridgeComplete={() => {
+          toast.success(
+            'USDC arrived on Arc! Switch to Arc network and click "Fund Grant" to deposit it into the grant escrow.',
+            { duration: 8000 },
+          )
+        }}
+      />
+    )}
+    </>
   )
 }
 
@@ -1076,6 +1115,7 @@ function MilestoneCard({
           </div>
         )}
       </div>
+
     </article>
   )
 }
