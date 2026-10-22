@@ -1,14 +1,25 @@
 import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
+import { Compass, FolderGit2, CheckSquare, ShieldCheck } from 'lucide-react'
 import { ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/proofSpring'
+
+export type NavTab = 'explore' | 'my-activity' | 'reviews' | 'admin'
+
+interface HeaderProps {
+  activeTab: NavTab | 'detail'
+  onSelectTab: (tab: NavTab) => void
+  isAdmin: boolean
+  isReviewer?: boolean
+  myActivityCount?: number
+  pendingReviewsCount?: number
+}
 
 function LogoMark() {
   return (
     <div
-      className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+      className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
       style={{
-        background: 'linear-gradient(135deg, #6366f1 0%, #0d9488 100%)',
-        boxShadow: '0 2px 8px rgba(99,102,241,.35)',
+        background: 'linear-gradient(135deg, #4F46E5 0%, #0F766E 100%)',
       }}
       aria-hidden="true"
     >
@@ -21,72 +32,217 @@ function LogoMark() {
   )
 }
 
-function ChainBadge() {
-  const { chainId } = useAccount()
+function NetworkSwitcher() {
+  const { chainId, isConnected } = useAccount()
   const { switchChain } = useSwitchChain()
+  if (!isConnected) return null
+
   const isMainnet = chainId === ARC_MAINNET_ID
   const isTestnet = chainId === ARC_TESTNET_ID
-  // Show nothing for unsupported chains — WrongChainBanner handles that
-  if (chainId && !isMainnet && !isTestnet) return null
-
-  const targetChainId = isMainnet ? ARC_TESTNET_ID : ARC_MAINNET_ID
-  const targetName = isMainnet ? 'Arc Testnet' : 'Arc Mainnet'
 
   return (
-    <button
-      type="button"
-      onClick={() => switchChain?.({ chainId: targetChainId })}
-      title={`Connected to ${isMainnet ? 'Arc Mainnet' : 'Arc Testnet'}. Click to switch to ${targetName}.`}
-      className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border transition-transform hover:scale-105 active:scale-95 cursor-pointer btn-focus"
-      style={isMainnet ? {
-        background: 'var(--brand-light)',
-        color: 'var(--brand)',
-        borderColor: 'var(--brand-border)',
-      } : {
-        background: 'var(--teal-light)',
-        color: 'var(--teal)',
-        borderColor: 'var(--teal-border)',
+    <div
+      className="flex items-center gap-0.5 rounded-full border p-0.5"
+      style={{
+        background: 'var(--warm-bg-2)',
+        borderColor: 'var(--border)',
       }}
+      role="group"
+      aria-label="Arc Network Switcher"
     >
-      <span
-        className="w-1.5 h-1.5 rounded-full animate-pulse"
-        style={{ background: isMainnet ? 'var(--brand)' : 'var(--teal)' }}
-        aria-hidden="true"
-      />
-      {isMainnet ? 'Arc Mainnet' : 'Arc Testnet'}
-    </button>
+      <button
+        type="button"
+        onClick={() => switchChain?.({ chainId: ARC_TESTNET_ID })}
+        className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+          isTestnet ? 'shadow-xs' : 'opacity-70 hover:opacity-100'
+        }`}
+        style={{
+          background: isTestnet ? 'var(--teal)' : 'transparent',
+          color: isTestnet ? '#ffffff' : 'var(--muted)',
+        }}
+        aria-pressed={isTestnet}
+      >
+        <span
+          className={`w-1.5 h-1.5 rounded-full ${isTestnet ? 'bg-white animate-pulse' : 'bg-stone-400'}`}
+          aria-hidden="true"
+        />
+        Testnet
+      </button>
+
+      <button
+        type="button"
+        onClick={() => switchChain?.({ chainId: ARC_MAINNET_ID })}
+        className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+          isMainnet ? 'shadow-xs' : 'opacity-70 hover:opacity-100'
+        }`}
+        style={{
+          background: isMainnet ? 'var(--brand)' : 'transparent',
+          color: isMainnet ? '#ffffff' : 'var(--muted)',
+        }}
+        aria-pressed={isMainnet}
+      >
+        <span
+          className={`w-1.5 h-1.5 rounded-full ${isMainnet ? 'bg-white animate-pulse' : 'bg-stone-400'}`}
+          aria-hidden="true"
+        />
+        Mainnet
+      </button>
+    </div>
   )
 }
 
-export function Header() {
+export function Header({
+  activeTab,
+  onSelectTab,
+  isAdmin,
+  isReviewer,
+  myActivityCount = 0,
+  pendingReviewsCount = 0,
+}: HeaderProps) {
+  const tabs = [
+    {
+      id: 'explore' as NavTab,
+      label: 'Explore',
+      icon: Compass,
+      badge: null,
+      visible: true,
+    },
+    {
+      id: 'my-activity' as NavTab,
+      label: 'My Activity',
+      icon: FolderGit2,
+      badge: myActivityCount > 0 ? myActivityCount : null,
+      visible: true,
+    },
+    {
+      id: 'reviews' as NavTab,
+      label: 'Review Queue',
+      icon: CheckSquare,
+      badge: pendingReviewsCount > 0 ? pendingReviewsCount : null,
+      visible: true,
+    },
+    {
+      id: 'admin' as NavTab,
+      label: 'Admin',
+      icon: ShieldCheck,
+      badge: null,
+      visible: isAdmin,
+    },
+  ]
+
   return (
     <header
-      className="sticky top-0 z-40 border-b"
+      className="sticky top-0 z-40 border-b transition-colors"
       style={{
-        background: 'rgba(255,251,245,0.85)',
+        background: 'rgba(255,251,245,0.92)',
         borderColor: 'var(--border)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
       }}
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-        {/* Left: logo + name + badge */}
-        <div className="flex items-center gap-3 min-w-0">
-          <LogoMark />
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className="font-jakarta font-bold text-lg tracking-tight shrink-0"
-              style={{ color: 'var(--ink)', letterSpacing: '-0.025em' }}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="h-16 flex items-center justify-between gap-4">
+          {/* Left: Brand */}
+          <div className="flex items-center gap-4 min-w-0">
+            <button
+              onClick={() => onSelectTab('explore')}
+              className="flex items-center gap-2.5 text-left cursor-pointer group focus:outline-none"
+              title="GrantFlow Home"
             >
-              GrantFlow
-            </span>
-            <ChainBadge />
+              <LogoMark />
+              <div className="flex flex-col">
+                <span
+                  className="font-jakarta font-extrabold text-lg tracking-tight leading-none"
+                  style={{ color: 'var(--ink)', letterSpacing: '-0.025em' }}
+                >
+                  GrantFlow
+                </span>
+                <span className="text-[10px] font-semibold text-muted tracking-wider uppercase">
+                  on Arc
+                </span>
+              </div>
+            </button>
+
+            {/* Desktop Navigation Tabs */}
+            <nav className="hidden md:flex items-center gap-1 ml-4" aria-label="Main Navigation">
+              {tabs
+                .filter(t => t.visible)
+                .map(tab => {
+                  const Icon = tab.icon
+                  const isActive = activeTab === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => onSelectTab(tab.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer btn-focus"
+                      style={{
+                        background: isActive ? 'var(--brand-light)' : 'transparent',
+                        color: isActive ? 'var(--brand)' : 'var(--muted)',
+                        border: isActive ? '1px solid var(--brand-border)' : '1px solid transparent',
+                      }}
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      <Icon size={14} style={{ color: isActive ? 'var(--brand)' : 'currentColor' }} />
+                      <span>{tab.label}</span>
+                      {tab.badge !== null && (
+                        <span
+                          className="px-1.5 py-0.2 rounded-full text-[10px] font-bold"
+                          style={{
+                            background: isActive ? 'var(--brand)' : 'var(--border)',
+                            color: isActive ? '#fff' : 'var(--ink)',
+                          }}
+                        >
+                          {tab.badge}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+            </nav>
+          </div>
+
+          {/* Right: Network toggle & Wallet */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <NetworkSwitcher />
+            <ConnectKitButton />
           </div>
         </div>
 
-        {/* Right: wallet connect */}
-        <div className="shrink-0">
-          <ConnectKitButton />
+        {/* Mobile Navigation Bar (< md) */}
+        <div className="md:hidden pb-3 pt-1 overflow-x-auto no-scrollbar flex items-center gap-1 border-t" style={{ borderColor: 'var(--border)' }}>
+          {tabs
+            .filter(t => t.visible)
+            .map(tab => {
+              const Icon = tab.icon
+              const isActive = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => onSelectTab(tab.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer"
+                  style={{
+                    background: isActive ? 'var(--brand-light)' : 'var(--warm-bg-2)',
+                    color: isActive ? 'var(--brand)' : 'var(--muted)',
+                    border: `1px solid ${isActive ? 'var(--brand-border)' : 'var(--border)'}`,
+                  }}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <Icon size={13} style={{ color: isActive ? 'var(--brand)' : 'currentColor' }} />
+                  <span>{tab.label}</span>
+                  {tab.badge !== null && (
+                    <span
+                      className="px-1.5 py-0.2 rounded-full text-[10px] font-bold"
+                      style={{
+                        background: isActive ? 'var(--brand)' : 'var(--border)',
+                        color: isActive ? '#fff' : 'var(--ink)',
+                      }}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
         </div>
       </div>
     </header>
