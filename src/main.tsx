@@ -22,6 +22,7 @@ import { Toaster } from 'sonner'
 import { config } from './config'
 import App from './App'
 import { GrantsProvider } from './context/GrantsContext'
+import { PasskeyProvider } from './context/PasskeyContext'
 import './index.css'
 
 // 3.2 — staleTime set globally; data survives component unmounts
@@ -75,10 +76,12 @@ createRoot(document.getElementById('root')!).render(
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <ConnectKitProvider>
-          {/* 3.3 — GrantsProvider wraps the whole app so any component can read grant state */}
-          <GrantsProvider>
-            <App />
-          </GrantsProvider>
+          <PasskeyProvider>
+            {/* 3.3 — GrantsProvider wraps the whole app so any component can read grant state */}
+            <GrantsProvider>
+              <App />
+            </GrantsProvider>
+          </PasskeyProvider>
           <StudioWatermark />
           <Toaster position="top-center" />
         </ConnectKitProvider>

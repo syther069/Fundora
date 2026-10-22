@@ -12,6 +12,7 @@ import { getUsdc, buildTxExplorerUrl } from '@/onchain-facts'
 import { StatusBadge } from './StatusBadge'
 import { DeadlineBadge } from './DeadlineBadge'
 import { CrossChainFundModal } from './CrossChainFundModal'
+import { usePasskey } from '../context/PasskeyContext'
 import {
   usePendingFunderRefund,
   useMilestones,
@@ -77,12 +78,17 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [showCrossChainModal, setShowCrossChainModal] = useState(false)
 
+  const { isPasskeyConnected, smartAccountAddress, executeGaslessAction } = usePasskey()
+  const effectiveAddress = isPasskeyConnected ? (smartAccountAddress as `0x${string}`) : address
+  const [gaslessApplying, setGaslessApplying] = useState(false)
+  const [gaslessClaiming, setGaslessClaiming] = useState(false)
+
   const { data: liveGrant } = useGrant(grantProp.id)
   const grant = liveGrant ?? grantProp
 
-  const { data: isReviewer } = useIsReviewer(address)
+  const { data: isReviewer } = useIsReviewer(effectiveAddress)
   const { data: requiredApprovals } = useRequiredApprovals()
-  const { data: pendingWithdrawal, refetch: refetchWithdrawal } = usePendingWithdrawal(address)
+  const { data: pendingWithdrawal, refetch: refetchWithdrawal } = usePendingWithdrawal(effectiveAddress)
   const milestoneCount = Number(grant.milestoneCount)
 
   const {
@@ -94,9 +100,9 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
 
   const milestones: Milestone[] = (milestoneResults ?? []).map(r => r.result as Milestone).filter(Boolean)
 
-  const isBuilder = address?.toLowerCase() === grant.builder?.toLowerCase()
+  const isBuilder = !!effectiveAddress && effectiveAddress.toLowerCase() === grant.builder?.toLowerCase()
   const noBuilder = grant.builder === '0x0000000000000000000000000000000000000000'
-  const isWrongChain = chainId !== activeChainId
+  const isWrongChain = !isPasskeyConnected && chainId !== activeChainId
 
   const usdcFact = getUsdc(activeChainId) ?? getUsdc(ARC_TESTNET_ID)!
   const USDC_ADDRESS = usdcFact.address as `0x${string}`
@@ -163,14 +169,29 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
     if (cancelSuccess) { onRefresh(); toast.success('Grant cancelled. Unreleased USDC refunded.') }
   }, [cancelSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleApply = () => withChain(() => {
-    applyWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
-      functionName: 'applyForGrant',
-      args: [grant.id],
-    }, { onError: (e) => toast.error(parseOnchainError(e)) })
-  })
+  const handleApply = () => {
+    if (isPasskeyConnected) {
+      setGaslessApplying(true)
+      executeGaslessAction('applyForGrant', [grant.id])
+        .then(() => {
+          toast.success('Application confirmed gaslessly on Arc via Circle Gas Station!')
+          void refetchMilestones()
+          onRefresh()
+        })
+        .catch((e) => toast.error(parseOnchainError(e)))
+        .finally(() => setGaslessApplying(false))
+      return
+    }
+
+    withChain(() => {
+      applyWrite({
+        address: PROOF_SPRING_ADDRESS,
+        abi: PROOF_SPRING_ABI,
+        functionName: 'applyForGrant',
+        args: [grant.id],
+      }, { onError: (e) => toast.error(parseOnchainError(e)) })
+    })
+  }
 
   // Capture current time once at mount for deadline comparison
   const [mountTimeSec] = useState<bigint>(() => BigInt(Math.floor(Date.now() / 1000)))
@@ -214,12 +235,27 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
     )
   })
 
-  const handleClaim = () => withChain(() => {
-    claimWrite(
-      { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'claimPayment' },
-      { onError: (e) => toast.error(parseOnchainError(e)) },
-    )
-  })
+  const handleClaim = () => {
+    if (isPasskeyConnected) {
+      setGaslessClaiming(true)
+      executeGaslessAction('claimPayment', [])
+        .then(() => {
+          toast.success('Payment claimed gaslessly on Arc via Circle Gas Station!')
+          void refetchWithdrawal()
+          onRefresh()
+        })
+        .catch((e) => toast.error(parseOnchainError(e)))
+        .finally(() => setGaslessClaiming(false))
+      return
+    }
+
+    withChain(() => {
+      claimWrite(
+        { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'claimPayment' },
+        { onError: (e) => toast.error(parseOnchainError(e)) },
+      )
+    })
+  }
 
   const handleCancel = () => withChain(() => {
     cancelWrite(
@@ -480,16 +516,26 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
             {grant.status === 1 && noBuilder && !isReviewer && !isAdmin && (
               <button
                 onClick={handleApply}
-                disabled={applyPending || applyConfirming || isWrongChain}
-                title={isWrongChain ? 'Switch network first' : undefined}
-                className="w-full h-11 rounded-full text-sm font-bold text-white transition-all disabled:opacity-60 flex items-center justify-center gap-2 btn-focus mb-3"
+                disabled={isPasskeyConnected ? gaslessApplying : (applyPending || applyConfirming || isWrongChain)}
+                title={!isPasskeyConnected && isWrongChain ? 'Switch network first' : undefined}
+                className="w-full h-11 rounded-full text-sm font-bold text-white transition-all disabled:opacity-60 flex items-center justify-center gap-2 btn-focus mb-3 cursor-pointer"
                 style={{
-                  background: 'var(--brand)',
+                  background: isPasskeyConnected
+                    ? 'linear-gradient(135deg, #014BAA 0%, #27187E 100%)'
+                    : 'var(--brand)',
                   boxShadow: '0 4px 14px rgba(1, 75, 170, 0.30)',
                 }}
               >
-                {(applyPending || applyConfirming) && <Loader2 size={14} className="animate-spin" />}
-                {applyPending ? 'Confirm in wallet…' : applyConfirming ? 'Confirming…' : 'Apply as Builder'}
+                {(applyPending || applyConfirming || gaslessApplying) && <Loader2 size={14} className="animate-spin" />}
+                {gaslessApplying
+                  ? 'Applying Gaslessly…'
+                  : applyPending
+                  ? 'Confirm in wallet…'
+                  : applyConfirming
+                  ? 'Confirming…'
+                  : isPasskeyConnected
+                  ? 'Apply as Builder (⚡ Gasless Passkey)'
+                  : 'Apply as Builder'}
               </button>
             )}
 
@@ -529,13 +575,21 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
                 </div>
                 <button
                   onClick={handleClaim}
-                  disabled={claimPending || claimConfirming || isWrongChain}
-                  title={isWrongChain ? 'Switch network first' : undefined}
-                  className="px-4 h-9 rounded-full text-sm font-bold text-white flex items-center gap-1.5 disabled:opacity-60 shrink-0 self-start sm:self-auto btn-focus"
+                  disabled={isPasskeyConnected ? gaslessClaiming : (claimPending || claimConfirming || isWrongChain)}
+                  title={!isPasskeyConnected && isWrongChain ? 'Switch network first' : undefined}
+                  className="px-4 h-9 rounded-full text-sm font-bold text-white flex items-center gap-1.5 disabled:opacity-60 shrink-0 self-start sm:self-auto btn-focus cursor-pointer"
                   style={{ background: 'var(--teal)', boxShadow: '0 2px 8px rgba(13,148,136,0.25)' }}
                 >
-                  {(claimPending || claimConfirming) && <Loader2 size={12} className="animate-spin" />}
-                  {claimPending ? 'Confirm…' : claimConfirming ? 'Claiming…' : 'Claim USDC'}
+                  {(claimPending || claimConfirming || gaslessClaiming) && <Loader2 size={12} className="animate-spin" />}
+                  {gaslessClaiming
+                    ? 'Claiming Gaslessly…'
+                    : claimPending
+                    ? 'Confirm…'
+                    : claimConfirming
+                    ? 'Claiming…'
+                    : isPasskeyConnected
+                    ? 'Claim USDC (Gasless)'
+                    : 'Claim USDC'}
                 </button>
               </div>
             )}
@@ -759,6 +813,8 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
             activeChainId={activeChainId}
             onRefreshMilestones={() => void refetchMilestones()}
             onRefresh={onRefresh}
+            isPasskeyConnected={isPasskeyConnected}
+            executeGaslessAction={executeGaslessAction}
           />
         ))}
       </div>
@@ -792,6 +848,8 @@ interface MilestoneCardProps {
   activeChainId: number
   onRefreshMilestones: () => void
   onRefresh: () => void
+  isPasskeyConnected?: boolean
+  executeGaslessAction?: (functionName: string, args: any[]) => Promise<string>
 }
 
 // Left border colour per milestone status
@@ -806,6 +864,7 @@ function MilestoneCard({
   milestone, index, grant,
   isBuilder, isReviewer, requiredApprovals,
   isWrongChain, activeChainId, onRefreshMilestones, onRefresh,
+  isPasskeyConnected, executeGaslessAction,
 }: MilestoneCardProps) {
   const { address } = useAccount()
   const { data: approvalCount } = useApprovalCount(grant.id, index)
@@ -824,6 +883,8 @@ function MilestoneCard({
   const [cachedEvidenceUri, setCachedEvidenceUri] = useState<string | null>(() =>
     readEvidenceFromCache(activeChainId, grant.id, index)
   )
+
+  const [gaslessSubmitting, setGaslessSubmitting] = useState(false)
 
   const { writeContract: submitWrite, isPending: submitPending } = useWriteContract()
   const { writeContract: reviewWrite, isPending: reviewPending } = useWriteContract()
@@ -844,7 +905,7 @@ function MilestoneCard({
   const canSubmit = isBuilder && grant.status === 1 && (milestone.status === 0 || milestone.status === 3)
   const canReview = isReviewer && milestone.status === 1 && !hasVoted
   const alreadyVoted = isReviewer && milestone.status === 1 && hasVoted === true
-  const isSubmitting = submitPending || submitConfirming
+  const isSubmitting = submitPending || submitConfirming || gaslessSubmitting
   const isReviewing = reviewPending || reviewConfirming
   const submitConfirmed = !!submitHash && !submitConfirming && !submitPending
   const reviewConfirmed = !!reviewHash && !reviewConfirming && !reviewPending
@@ -855,6 +916,24 @@ function MilestoneCard({
   const handleSubmit = () => {
     const uri = evidenceInput.trim()
     if (!uri) { toast.error('Please enter an evidence URL or IPFS CID.'); return }
+
+    if (isPasskeyConnected && executeGaslessAction) {
+      setGaslessSubmitting(true)
+      executeGaslessAction('submitMilestoneEvidence', [grant.id, BigInt(index), uri])
+        .then((hash) => {
+          setSubmitHash(hash as `0x${string}`)
+          setEvidenceInput('')
+          saveEvidenceToCache(activeChainId, grant.id, index, uri)
+          setCachedEvidenceUri(uri)
+          toast.success('Milestone evidence submitted gaslessly on Arc!')
+          onRefreshMilestones()
+          onRefresh()
+        })
+        .catch((e) => toast.error(parseOnchainError(e)))
+        .finally(() => setGaslessSubmitting(false))
+      return
+    }
+
     submitWrite(
       {
         address: PROOF_SPRING_ADDRESS,
@@ -1020,22 +1099,31 @@ function MilestoneCard({
             </div>
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting || !evidenceInput.trim() || isWrongChain}
+              disabled={isSubmitting || !evidenceInput.trim() || (!isPasskeyConnected && isWrongChain)}
               title={
-                isWrongChain ? 'Switch network first'
+                !isPasskeyConnected && isWrongChain ? 'Switch network first'
                 : !evidenceInput.trim() ? 'Enter an evidence URL first'
                 : undefined
               }
-              className="w-full h-9 rounded-full text-sm font-bold text-white flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all btn-focus"
+              className="w-full h-9 rounded-full text-sm font-bold text-white flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all btn-focus cursor-pointer"
               style={{
-                background: 'var(--brand)',
+                background: isPasskeyConnected
+                  ? 'linear-gradient(135deg, #014BAA 0%, #27187E 100%)'
+                  : 'var(--brand)',
                 boxShadow: isSubmitting ? 'none' : '0 2px 8px rgba(1, 75, 170, 0.25)',
               }}
             >
-              {isSubmitting ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} aria-hidden="true" />}
-              {isSubmitting
-                ? (submitPending ? 'Confirm in wallet…' : 'Submitting…')
-                : 'Submit Evidence'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  <span>{gaslessSubmitting ? 'Submitting Gaslessly…' : submitPending ? 'Confirm in wallet…' : 'Submitting…'}</span>
+                </>
+              ) : (
+                <>
+                  <Send size={13} aria-hidden="true" />
+                  <span>{isPasskeyConnected ? 'Submit Evidence (⚡ Gasless)' : 'Submit Evidence'}</span>
+                </>
+              )}
             </button>
             {submitHash && (
               <a

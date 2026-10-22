@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
-import { Compass, FolderGit2, CheckSquare, ShieldCheck } from 'lucide-react'
+import { Compass, FolderGit2, CheckSquare, ShieldCheck, Fingerprint, LogOut } from 'lucide-react'
 import { ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/proofSpring'
+import { usePasskey } from '../context/PasskeyContext'
+import { PasskeyAuthModal } from './PasskeyAuthModal'
 
 export type NavTab = 'explore' | 'my-activity' | 'reviews' | 'admin'
 
@@ -99,6 +102,9 @@ export function Header({
   myActivityCount = 0,
   pendingReviewsCount = 0,
 }: HeaderProps) {
+  const [showPasskeyModal, setShowPasskeyModal] = useState(false)
+  const { isPasskeyConnected, smartAccountAddress, username, disconnect } = usePasskey()
+
   const tabs = [
     {
       id: 'explore' as NavTab,
@@ -201,8 +207,54 @@ export function Header({
             </nav>
           </div>
 
-          {/* Right: Network toggle & Wallet */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          {/* Right: Passkey / Network toggle & Wallet */}
+          <div className="flex items-center gap-2 shrink-0">
+            {isPasskeyConnected ? (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs"
+                style={{
+                  background: 'var(--brand-light)',
+                  borderColor: 'var(--brand-border)',
+                  color: 'var(--brand)',
+                }}
+              >
+                <Fingerprint size={13} className="shrink-0" />
+                <span className="font-bold text-[11px] truncate max-w-[80px] sm:max-w-[110px]">
+                  {username || `${smartAccountAddress?.slice(0, 6)}…${smartAccountAddress?.slice(-4)}`}
+                </span>
+                <span className="hidden sm:inline-block px-1 py-0.2 rounded text-[9px] font-extrabold uppercase bg-brand text-white">
+                  Gasless
+                </span>
+                <button
+                  type="button"
+                  onClick={disconnect}
+                  className="ml-0.5 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer"
+                  title="Disconnect Passkey"
+                  aria-label="Disconnect Passkey"
+                >
+                  <LogOut size={12} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowPasskeyModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold transition-all cursor-pointer shadow-xs hover:opacity-90 active:scale-[0.98]"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(1, 75, 170, 0.08) 0%, rgba(39, 24, 126, 0.08) 100%)',
+                  borderColor: 'var(--brand-border)',
+                  color: 'var(--brand)',
+                }}
+                title="Create or sign in with biometric Passkey (Gasless)"
+              >
+                <Fingerprint size={13} />
+                <span className="hidden sm:inline">Passkey</span>
+                <span className="px-1 py-0.2 rounded text-[9px] font-extrabold uppercase bg-brand text-white">
+                  Gasless
+                </span>
+              </button>
+            )}
+
             <NetworkSwitcher />
             <ConnectKitButton />
           </div>
@@ -245,6 +297,11 @@ export function Header({
             })}
         </div>
       </div>
+
+      <PasskeyAuthModal
+        isOpen={showPasskeyModal}
+        onClose={() => setShowPasskeyModal(false)}
+      />
     </header>
   )
 }
