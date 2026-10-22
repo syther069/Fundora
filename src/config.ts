@@ -4,7 +4,7 @@
  */
 
 import { http, createConfig } from 'wagmi'
-import { mainnet } from 'wagmi/chains'
+import { mainnet, baseSepolia, arbitrumSepolia, sepolia, base, arbitrum } from 'wagmi/chains'
 import { arcTestnet, arc } from 'viem/chains'
 import { injected } from 'wagmi/connectors'
 import { registerChain } from './tracing'
@@ -14,11 +14,16 @@ registerChain(arcTestnet.id, arcTestnet.rpcUrls.default.http[0])
 registerChain(arc.id, arc.rpcUrls.default.http[0])
 
 export const config = createConfig({
-  chains: [arcTestnet, arc, mainnet], // arc = mainnet; mainnet needed for ENS resolution
+  chains: [arcTestnet, arc, baseSepolia, arbitrumSepolia, sepolia, base, arbitrum, mainnet],
   connectors: [injected()],
   transports: {
-    [arcTestnet.id]: http(arcTestnet.rpcUrls.default.http[0]),
-    [arc.id]:        http('https://rpc.mainnet.arc.io'),
-    [mainnet.id]:    http(), // ENS resolution uses mainnet
+    [arcTestnet.id]:       http(arcTestnet.rpcUrls.default.http[0]),
+    [arc.id]:              http('https://rpc.mainnet.arc.io'),
+    [baseSepolia.id]:      http(),
+    [arbitrumSepolia.id]:  http(),
+    [sepolia.id]:          http(),
+    [base.id]:             http(),
+    [arbitrum.id]:         http(),
+    [mainnet.id]:          http(), // ENS resolution uses mainnet
   },
 })

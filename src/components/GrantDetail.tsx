@@ -4,13 +4,14 @@ import { erc20Abi, formatUnits } from 'viem'
 import {
   ArrowLeft, ExternalLink, Send, CheckCircle, XCircle,
   AlertCircle, Loader2, Ban, AlertTriangle, Info,
-  CalendarDays, CheckCircle2,
+  CalendarDays, CheckCircle2, Globe,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PROOF_SPRING_ABI, ARC_TESTNET_ID, ARC_MAINNET_ID, getContractAddress } from '../contracts/proofSpring'
 import { getUsdc, buildTxExplorerUrl } from '@/onchain-facts'
 import { StatusBadge } from './StatusBadge'
 import { DeadlineBadge } from './DeadlineBadge'
+import { CrossChainFundModal } from './CrossChainFundModal'
 import {
   usePendingFunderRefund,
   useMilestones,
@@ -74,6 +75,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
   const PROOF_SPRING_ADDRESS = getContractAddress(activeChainId)
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
+  const [showCrossChainModal, setShowCrossChainModal] = useState(false)
 
   const { data: liveGrant } = useGrant(grantProp.id)
   const grant = liveGrant ?? grantProp
@@ -415,25 +417,43 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
             )}
 
             {/* Fund grant */}
-            {grant.status === 0 && isAdmin && (
+            {grant.status === 0 && (
               <div className="space-y-2 mb-3">
+                {isAdmin && (
+                  <button
+                    onClick={handleFund}
+                    disabled={fundBusy || isWrongChain || grant.totalAmount === 0n}
+                    title={
+                      isWrongChain ? 'Switch network first'
+                      : grant.totalAmount === 0n ? 'Grant has no milestone amounts set'
+                      : undefined
+                    }
+                    className="w-full h-11 rounded-full text-sm font-bold text-white transition-all disabled:opacity-60 flex items-center justify-center gap-2 btn-focus cursor-pointer"
+                    style={{
+                      background: 'var(--brand)',
+                      boxShadow: fundBusy ? 'none' : '0 4px 14px rgba(1, 75, 170, 0.30)',
+                    }}
+                  >
+                    {fundBusy && <Loader2 size={14} className="animate-spin" />}
+                    {fundBtnLabel}
+                  </button>
+                )}
+
+                {/* Circle CCTP Cross-Chain Funding Button */}
                 <button
-                  onClick={handleFund}
-                  disabled={fundBusy || isWrongChain || grant.totalAmount === 0n}
-                  title={
-                    isWrongChain ? 'Switch network first'
-                    : grant.totalAmount === 0n ? 'Grant has no milestone amounts set'
-                    : undefined
-                  }
-                  className="w-full h-11 rounded-full text-sm font-bold text-white transition-all disabled:opacity-60 flex items-center justify-center gap-2 btn-focus"
+                  type="button"
+                  onClick={() => setShowCrossChainModal(true)}
+                  className="w-full h-10 rounded-full text-xs font-bold border flex items-center justify-center gap-2 transition-all hover:bg-black/5 btn-focus cursor-pointer"
                   style={{
-                    background: 'var(--brand)',
-                    boxShadow: fundBusy ? 'none' : '0 4px 14px rgba(1, 75, 170, 0.30)',
+                    background: 'var(--warm-surface)',
+                    borderColor: 'var(--brand)',
+                    color: 'var(--brand)',
                   }}
                 >
-                  {fundBusy && <Loader2 size={14} className="animate-spin" />}
-                  {fundBtnLabel}
+                  <Globe size={13} />
+                  <span>Fund from Base / Arbitrum / Ethereum (Circle CCTP)</span>
                 </button>
+
                 {fundBusy && (
                   <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--muted)' }}>
                     <span
@@ -742,6 +762,20 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
           />
         ))}
       </div>
+
+      {/* Cross-chain CCTP modal */}
+      <CrossChainFundModal
+        grant={grant}
+        isOpen={showCrossChainModal}
+        onClose={() => setShowCrossChainModal(false)}
+        activeChainId={activeChainId}
+        onSuccessOnArc={() => {
+          onRefresh()
+          if (isAdmin) {
+            handleFund()
+          }
+        }}
+      />
     </div>
   )
 }
