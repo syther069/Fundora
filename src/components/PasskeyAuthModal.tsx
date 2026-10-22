@@ -45,7 +45,7 @@ export function PasskeyAuthModal({ isOpen, onClose }: PasskeyAuthModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="passkey-modal-title"
@@ -59,7 +59,7 @@ export function PasskeyAuthModal({ isOpen, onClose }: PasskeyAuthModalProps) {
 
       {/* Modal Card */}
       <div
-        className="relative w-full max-w-md rounded-3xl p-6 sm:p-7 shadow-2xl border transition-all"
+        className="relative w-full max-w-md rounded-3xl p-6 sm:p-7 shadow-2xl border transition-all my-auto max-h-[90vh] overflow-y-auto"
         style={{
           background: 'var(--warm-surface)',
           borderColor: 'var(--border)',
