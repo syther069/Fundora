@@ -6,10 +6,10 @@ import type { Grant } from '../hooks/useProofSpring'
 
 // Accent bar colour per grant status
 const STATUS_ACCENT: Record<number, string> = {
-  0: '#6366f1', // Open — brand indigo
-  1: '#0d9488', // Active — teal
-  2: '#0d9488', // Completed — teal
-  3: '#e11d48', // Cancelled — coral
+  0: '#014BAA', // Open — Royal Blue
+  1: '#0F766E', // Active — Teal
+  2: '#27187E', // Completed — Persian Indigo
+  3: '#BE123C', // Cancelled — Coral
 }
 
 function formatGrantDate(createdAt: bigint): string {
@@ -49,7 +49,7 @@ export function GrantCard({ grant, onClick, isNavigating }: Props) {
   const progressPct = totalAmt > 0n ? Math.round(Number((releasedAmt * 100n) / totalAmt)) : 0
   const noBuilder  = grant.builder === '0x0000000000000000000000000000000000000000'
   const createdDate = formatGrantDate(grant.createdAt)
-  const accentColor = STATUS_ACCENT[grant.status] ?? '#6366f1'
+  const accentColor = STATUS_ACCENT[grant.status] ?? '#014BAA'
 
   return (
     <button

@@ -34,7 +34,7 @@ function PublicHero() {
     <div
       className="card rounded-3xl p-6 sm:p-8 mb-6 relative overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, rgba(238,242,255,0.85) 0%, rgba(240,253,250,0.85) 100%)',
+        background: 'linear-gradient(135deg, rgba(234, 242, 253, 0.95) 0%, rgba(248, 243, 240, 0.95) 100%)',
         borderColor: 'var(--brand-border)',
         boxShadow: 'var(--shadow-sm)',
       }}

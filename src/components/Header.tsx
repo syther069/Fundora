@@ -19,7 +19,7 @@ function LogoMark() {
     <div
       className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
       style={{
-        background: 'linear-gradient(135deg, #4F46E5 0%, #0F766E 100%)',
+        background: 'linear-gradient(135deg, #014BAA 0%, #27187E 100%)',
       }}
       aria-hidden="true"
     >
@@ -134,7 +134,7 @@ export function Header({
     <header
       className="sticky top-0 z-40 border-b transition-colors"
       style={{
-        background: 'rgba(255,251,245,0.92)',
+        background: 'rgba(248, 243, 240, 0.92)',
         borderColor: 'var(--border)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',

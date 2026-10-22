@@ -60,12 +60,11 @@ function formatGrantDate(ts: bigint): string {
   } catch { return '' }
 }
 
-// Status → accent colour for the hero band
 const STATUS_BAND: Record<number, string> = {
-  0: '#6366f1',
-  1: '#0d9488',
-  2: '#0d9488',
-  3: '#e11d48',
+  0: '#014BAA', // Open — Royal Blue
+  1: '#0F766E', // Active — Teal
+  2: '#27187E', // Completed — Persian Indigo
+  3: '#BE123C', // Cancelled — Coral
 }
 
 export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, activeChainId: propChainId }: Props) {
@@ -429,7 +428,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
                   className="w-full h-11 rounded-full text-sm font-bold text-white transition-all disabled:opacity-60 flex items-center justify-center gap-2 btn-focus"
                   style={{
                     background: 'var(--brand)',
-                    boxShadow: fundBusy ? 'none' : '0 4px 14px rgba(99,102,241,0.30)',
+                    boxShadow: fundBusy ? 'none' : '0 4px 14px rgba(1, 75, 170, 0.30)',
                   }}
                 >
                   {fundBusy && <Loader2 size={14} className="animate-spin" />}
@@ -466,7 +465,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
                 className="w-full h-11 rounded-full text-sm font-bold text-white transition-all disabled:opacity-60 flex items-center justify-center gap-2 btn-focus mb-3"
                 style={{
                   background: 'var(--brand)',
-                  boxShadow: '0 4px 14px rgba(99,102,241,0.30)',
+                  boxShadow: '0 4px 14px rgba(1, 75, 170, 0.30)',
                 }}
               >
                 {(applyPending || applyConfirming) && <Loader2 size={14} className="animate-spin" />}
@@ -996,7 +995,7 @@ function MilestoneCard({
               className="w-full h-9 rounded-full text-sm font-bold text-white flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all btn-focus"
               style={{
                 background: 'var(--brand)',
-                boxShadow: isSubmitting ? 'none' : '0 2px 8px rgba(99,102,241,0.25)',
+                boxShadow: isSubmitting ? 'none' : '0 2px 8px rgba(1, 75, 170, 0.25)',
               }}
             >
               {isSubmitting ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} aria-hidden="true" />}
