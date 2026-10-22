@@ -27,7 +27,7 @@ function PublicHero() {
     { icon: <Zap size={13} />,         label: 'Instant USDC payouts',    color: 'var(--amber)'  },
     { icon: <ShieldCheck size={13} />,  label: 'Onchain proof hashes',    color: 'var(--teal)'   },
     { icon: <Users size={13} />,        label: 'Reviewer governance',     color: 'var(--brand)'  },
-    { icon: <TrendingUp size={13} />,   label: 'Milestone escrow escrow', color: 'var(--violet)' },
+    { icon: <TrendingUp size={13} />,   label: 'Milestone escrow',        color: 'var(--violet)' },
   ]
 
   return (
