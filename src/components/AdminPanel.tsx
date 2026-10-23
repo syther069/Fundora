@@ -78,15 +78,25 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const { writeContract: createWrite, data: createHash, isPending: createPending } = useWriteContract()
   const { isLoading: createConfirming, isSuccess: createSuccess } = useWaitForTransactionReceipt({ hash: createHash })
 
-  // A4: brief "Grant Created ✓" dwell on the button before resetting
+  // A4: brief "Grant Created ✓" dwell on the button after block confirmation
   const [justCreated, setJustCreated] = useState(false)
   const dwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Only toast + refresh in the effect; state changes go into the write onSuccess
+  const isCreating = createPending || createConfirming
+
+  // Only clear form and show success toast when transaction receipt is mined onchain
   useEffect(() => {
     if (createSuccess) {
-      onGrantCreated()
-      toast.success('Grant created successfully!')
+      toast.success('Grant created onchain!')
+      queueMicrotask(() => {
+        setGrantTitle('')
+        setGrantDesc('')
+        setGrantDeadline('')
+        setMilestoneRows([{ title: '', desc: '', amount: '' }])
+        setJustCreated(true)
+        dwellTimer.current = setTimeout(() => setJustCreated(false), 2000)
+        onGrantCreated()
+      })
     }
     return () => { if (dwellTimer.current) clearTimeout(dwellTimer.current) }
   }, [createSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -111,13 +121,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
       ],
     }, {
       onSuccess: () => {
-        setGrantTitle('')
-        setGrantDesc('')
-        setGrantDeadline('')
-        setMilestoneRows([{ title: '', desc: '', amount: '' }])
-        // A4: trigger dwell — state update in event callback, not in effect
-        setJustCreated(true)
-        dwellTimer.current = setTimeout(() => setJustCreated(false), 1500)
+        toast.info('Grant creation transaction submitted. Awaiting block confirmation…')
       },
       onError: (e) => toast.error(parseOnchainError(e)),
     })
@@ -160,7 +164,14 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const addAddrValid = isAddress(addReviewerAddr) || !addReviewerAddr
   const { writeContract: addRWrite, data: addRHash, isPending: addRPending } = useWriteContract()
   const { isLoading: addRConfirming, isSuccess: addRSuccess } = useWaitForTransactionReceipt({ hash: addRHash })
-  useEffect(() => { if (addRSuccess) toast.success('Reviewer added!') }, [addRSuccess])
+  useEffect(() => {
+    if (addRSuccess) {
+      toast.success('Reviewer added onchain!')
+      queueMicrotask(() => {
+        setAddReviewerAddr('')
+      })
+    }
+  }, [addRSuccess])
 
   const handleAddReviewer = () => withChain(() => {
     if (!isAddress(addReviewerAddr)) { toast.error('Enter a valid 0x address.'); return }
@@ -170,7 +181,6 @@ export function AdminPanel({ onGrantCreated }: Props) {
       functionName: 'addReviewer',
       args: [addReviewerAddr],
     }, {
-      onSuccess: () => setAddReviewerAddr(''),
       onError: (e) => toast.error(parseOnchainError(e)),
     })
   })
@@ -180,7 +190,14 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const removeAddrValid = isAddress(removeReviewerAddr) || !removeReviewerAddr
   const { writeContract: removeRWrite, data: removeRHash, isPending: removeRPending } = useWriteContract()
   const { isLoading: removeRConfirming, isSuccess: removeRSuccess } = useWaitForTransactionReceipt({ hash: removeRHash })
-  useEffect(() => { if (removeRSuccess) toast.success('Reviewer removed.') }, [removeRSuccess])
+  useEffect(() => {
+    if (removeRSuccess) {
+      toast.success('Reviewer removed onchain.')
+      queueMicrotask(() => {
+        setRemoveReviewerAddr('')
+      })
+    }
+  }, [removeRSuccess])
 
   const handleRemoveReviewer = () => withChain(() => {
     if (!isAddress(removeReviewerAddr)) { toast.error('Enter a valid 0x address.'); return }
@@ -190,7 +207,6 @@ export function AdminPanel({ onGrantCreated }: Props) {
       functionName: 'removeReviewer',
       args: [removeReviewerAddr],
     }, {
-      onSuccess: () => setRemoveReviewerAddr(''),
       onError: (e) => toast.error(parseOnchainError(e)),
     })
   })
@@ -203,7 +219,13 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const { isLoading: setRAConfirming, isSuccess: setRASuccess } = useWaitForTransactionReceipt({ hash: setRAHash })
 
   useEffect(() => {
-    if (setRASuccess) { void refetchRA(); toast.success('Required approvals updated!') }
+    if (setRASuccess) {
+      toast.success('Required approvals updated!')
+      queueMicrotask(() => {
+        setNewRequired('')
+        void refetchRA()
+      })
+    }
   }, [setRASuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSetRA = () => withChain(() => {
@@ -325,6 +347,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
             <div className="space-y-1">
               <input
                 value={grantTitle}
+                disabled={isCreating}
                 onChange={e => setGrantTitle(e.target.value)}
                 placeholder="Grant title *"
                 className={inputCls}
@@ -339,10 +362,11 @@ export function AdminPanel({ onGrantCreated }: Props) {
             {/* Description */}
             <textarea
               value={grantDesc}
+              disabled={isCreating}
               onChange={e => setGrantDesc(e.target.value)}
               placeholder="Grant description — what are you funding? (optional)"
               rows={2}
-              className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2 resize-none transition-all"
+              className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2 resize-none transition-all disabled:opacity-50"
               style={inputStyle}
               aria-label="Grant description"
             />
@@ -355,6 +379,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
               <input
                 type="date"
                 value={grantDeadline}
+                disabled={isCreating}
                 min={todayDateString}
                 onChange={e => setGrantDeadline(e.target.value)}
                 className={inputCls}
@@ -385,7 +410,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
                     {milestoneRows.length > 1 && (
                       <button
                         onClick={() => removeMilestoneRow(i)}
-                        className="text-xs font-medium"
+                        disabled={isCreating}
+                        className="text-xs font-medium disabled:opacity-40"
                         style={{ color: 'var(--danger)' }}
                         aria-label={`Remove milestone ${i + 1}`}
                       >
@@ -395,6 +421,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
                   </div>
                   <input
                     value={row.title}
+                    disabled={isCreating}
                     onChange={e => updateMilestoneRow(i, 'title', e.target.value)}
                     placeholder="Milestone title *"
                     className={inputCls}
@@ -406,6 +433,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
                   />
                   <input
                     value={row.desc}
+                    disabled={isCreating}
                     onChange={e => updateMilestoneRow(i, 'desc', e.target.value)}
                     placeholder="Description (optional)"
                     className={inputCls}
@@ -415,10 +443,11 @@ export function AdminPanel({ onGrantCreated }: Props) {
                   <div className="flex items-center gap-2">
                     <input
                       value={row.amount}
+                      disabled={isCreating}
                       onChange={e => updateMilestoneRow(i, 'amount', e.target.value)}
                       placeholder="0.00"
                       inputMode="decimal"
-                      className="flex-1 h-10 rounded-xl border px-3 text-sm outline-none focus:ring-2 tabular-nums transition-all"
+                      className="flex-1 h-10 rounded-xl border px-3 text-sm outline-none focus:ring-2 tabular-nums transition-all disabled:opacity-50"
                       style={{
                         ...inputStyle,
                         borderColor: row.amount && parseUsdcAmount(row.amount) === null
@@ -439,7 +468,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
               ))}
               <button
                 onClick={addMilestoneRow}
-                className="w-full h-9 rounded-xl border text-sm font-medium flex items-center justify-center gap-1.5 transition-all hover:opacity-80 btn-focus"
+                disabled={isCreating}
+                className="w-full h-9 rounded-xl border text-sm font-medium flex items-center justify-center gap-1.5 transition-all hover:opacity-80 btn-focus disabled:opacity-50"
                 style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
               >
                 <Plus size={13} aria-hidden="true" /> Add Milestone

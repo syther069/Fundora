@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useReadContract } from 'wagmi'
 import { erc20Abi, formatUnits } from 'viem'
 import {
   ArrowLeft, ExternalLink, Send, CheckCircle, XCircle,
@@ -9,7 +9,6 @@ import {
 import { toast } from 'sonner'
 import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/proofSpring'
 import { getUsdc, buildTxExplorerUrl } from '@/onchain-facts'
-import { parseAmount } from '@/onchain-money'
 import { StatusBadge } from './StatusBadge'
 import {
   useMilestones,
@@ -88,6 +87,20 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
   const usdcFact = getUsdc(targetChainId) || getUsdc(ARC_TESTNET_ID)!
   const USDC_ADDRESS = usdcFact.address as `0x${string}`
 
+  // Query USDC allowance for ProofSpring contract on Arc (6 decimals)
+  const { data: usdcAllowance, refetch: refetchAllowance } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args: address ? [address, PROOF_SPRING_ADDRESS] : undefined,
+    query: {
+      enabled: !!address && grant.status === 0,
+      refetchInterval: 12_000,
+    },
+    chainId: targetChainId,
+  })
+  const hasSufficientAllowance = (usdcAllowance ?? 0n) >= grant.totalAmount
+
   const isBuilder = !!address && address.toLowerCase() === grant.builder?.toLowerCase()
   const noBuilder = !grant.builder || grant.builder === '0x0000000000000000000000000000000000000000'
 
@@ -155,9 +168,18 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
 
   // ── Approve USDC + Fund grant (two-step) ──
   const { writeContract: approveWrite, data: approveHash, isPending: approvePending } = useWriteContract()
-  const { isLoading: approveConfirming } = useWaitForTransactionReceipt({ hash: approveHash })
+  const { isLoading: approveConfirming, isSuccess: approveSuccess } = useWaitForTransactionReceipt({ hash: approveHash })
   const { writeContract: fundWrite, data: fundHash, isPending: fundPending } = useWriteContract()
   const { isLoading: fundConfirming, isSuccess: fundSuccess } = useWaitForTransactionReceipt({ hash: fundHash })
+
+  // Refresh allowance and notify admin when approval tx confirms
+  useEffect(() => {
+    if (approveSuccess) {
+      void refetchAllowance()
+      toast.success('USDC spend approved! Click "Step 2/2 — Fund Grant" to complete escrow funding.')
+    }
+  }, [approveSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (fundSuccess) { onRefresh(); toast.success('Grant funded! Builders can now apply.') }
   }, [fundSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -186,18 +208,19 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
   })
 
   const handleFund = () => withChain(() => {
-    const amount = parseAmount(ARC_TESTNET_ID, formatUnits(grant.totalAmount, 6))
+    // If allowance already covers totalAmount, execute fundGrant directly
+    if (hasSufficientAllowance) {
+      fundWrite(
+        { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'fundGrant', args: [grant.id] },
+        { onError: (e) => toast.error(parseOnchainError(e)) },
+      )
+      return
+    }
+
+    // Step 1: Request allowance approval for exact grant amount (6 decimals)
     approveWrite(
-      { address: USDC_ADDRESS, abi: erc20Abi, functionName: 'approve', args: [PROOF_SPRING_ADDRESS, amount.raw] },
-      {
-        onSuccess: () => {
-          fundWrite(
-            { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'fundGrant', args: [grant.id] },
-            { onError: (e) => toast.error(parseOnchainError(e)) },
-          )
-        },
-        onError: (e) => toast.error(parseOnchainError(e)),
-      },
+      { address: USDC_ADDRESS, abi: erc20Abi, functionName: 'approve', args: [PROOF_SPRING_ADDRESS, grant.totalAmount] },
+      { onError: (e) => toast.error(parseOnchainError(e)) },
     )
   })
 
@@ -229,20 +252,19 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
   // C5: creation date
   const createdDate = formatGrantDate(grant.createdAt)
 
-  // C6: two-step fund flow state
-  const fundStep =
-    approvePending ? 1
-    : approveConfirming ? 1
-    : fundPending ? 2
-    : fundConfirming ? 2
-    : 0
-  const fundBusy = fundStep > 0
+  // Two-step fund flow state
+  const isApproving = approvePending || approveConfirming
+  const isFunding = fundPending || fundConfirming
+  const fundBusy = isApproving || isFunding
+
   const fundBtnLabel =
-    fundStep === 1 && approvePending ? 'Step 1/2 — Confirm approval in wallet…'
-    : fundStep === 1 ? 'Step 1/2 — Approving USDC spend…'
-    : fundStep === 2 && fundPending ? 'Step 2/2 — Confirm funding in wallet…'
-    : fundStep === 2 ? 'Step 2/2 — Funding grant…'
-    : `Fund Grant — $${total.toFixed(2)} USDC`
+    approvePending ? 'Step 1/2 — Confirm approval in wallet…'
+    : approveConfirming ? 'Step 1/2 — Approving USDC spend…'
+    : fundPending ? 'Step 2/2 — Confirm funding in wallet…'
+    : fundConfirming ? 'Step 2/2 — Funding grant…'
+    : hasSufficientAllowance ? `Fund Grant — $${total.toFixed(2)} USDC`
+    : approveSuccess ? `Step 2/2 — Fund Grant ($${total.toFixed(2)} USDC)`
+    : `Step 1/2 — Approve $${total.toFixed(2)} USDC`
 
   // C7: observer = connected but has no role on this grant
   const isObserver = !!address && !isAdmin && !isReviewer && !isBuilder
@@ -387,7 +409,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
               onClick={handleFund}
               disabled={fundBusy || isWrongChain || grant.totalAmount === 0n}
               title={
-                isWrongChain ? 'Switch to Arc Testnet first'
+                isWrongChain ? 'Switch to Arc first'
                 : grant.totalAmount === 0n ? 'Grant has no milestone amounts set'
                 : undefined
               }
@@ -398,22 +420,27 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
               {fundBtnLabel}
             </button>
 
-            {/* C6: two-step progress indicator — visible during both steps */}
-            {fundBusy && (
+            {/* Two-step progress indicator when approval is needed */}
+            {!hasSufficientAllowance && (
               <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--muted)' }}>
                 <span
                   className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{ background: fundStep >= 1 ? 'var(--spring)' : 'var(--subtle)', fontSize: '10px' }}
-                >1</span>
-                <span style={{ color: fundStep === 1 ? 'var(--ink)' : 'var(--subtle)', fontWeight: fundStep === 1 ? 600 : 400 }}>
+                  style={{
+                    background: approveSuccess ? 'var(--success)' : isApproving ? 'var(--spring)' : 'var(--subtle)',
+                    fontSize: '10px',
+                  }}
+                >
+                  {approveSuccess ? '✓' : '1'}
+                </span>
+                <span style={{ color: isApproving || !approveSuccess ? 'var(--ink)' : 'var(--muted)', fontWeight: isApproving ? 600 : 400 }}>
                   Approve USDC
                 </span>
                 <span style={{ color: 'var(--subtle)' }}>→</span>
                 <span
                   className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{ background: fundStep >= 2 ? 'var(--spring)' : 'var(--subtle)', fontSize: '10px' }}
+                  style={{ background: approveSuccess || isFunding ? 'var(--spring)' : 'var(--subtle)', fontSize: '10px' }}
                 >2</span>
-                <span style={{ color: fundStep === 2 ? 'var(--ink)' : 'var(--subtle)', fontWeight: fundStep === 2 ? 600 : 400 }}>
+                <span style={{ color: approveSuccess || isFunding ? 'var(--ink)' : 'var(--subtle)', fontWeight: isFunding ? 600 : 400 }}>
                   Fund grant
                 </span>
               </div>
@@ -472,7 +499,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
             <button
               onClick={handleClaim}
               disabled={claimPending || claimConfirming || isWrongChain}
-              title={isWrongChain ? 'Switch to Arc Testnet first' : undefined}
+              title={isWrongChain ? 'Switch to Arc first' : undefined}
               className="px-4 h-9 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 disabled:opacity-60 shrink-0 btn-focus"
               style={{ background: 'var(--spring)' }}
             >
@@ -484,7 +511,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
 
         {claimHash && (
           <a
-            href={buildTxExplorerUrl(ARC_TESTNET_ID, claimHash)}
+            href={buildTxExplorerUrl(targetChainId, claimHash)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 text-xs"
@@ -943,7 +970,7 @@ function MilestoneCard({
           </button>
           {submitHash && (
             <a
-              href={buildTxExplorerUrl(ARC_TESTNET_ID, submitHash)}
+              href={buildTxExplorerUrl(targetChainId, submitHash)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-xs"
@@ -976,7 +1003,7 @@ function MilestoneCard({
             <button
               onClick={() => handleReview(true)}
               disabled={isReviewing || isWrongChain}
-              title={isWrongChain ? 'Switch to Arc Testnet first' : undefined}
+              title={isWrongChain ? 'Switch to Arc first' : undefined}
               className="flex-1 h-9 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all border btn-focus"
               style={{ background: 'var(--spring-light)', color: 'var(--spring)', borderColor: '#a7f3d0' }}
               aria-label="Approve milestone"
@@ -987,7 +1014,7 @@ function MilestoneCard({
             <button
               onClick={() => handleReview(false)}
               disabled={isReviewing || isWrongChain}
-              title={isWrongChain ? 'Switch to Arc Testnet first' : undefined}
+              title={isWrongChain ? 'Switch to Arc first' : undefined}
               className="flex-1 h-9 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all border btn-focus"
               style={{ background: '#fef2f2', color: 'var(--danger)', borderColor: '#fecaca' }}
               aria-label="Reject milestone"
@@ -998,7 +1025,7 @@ function MilestoneCard({
           </div>
           {reviewHash && (
             <a
-              href={buildTxExplorerUrl(ARC_TESTNET_ID, reviewHash)}
+              href={buildTxExplorerUrl(targetChainId, reviewHash)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-xs"
