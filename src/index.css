@@ -5,22 +5,54 @@
 :root {
   --bg: #ffffff;
   --bg-gradient: linear-gradient(180deg, #f9f9fc 0%, #fffcf7 52%, #fbf7f2 100%);
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-strong: rgba(255, 255, 255, 0.90);
-  --surface-muted: #f5f5f8;
+  --surface: rgba(255, 255, 255, 0.76);
+  --surface-strong: rgba(255, 255, 255, 0.94);
+  --surface-muted: #f4f5f8;
+  --surface-elevated: #ffffff;
   --ink: #122d45;
   --ink-2: #334155;
-  --muted: #6b6580;
-  --subtle: #8a849c;
+  --muted: #5e6678;
+  --subtle: #798399;
   --border: rgba(18, 45, 69, 0.12);
-  --border-strong: rgba(25, 53, 77, 0.50);
+  --border-strong: rgba(18, 45, 69, 0.28);
   --accent: #122d45;
   --accent-hover: #1061a6;
   --focus: #85b1ed;
   --success: #1a8047;
+  --warning: #b45309;
   --danger: #ba2b4c;
   --spring: #2d7d46;
   --spring-light: #e8f5ec;
+  --shadow-sm: 0 1px 2px 0 rgba(18, 45, 69, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(18, 45, 69, 0.08), 0 2px 4px -2px rgba(18, 45, 69, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(18, 45, 69, 0.08), 0 4px 6px -4px rgba(18, 45, 69, 0.04);
+}
+
+html.dark,
+[data-theme='dark'] {
+  --bg: #0b131e;
+  --bg-gradient: linear-gradient(180deg, #0b131e 0%, #0d1927 50%, #0e1e30 100%);
+  --surface: rgba(17, 30, 48, 0.78);
+  --surface-strong: rgba(23, 40, 64, 0.94);
+  --surface-muted: #132235;
+  --surface-elevated: #1a2f4a;
+  --ink: #f1f5f9;
+  --ink-2: #cbd5e1;
+  --muted: #94a3b8;
+  --subtle: #64748b;
+  --border: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.26);
+  --accent: #38bdf8;
+  --accent-hover: #60a5fa;
+  --focus: #38bdf8;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --spring: #34d399;
+  --spring-light: rgba(52, 211, 153, 0.15);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.55);
 }
 
 * {
@@ -29,57 +61,165 @@
 
 body {
   margin: 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   min-height: 100dvh;
   background: var(--bg-gradient);
   color: var(--ink);
+  transition: background-color 200ms ease-out, color 200ms ease-out;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .display {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
   letter-spacing: -0.03em;
+  text-wrap: balance;
 }
 
 .mono {
-  font-family: 'JetBrains Mono', Menlo, monospace;
+  font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Type scale ---------------------------------------------------------------- */
+/* Typography scale -------------------------------------------------------- */
+.heading-hero {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(2.25rem, 5vw + 1rem, 3.75rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
 .heading-1 {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.5rem;
+  font-size: clamp(1.75rem, 3vw + 0.5rem, 2.25rem);
   font-weight: 700;
   letter-spacing: -0.025em;
-  line-height: 1.2;
+  line-height: 1.15;
+  text-wrap: balance;
 }
+
 .heading-2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.25rem, 2vw + 0.25rem, 1.5rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.heading-3 {
   font-family: 'Space Grotesk', sans-serif;
   font-size: 1.125rem;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
 }
+
+.body-lg {
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+
+.body-md {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.body-sm {
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
 .label-caps {
   font-family: 'DM Sans', sans-serif;
   font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.07em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-/* Focus rings — applied to every interactive element via btn-focus ---------- */
+/* Number display ----------------------------------------------------------- */
+.tabular-numbers {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Focus state - WCAG 2.4.7 & 2.4.11 compliant ------------------------------ */
 .btn-focus {
   outline: none;
 }
+
 .btn-focus:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
-/* Reduced-motion support ---------------------------------------------------- */
+/* Tap target guarantee for mobile ----------------------------------------- */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Light motion system (transform & opacity only) --------------------------- */
+.fade-up {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 300ms cubic-bezier(0.22, 1, 0.36, 1), transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fade-up.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Interactive press feedback (<100ms pure CSS) ----------------------------- */
+.interactive-press {
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out, opacity 120ms ease-out;
+}
+
+.interactive-press:active:not(:disabled) {
+  transform: scale(0.975);
+}
+
+/* Horizontal scroll edge fades --------------------------------------------- */
+.scroll-fade-mask {
+  mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+}
+
+/* Scrollbar polish --------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Reduced-motion support - mandatory WCAG 2.3.3 ---------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .fade-up {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }

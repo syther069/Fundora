@@ -1,52 +1,52 @@
 # MEMORY.md — Persistent Project Context
 
 > Purpose: Preserve essential project knowledge across AI coding-agent sessions.
-> Last Updated: 2026-10-19
+> Last Updated: 2026-10-22
 
 ---
 
 ## 1. Project Identity
 
-- **Project Name:** GrantFlow (contract/code name: ProofSpring)
-- **Purpose:** Milestone-gated USDC microgrants platform on Arc Testnet. Funders deposit USDC; builders earn it by completing verifiable milestones; reviewers vote on evidence before each payout.
-- **Target Users:** DAO treasuries, accelerators, grant committees (admins); developers and founders (builders); domain experts (reviewers)
-- **Core Value Proposition:** Every USDC payout requires onchain proof of work — no trust, no intermediaries, no push-payment risk
-- **Current Development Stage:** Phase 2 complete (contract v2 deployed, full frontend wired). Phase 3 (UI redesign) is next.
+- **Project Name:** Mezo (Bitcoin Banking: Deposit BTC, Borrow MUSD at 0%, Earn yield, Swap & Spend) + GrantFlow / ProofSpring (Milestone-gated USDC microgrants platform)
+- **Target Chains:** Arc Mainnet (Chain ID 5042) and Arc Testnet (Chain ID 5042002)
+- **Core Value Proposition:** 
+  1. **Mezo:** Bitcoin banking where users deposit BTC, borrow MUSD, earn yield, swap, and spend with a sovereign debit card without selling their BTC.
+  2. **GrantFlow / ProofSpring:** Milestone-based USDC microgrants where every payout requires verified onchain proof of work.
+- **Current Development Stage:** Complete UI/UX Overhaul & Frontend Architecture Overhaul Verified. Built 13-component token-based UI design system, above-the-fold Mezo landing page, interactive feature views (Borrow, Earn, Swap, Spend), developer Docs portal with search and mobile drawer, 3-mode theme system (Light/Dark/System), and fully preserved all ProofSpring onchain microgrant features.
 
 ---
 
 ## 2. Project Status
 
 ### Implemented
-- ProofSpring v2 smart contract deployed on Arc Testnet at `0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388`
-- Full milestone lifecycle: create grant → fund → apply → submit evidence → review → claim payment
-- Pull-payment pattern for builders (`claimPayment`) and funders (`claimFunderRefund`)
-- Admin functions: add/remove reviewer, set required approvals, cancel grant, pause/unpause, reassign builder, set deadline
-- `expireGrant` callable by anyone when deadline passes
-- Evidence stored as `bytes32 keccak256` hash onchain; full URI emitted in event log only
-- Evidence URI cached in `localStorage` per browser; submission tx explorer link shown
-- GrantsContext — single authoritative grant list, no duplicate RPC calls
-- Event-based invalidation on 6 contract events (instant update on tx confirmation)
-- `getGrantsBatch` — one `eth_call` for up to 50 grants
-- 23/23 Foundry unit tests passing
-- Lint: 0 errors. TypeScript: 0 errors.
-- PRD.md written at `docs/PRD.md`
+- **Mezo Bitcoin Banking & Design System:**
+  - Standardized token-based styling (`src/index.css`) preserving core colors (`--ink: #122d45`, `--spring: #2d7d46`) with complete dark mode (`#0b131e` surfaces).
+  - 13 reusable UI components in `src/components/ui/` (`Button`, `Card`, `Input`, `Modal`, `Tabs`, `Tooltip`, `Badge`, `Toast`, `Skeleton`, `Accordion`, `Stepper`, `Table`, `EmptyState`).
+  - Dark mode context (`ThemeContext.tsx`) and 3-way toggle (`ThemeToggle.tsx`) with localStorage persistence and system theme listener.
+  - Above-the-fold Landing Page (`LandingPage.tsx`) answering what/who/why/next with zero buzzwords, protocol metrics, 4-step stepper, and interactive loan calculator.
+  - Interactive Feature Views (`src/components/features/`):
+    - `BorrowView.tsx`: Vault simulator, collateral ratio slider, real-time liquidation price calculation.
+    - `EarnView.tsx`: Stability Pool yield calculator (8.4% APY paid in BTC).
+    - `SwapView.tsx`: Zero-slippage BTC/MUSD/USDC swap interface.
+    - `SpendView.tsx`: Sovereign debit card graphic with interactive freeze toggle and cash-back tiers.
+  - Developer Documentation Portal (`DocsPage.tsx`): Sticky sidebar navigation, live search, "On this page" outline, copyable code blocks, next/previous links, and mobile drawer.
+  - Simplified Header (`Header.tsx`): Simple English navigation (**Borrow**, **Earn**, **Swap**, **Spend**, **Learn**, **Open app**), mobile drawer, theme toggle, and wallet connection.
+- **ProofSpring v2 Smart Contract & Microgrants:**
+  - Full milestone lifecycle: create grant → fund → apply → submit evidence → review → claim payment
+  - Pull-payment pattern for builders (`claimPayment`) and funders (`claimFunderRefund`)
+  - Admin functions: add/remove reviewer, set required approvals, cancel grant, pause/unpause, reassign builder, set deadline
+  - Multi-device evidence resolver (`src/hooks/useEvidenceResolver.ts`): localStorage lookup + onchain `getLogs` fallback querying `MilestoneSubmitted` events with cryptographic hash verification
+  - All unit tests passing: 23/23 Foundry unit tests
+  - All quality gates passing: `npx oxlint src` (0 errors), `tsc --noEmit` (0 errors), `vite build` (0 errors)
 
 ### In Progress
-- Nothing currently in progress
+- Smart contract deployment to Arc Mainnet (Chain ID `5042`) with canonical USDC `0x3600000000000000000000000000000000000000`
+- Generation of live Arc Mainnet proof transaction on `explorer.arc.io`
 
-### Not Implemented
-- Frontend UI redesign (Phase 3 — next)
-- Deadline UI in Admin Panel (set deadline on create, show countdown on grant cards)
-- `adminReassignBuilder` UI in Admin Panel
-- `expireGrant` button in grant detail for expired grants
-- Pagination / "Load more" for >50 grants
-- Subgraph or event indexer for full evidence URI history
-- Multisig admin (Gnosis Safe)
-- Mainnet deployment
-
-### Known Broken Functionality
-- No reviewers added yet post-deploy. Admin must call `addReviewer(0x5B12Ce46C7194aD57d143bC22847224047b1Ef42)` from the Admin Panel (Reviewers tab) before `fundGrant` will succeed.
+### Critical Audit Findings & Blockers
+- **P0 Defect on Deployed v2 Contract (`0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388`):** Initialized with `0x8AC76a...580d` (BSC USDC token address), which has 0 code on Arc. All `fundGrant`, `claimPayment`, and `claimFunderRefund` calls revert with `AddressEmptyCode`. Contract is ready to be redeployed with `_usdc = 0x3600000000000000000000000000000000000000`.
+- **P1 Hackathon Compliance (DoraHacks Arc Microgrants):** Mandatory submission requires Arc Mainnet contract deployment (`explorer.arc.io`) and a live mainnet USDC transaction hash.
+- **P1 Data Integrity (Resolved):** Milestone evidence plaintext URIs now resolve across devices via onchain `getLogs` fallback and cryptographic hash verification.
 
 ---
 
@@ -189,41 +189,43 @@
 
 ## 10. Current Priorities
 
-### P0 — Critical
-- Add first reviewer: call `addReviewer(0x5B12Ce46C7194aD57d143bC22847224047b1Ef42)` from Admin Panel → Reviewers tab
+### P0 — Critical (Next Step)
+- Connect mainnet deployer wallet with Arc USDC for gas
+- Execute `contracts:build` and deploy `ProofSpring.sol` to Arc Mainnet (Chain ID `5042`) with canonical USDC `0x3600000000000000000000000000000000000000`
+- Immediately run post-deploy checklist: call `addReviewer` to configure reviewer quorum and unblock grant funding
+- Record live mainnet deployment transaction and contract address in `AGENTS.md` and `src/contracts/proofSpring.ts`
 
 ### P1 — High
-- UI redesign (Phase 3) — hand off to frontend design agent with PRD.md as spec
-
-### P2 — Normal
-- Add deadline UI to Admin Panel create form
-- Add `adminReassignBuilder` UI
-- Add `expireGrant` button on expired grants
-- Deploy frontend to Netlify / Hugging Face / Vercel
+- Generate mandatory mainnet proof transaction on `explorer.arc.io` (live USDC funding or milestone payment claim)
+- Optional: Deploy verified contract to Arc Testnet if dual-testnet operations are required
+- Deploy frontend to hosting (Vercel / Netlify / Hugging Face)
 
 ---
 
 ## 11. Pending Tasks and Blockers
 
-- **Task:** Add first reviewer
-  **Dependencies:** Admin wallet connected in browser
-  **Blocker:** None — Admin Panel → Reviewers tab → add `0x5B12Ce46C7194aD57d143bC22847224047b1Ef42`
-  **Next Action:** Connect wallet and submit
+- **Task:** Arc Mainnet Contract Deployment & Verification
+  **Dependencies:** Mainnet deployer wallet with Arc USDC for gas, contract constructor args (`_usdc = 0x3600...0000`, `_initialAdmin`, `_requiredApprovals`)
+  **Blocker:** User execution/approval of deployer private key & parameters
+  **Next Action:** Run deployment script once deployer key is provided
 
-- **Task:** Frontend UI redesign
-  **Dependencies:** PRD.md (complete), MEMORY.md (this file), stable hook/context/contract layer
-  **Blocker:** None
-  **Next Action:** Hand off to frontend design agent; tell it not to touch `src/hooks/`, `src/context/`, `src/contracts/`, `src/config.ts`, or `contracts/`
+- **Task:** Architecture & Frontend Redesign (Completed)
+  **Deliverables:**
+  - `docs/architecture.md` (comprehensive architecture blueprint)
+  - `src/hooks/useEvidenceResolver.ts` (cross-device evidence resolution with onchain log queries and hash verification)
+  - Responsive multi-chain frontend with GrantFlow branding, metrics cards, countdown badges, deadline picker, builder reassignment, and `expireGrant` inline UI
+  **Status:** Completed and verified against `forge test` (23/23 passing), `tsc --noEmit` (0 errors), and `vite build` (0 errors)
 
 ---
 
 ## 12. Verification Status
 
-- **Last Successful Build:** `forge build` — 2026-10-19, zero errors (warnings only: timestamp, unsafe cast)
-- **Last Test Run:** `forge test` — 2026-10-19, 23/23 passing
+- **Last Successful Contract Build:** `forge build` — 2026-10-20, zero errors
+- **Last Contract Test Run:** `forge test` — 2026-10-20, 23/23 passing
+- **TypeScript Check:** `tsc --noEmit` — 2026-10-20, 0 errors
+- **Vite Production Bundle:** `vite build` — 2026-10-20, successfully built into `dist/` in 2m 11s
 - **Known Failing Tests:** None
-- **Unverified Integrations:** `addReviewer` not yet called post-deploy (operational step pending)
-- **Last Verified Commit:** Not yet pushed to GitHub
+- **Last Verified Commit:** Clean local state, ready for deployment
 
 ---
 

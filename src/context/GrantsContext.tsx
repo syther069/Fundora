@@ -19,9 +19,10 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { useReadContract, useReadContracts, useWatchContractEvent } from 'wagmi'
-import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID } from '../contracts/proofSpring'
+import { useAccount, useReadContract, useReadContracts, useWatchContractEvent } from 'wagmi'
+import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/proofSpring'
 import type { Grant } from '../hooks/useProofSpring'
+
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,8 @@ const GrantsContext = createContext<GrantsState>({
 const BATCH_SIZE = 50  // getGrantsBatch max per contract
 
 export function GrantsProvider({ children }: { children: ReactNode }) {
+  const { chainId } = useAccount()
+  const activeChainId = chainId === ARC_MAINNET_ID ? ARC_MAINNET_ID : ARC_TESTNET_ID
   const [eventTick, setEventTick] = useState(0)
 
   // Bump this counter on any relevant contract event to trigger a refetch
@@ -56,42 +59,42 @@ export function GrantsProvider({ children }: { children: ReactNode }) {
     address: PROOF_SPRING_ADDRESS,
     abi: PROOF_SPRING_ABI,
     eventName: 'GrantCreated',
-    chainId: ARC_TESTNET_ID,
+    chainId: activeChainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
     address: PROOF_SPRING_ADDRESS,
     abi: PROOF_SPRING_ABI,
     eventName: 'GrantFunded',
-    chainId: ARC_TESTNET_ID,
+    chainId: activeChainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
     address: PROOF_SPRING_ADDRESS,
     abi: PROOF_SPRING_ABI,
     eventName: 'GrantApplied',
-    chainId: ARC_TESTNET_ID,
+    chainId: activeChainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
     address: PROOF_SPRING_ADDRESS,
     abi: PROOF_SPRING_ABI,
     eventName: 'MilestoneApproved',
-    chainId: ARC_TESTNET_ID,
+    chainId: activeChainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
     address: PROOF_SPRING_ADDRESS,
     abi: PROOF_SPRING_ABI,
     eventName: 'GrantCompleted',
-    chainId: ARC_TESTNET_ID,
+    chainId: activeChainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
     address: PROOF_SPRING_ADDRESS,
     abi: PROOF_SPRING_ABI,
     eventName: 'GrantCancelled',
-    chainId: ARC_TESTNET_ID,
+    chainId: activeChainId,
     onLogs: invalidate,
   })
 
@@ -105,7 +108,7 @@ export function GrantsProvider({ children }: { children: ReactNode }) {
     address: PROOF_SPRING_ADDRESS,
     abi: PROOF_SPRING_ABI,
     functionName: 'grantCount',
-    chainId: ARC_TESTNET_ID,
+    chainId: activeChainId,
     query: {
       // 3.2 — 5-minute stale time: data is shown immediately from cache, revalidated in background
       staleTime: 5 * 60 * 1000,
@@ -128,7 +131,7 @@ export function GrantsProvider({ children }: { children: ReactNode }) {
     abi: PROOF_SPRING_ABI,
     functionName: 'getGrantsBatch',
     args: useBatch ? [1n, BigInt(grantCount)] : undefined,
-    chainId: ARC_TESTNET_ID,
+    chainId: activeChainId,
     query: {
       enabled: useBatch,
       staleTime: 5 * 60 * 1000,
@@ -144,9 +147,10 @@ export function GrantsProvider({ children }: { children: ReactNode }) {
       abi: PROOF_SPRING_ABI,
       functionName: 'getGrant' as const,
       args: [BigInt(i + 1)] as [bigint],
-      chainId: ARC_TESTNET_ID,
+      chainId: activeChainId,
     }))
-  }, [useBatch, grantCount])
+  }, [useBatch, grantCount, activeChainId])
+
 
   const {
     data: multicallData,

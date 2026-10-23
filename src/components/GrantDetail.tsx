@@ -4,10 +4,10 @@ import { erc20Abi, formatUnits } from 'viem'
 import {
   ArrowLeft, ExternalLink, Send, CheckCircle, XCircle,
   AlertCircle, Loader2, Ban, AlertTriangle, Info,
-  CalendarDays, CheckCircle2,
+  CalendarDays, CheckCircle2, Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID } from '../contracts/proofSpring'
+import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/proofSpring'
 import { getUsdc, buildTxExplorerUrl } from '@/onchain-facts'
 import { parseAmount } from '@/onchain-money'
 import { StatusBadge } from './StatusBadge'
@@ -21,7 +21,9 @@ import {
   useGrant,
 } from '../hooks/useProofSpring'
 import type { Grant, Milestone } from '../hooks/useProofSpring'
+import { useEvidenceResolver, saveEvidenceToCache } from '../hooks/useEvidenceResolver'
 import { parseOnchainError } from '../utils/errors'
+
 
 interface Props {
   grant: Grant
@@ -40,17 +42,6 @@ function hasEvidence(hash: `0x${string}` | undefined): boolean {
 }
 function shortHash(hash: `0x${string}`): string {
   return `${hash.slice(0, 10)}…${hash.slice(-8)}`
-}
-
-// localStorage key scoped per chain + grant + milestone so collisions are impossible.
-function evidenceCacheKey(grantId: bigint, milestoneIndex: number): string {
-  return `proofspring:evidence:5042002:${grantId}:${milestoneIndex}`
-}
-function saveEvidenceToCache(grantId: bigint, milestoneIndex: number, uri: string) {
-  try { localStorage.setItem(evidenceCacheKey(grantId, milestoneIndex), uri) } catch { /* storage blocked */ }
-}
-function readEvidenceFromCache(grantId: bigint, milestoneIndex: number): string | null {
-  try { return localStorage.getItem(evidenceCacheKey(grantId, milestoneIndex)) } catch { return null }
 }
 
 // C5: format Unix timestamp bigint to locale date
@@ -89,26 +80,66 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
 
   const milestones: Milestone[] = (milestoneResults ?? []).map(r => r.result as Milestone).filter(Boolean)
 
-  const isBuilder = address?.toLowerCase() === grant.builder?.toLowerCase()
-  const noBuilder = grant.builder === '0x0000000000000000000000000000000000000000'
-  // C2: isWrongChain gates all write buttons
-  const isWrongChain = chainId !== ARC_TESTNET_ID
+  const isArcChain = chainId === ARC_MAINNET_ID || chainId === ARC_TESTNET_ID
+  const targetChainId = chainId === ARC_MAINNET_ID ? ARC_MAINNET_ID : ARC_TESTNET_ID
+  // Gates write buttons if not on Arc Mainnet or Testnet
+  const isWrongChain = !isArcChain
 
-  const usdcFact = getUsdc(ARC_TESTNET_ID)!
+  const usdcFact = getUsdc(targetChainId) || getUsdc(ARC_TESTNET_ID)!
   const USDC_ADDRESS = usdcFact.address as `0x${string}`
+
+  const isBuilder = !!address && address.toLowerCase() === grant.builder?.toLowerCase()
+  const noBuilder = !grant.builder || grant.builder === '0x0000000000000000000000000000000000000000'
 
   // C9: chain-switch + retry
   const withChain = useCallback((action: () => void) => {
     if (isWrongChain) {
       setPendingAction(() => action)
       switchChain(
-        { chainId: ARC_TESTNET_ID },
+        { chainId: ARC_MAINNET_ID },
         { onSuccess: () => { action(); setPendingAction(null) } },
       )
       return
     }
     action()
   }, [isWrongChain, switchChain])
+
+  // Expiration check: active or open grant past deadline
+  const [nowSeconds] = useState(() => Math.floor(Date.now() / 1000))
+  const isExpired = grant.deadline > 0n && BigInt(nowSeconds) > grant.deadline
+  const canExpire = (grant.status === 1 || grant.status === 2) && isExpired
+
+  const [confirmExpire, setConfirmExpire] = useState(false)
+  const { writeContract: expireWrite, data: expireHash, isPending: expirePending } = useWriteContract()
+  const { isLoading: expireConfirming, isSuccess: expireSuccess } =
+    useWaitForTransactionReceipt({ hash: expireHash })
+
+  const expireConfirmed = !!expireHash && !expireConfirming && !expirePending
+
+  useEffect(() => {
+    if (expireSuccess) {
+      onRefresh()
+      toast.success('Grant expired! Remaining escrow queued for funder refund.')
+      queueMicrotask(() => {
+        setConfirmExpire(false)
+      })
+    }
+  }, [expireSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleExpire = () => withChain(() => {
+    expireWrite(
+      {
+        address: PROOF_SPRING_ADDRESS,
+        abi: PROOF_SPRING_ABI,
+        functionName: 'expireGrant',
+        args: [grant.id],
+      },
+      {
+        onError: (e) => toast.error(parseOnchainError(e)),
+      },
+    )
+  })
+
 
   // ── Apply for grant ──
   const { writeContract: applyWrite, data: applyHash, isPending: applyPending } = useWriteContract()
@@ -241,13 +272,30 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
             <p className="text-sm" style={{ color: 'var(--muted)' }}>
               {grant.description || 'No description provided.'}
             </p>
-            {/* C5: creation date */}
-            {createdDate && (
-              <div className="flex items-center gap-1 text-xs mt-1.5" style={{ color: 'var(--subtle)' }}>
-                <CalendarDays size={11} aria-hidden="true" />
-                Created {createdDate}
-              </div>
-            )}
+            <div className="flex items-center gap-3 flex-wrap text-xs mt-2" style={{ color: 'var(--subtle)' }}>
+              {createdDate && (
+                <div className="flex items-center gap-1">
+                  <CalendarDays size={12} aria-hidden="true" />
+                  Created {createdDate}
+                </div>
+              )}
+              {grant.deadline > 0n && (
+                <div className="flex items-center gap-1">
+                  <Clock size={12} aria-hidden="true" />
+                  Deadline: {formatGrantDate(grant.deadline)}
+                  {isExpired ? (
+                    <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                      Expired
+                    </span>
+                  ) : (
+                    <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Active
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
           </div>
           <StatusBadge type="grant" status={grant.status} />
         </div>
@@ -378,7 +426,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
           <button
             onClick={handleApply}
             disabled={applyPending || applyConfirming || isWrongChain}
-            title={isWrongChain ? 'Switch to Arc Testnet first' : undefined}
+            title={isWrongChain ? 'Switch to Arc first' : undefined}
             className="w-full h-10 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60 flex items-center justify-center gap-2 btn-focus"
             style={{ background: 'var(--accent)' }}
           >
@@ -494,7 +542,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
             </div>
             {cancelHash && (
               <a
-                href={buildTxExplorerUrl(ARC_TESTNET_ID, cancelHash)}
+                href={buildTxExplorerUrl(targetChainId, cancelHash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs btn-focus rounded"
@@ -506,7 +554,67 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
             )}
           </div>
         )}
+
+        {/* Expire Grant action for expired active grants */}
+        {canExpire && !confirmExpire && !expireSuccess && (
+          <button
+            onClick={() => setConfirmExpire(true)}
+            disabled={isWrongChain}
+            title={isWrongChain ? 'Switch to Arc network first' : undefined}
+            className="w-full h-10 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 border transition-all hover:opacity-85 disabled:opacity-50 btn-focus"
+            style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
+          >
+            <Clock size={14} />
+            Expire Stalled Grant & Refund
+          </button>
+        )}
+
+        {canExpire && confirmExpire && (
+          <div
+            className="rounded-xl border p-4 space-y-3"
+            style={{ borderColor: '#fde68a', background: '#fffbeb' }}
+          >
+            <div className="flex items-start gap-2 text-sm" style={{ color: '#92400e' }}>
+              <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+              <span>
+                This grant passed its deadline on <strong>{formatGrantDate(grant.deadline)}</strong>. Expiring will close the grant and return <strong>${refundable.toFixed(2)} USDC</strong> of unreleased escrow to the funder.
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleExpire}
+                disabled={expirePending || expireConfirming || isWrongChain}
+                className="flex-1 h-9 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-60 btn-focus"
+                style={{ background: '#d97706' }}
+              >
+                {(expirePending || expireConfirming) && <Loader2 size={13} className="animate-spin" />}
+                {expirePending ? 'Confirm in wallet…' : expireConfirming ? 'Expiring…' : 'Yes, Expire Grant'}
+              </button>
+              <button
+                onClick={() => setConfirmExpire(false)}
+                disabled={expirePending || expireConfirming}
+                className="flex-1 h-9 rounded-xl text-sm font-medium border disabled:opacity-50 btn-focus"
+                style={{ color: 'var(--ink)', borderColor: 'var(--border)', background: 'var(--surface-strong)' }}
+              >
+                Cancel
+              </button>
+            </div>
+            {expireHash && (
+              <a
+                href={buildTxExplorerUrl(targetChainId, expireHash)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs btn-focus rounded"
+                style={{ color: '#b45309' }}
+              >
+                <ExternalLink size={10} aria-hidden="true" />
+                {expireConfirmed ? 'Expiration confirmed — view on explorer' : 'Confirming expiration…'}
+              </a>
+            )}
+          </div>
+        )}
         </div>{/* end actions wrapper */}
+
       </div>
 
       {/* Milestones section */}
@@ -577,6 +685,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
             isReviewer={!!isReviewer}
             requiredApprovals={Number(requiredApprovals ?? 1n)}
             isWrongChain={isWrongChain}
+            targetChainId={targetChainId}
             onRefreshMilestones={() => void refetchMilestones()}
             onRefresh={onRefresh}
           />
@@ -595,6 +704,7 @@ interface MilestoneCardProps {
   isReviewer: boolean
   requiredApprovals: number
   isWrongChain: boolean
+  targetChainId: number
   onRefreshMilestones: () => void
   onRefresh: () => void
 }
@@ -602,7 +712,7 @@ interface MilestoneCardProps {
 function MilestoneCard({
   milestone, index, grant,
   isBuilder, isReviewer, requiredApprovals,
-  isWrongChain, onRefreshMilestones, onRefresh,
+  isWrongChain, targetChainId, onRefreshMilestones, onRefresh,
 }: MilestoneCardProps) {
   const { address } = useAccount()
   const { data: approvalCount } = useApprovalCount(grant.id, index)
@@ -619,10 +729,13 @@ function MilestoneCard({
   const [submitHash, setSubmitHash] = useState<`0x${string}` | undefined>()
   const [reviewHash, setReviewHash] = useState<`0x${string}` | undefined>()
 
-  // localStorage cache: read on mount so the submitted URI shows back to the builder
-  const [cachedEvidenceUri, setCachedEvidenceUri] = useState<string | null>(() =>
-    readEvidenceFromCache(grant.id, index)
-  )
+  // useEvidenceResolver checks localStorage first and queries onchain MilestoneSubmitted event logs as fallback
+  const { evidenceUri: resolvedEvidenceUri, isLoading: isResolvingEvidence, isVerified } =
+    useEvidenceResolver(grant.id, index, milestone.evidenceHash)
+
+  // Local state for immediate update upon submission in the current browser session
+  const [submittedEvidenceUri, setSubmittedEvidenceUri] = useState<string | null>(null)
+  const displayEvidenceUri = submittedEvidenceUri || resolvedEvidenceUri
 
   const { writeContract: submitWrite, isPending: submitPending } = useWriteContract()
   const { writeContract: reviewWrite, isPending: reviewPending } = useWriteContract()
@@ -664,9 +777,9 @@ function MilestoneCard({
         onSuccess: (hash) => {
           setSubmitHash(hash)
           setEvidenceInput('')
-          // Cache the URI locally so the builder sees it after submit (full URI is only in event log)
-          saveEvidenceToCache(grant.id, index, uri)
-          setCachedEvidenceUri(uri)
+          // Cache the URI locally so the builder sees it immediately
+          saveEvidenceToCache(targetChainId, grant.id, index, uri)
+          setSubmittedEvidenceUri(uri)
         },
         onError: (e) => toast.error(parseOnchainError(e)),
       },
@@ -714,7 +827,7 @@ function MilestoneCard({
         <StatusBadge type="milestone" status={milestone.status} className="shrink-0" />
       </div>
 
-      {/* v2: evidence hash onchain + locally cached URI if the builder submitted from this browser */}
+      {/* v2: evidence hash onchain + resolved plaintext URI from logs or cache */}
       {evidenceSubmitted && (
         <div className="rounded-lg px-3 py-2.5 text-xs space-y-2" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
           {/* Row 1: hash + explorer link */}
@@ -727,7 +840,7 @@ function MilestoneCard({
             </div>
             {submitHash && (
               <a
-                href={buildTxExplorerUrl(ARC_TESTNET_ID, submitHash)}
+                href={buildTxExplorerUrl(targetChainId, submitHash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 font-medium btn-focus rounded"
@@ -740,30 +853,41 @@ function MilestoneCard({
             )}
           </div>
 
-          {/* Row 2: cached URI (only visible to the browser that submitted) */}
-          {cachedEvidenceUri ? (
-            <div className="space-y-0.5">
-              <div className="font-medium" style={{ color: 'var(--subtle)' }}>Submitted URL (cached locally):</div>
+          {/* Row 2: display evidence URI with verification badge */}
+          {displayEvidenceUri ? (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 font-medium" style={{ color: 'var(--subtle)' }}>
+                <span>Submitted Evidence:</span>
+                {isVerified && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-600">
+                    <CheckCircle2 size={10} /> Onchain Verified
+                  </span>
+                )}
+              </div>
               <a
-                href={cachedEvidenceUri.startsWith('http') ? cachedEvidenceUri : undefined}
+                href={displayEvidenceUri.startsWith('http') ? displayEvidenceUri : undefined}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="break-all leading-snug btn-focus rounded"
-                style={{ color: 'var(--accent)', textDecoration: cachedEvidenceUri.startsWith('http') ? 'underline' : 'none' }}
-                aria-label={`Evidence link: ${cachedEvidenceUri}`}
+                className="break-all leading-snug btn-focus rounded font-mono text-xs block hover:underline"
+                style={{ color: 'var(--accent)' }}
+                aria-label={`Evidence link: ${displayEvidenceUri}`}
               >
-                {cachedEvidenceUri}
+                {displayEvidenceUri}
               </a>
+            </div>
+          ) : isResolvingEvidence ? (
+            <div className="flex items-center gap-1.5 text-xs italic py-1" style={{ color: 'var(--subtle)' }}>
+              <Loader2 size={12} className="animate-spin text-indigo-500" />
+              <span>Resolving evidence from onchain logs…</span>
             </div>
           ) : (
             <div style={{ color: 'var(--subtle)', lineHeight: 1.4 }}>
-              Full URL stored in the{' '}
-              <span className="font-semibold">MilestoneSubmitted</span> event log —
-              permanently onchain. Find it via the explorer link above or the Tracing panel.
+              Full URL stored in the <span className="font-semibold">MilestoneSubmitted</span> event log.
             </div>
           )}
         </div>
       )}
+
 
       {/* Approval progress while in review — C7: correct plural */}
       {milestone.status === 1 && (

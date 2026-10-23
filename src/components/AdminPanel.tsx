@@ -1,12 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi'
 import { isAddress, parseUnits, formatUnits } from 'viem'
-import { Loader2, Plus, UserCheck, UserMinus, Sliders, Ban, AlertTriangle, AlertCircle, CheckCircle2, ExternalLink } from 'lucide-react'
+import {
+  Loader2, Plus, UserCheck, UserMinus, Sliders, Ban,
+  AlertTriangle, AlertCircle, CheckCircle2, ExternalLink,
+  Clock, Users,
+} from 'lucide-react'
 import { toast } from 'sonner'
-import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID } from '../contracts/proofSpring'
+import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/proofSpring'
 import { useRequiredApprovals, usePendingFunderRefund } from '../hooks/useProofSpring'
 import { useGrants } from '../context/GrantsContext'
 import type { Grant } from '../hooks/useProofSpring'
+import { buildTxExplorerUrl } from '@/onchain-facts'
 import { parseOnchainError } from '../utils/errors'
 
 interface Props {
@@ -25,26 +30,34 @@ function parseUsdcAmount(raw: string): bigint | null {
   }
 }
 
-type Tab = 'create' | 'reviewers' | 'settings' | 'cancel'
+type Tab = 'create' | 'reviewers' | 'settings' | 'reassign' | 'cancel'
 
 export function AdminPanel({ onGrantCreated }: Props) {
   const { chainId, address } = useAccount()
   const { switchChain } = useSwitchChain()
   const { data: requiredApprovals, refetch: refetchRA } = useRequiredApprovals()
   const [tab, setTab] = useState<Tab>('create')
-  const isWrongChain = chainId !== ARC_TESTNET_ID
+
+  const isArcChain = chainId === ARC_MAINNET_ID || chainId === ARC_TESTNET_ID
+  const targetChainId = chainId === ARC_MAINNET_ID ? ARC_MAINNET_ID : ARC_TESTNET_ID
+  const isWrongChain = !isArcChain
 
   const withChain = useCallback((action: () => void) => {
     if (isWrongChain) {
-      switchChain({ chainId: ARC_TESTNET_ID }, { onSuccess: () => action() })
+      switchChain({ chainId: ARC_MAINNET_ID }, { onSuccess: () => action() })
       return
     }
     action()
   }, [isWrongChain, switchChain])
 
+  const { grants } = useGrants()
+  const activeGrants = grants.filter(g => g.status === 1 || g.status === 2)
+
   // ── Create grant ──
   const [grantTitle, setGrantTitle] = useState('')
   const [grantDesc, setGrantDesc] = useState('')
+  const [grantDeadline, setGrantDeadline] = useState('')
+  const [todayDateString] = useState(() => new Date().toISOString().split('T')[0])
   const [milestoneRows, setMilestoneRows] = useState([{ title: '', desc: '', amount: '' }])
 
   const addMilestoneRow = () => setMilestoneRows(r => [...r, { title: '', desc: '', amount: '' }])
@@ -81,6 +94,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const handleCreate = () => withChain(() => {
     if (!canCreate) return
     const milestoneAmounts = milestoneRows.map(r => parseUsdcAmount(r.amount)!)
+    const deadlineTimestamp = grantDeadline ? Math.floor(new Date(grantDeadline + 'T23:59:59Z').getTime() / 1000) : 0
+
     createWrite({
       address: PROOF_SPRING_ADDRESS,
       abi: PROOF_SPRING_ABI,
@@ -92,12 +107,13 @@ export function AdminPanel({ onGrantCreated }: Props) {
         milestoneRows.map(r => r.title),
         milestoneRows.map(r => r.desc),
         milestoneAmounts,
-        0, // deadline: 0 = no deadline; uint40 ABI arg
+        deadlineTimestamp, // deadline: uint40
       ],
     }, {
       onSuccess: () => {
         setGrantTitle('')
         setGrantDesc('')
+        setGrantDeadline('')
         setMilestoneRows([{ title: '', desc: '', amount: '' }])
         // A4: trigger dwell — state update in event callback, not in effect
         setJustCreated(true)
@@ -106,6 +122,38 @@ export function AdminPanel({ onGrantCreated }: Props) {
       onError: (e) => toast.error(parseOnchainError(e)),
     })
   })
+
+  // ── Reassign builder ──
+  const [reassignGrantId, setReassignGrantId] = useState<string>('')
+  const [newBuilderAddr, setNewBuilderAddr] = useState('')
+  const newBuilderValid = isAddress(newBuilderAddr.trim())
+
+  const { writeContract: reassignWrite, data: reassignHash, isPending: reassignPending } = useWriteContract()
+  const { isLoading: reassignConfirming, isSuccess: reassignSuccess } =
+    useWaitForTransactionReceipt({ hash: reassignHash })
+  const reassignConfirmed = !!reassignHash && !reassignConfirming && !reassignPending
+
+  useEffect(() => {
+    if (reassignSuccess) {
+      toast.success('Builder reassigned successfully!')
+      queueMicrotask(() => {
+        setNewBuilderAddr('')
+        setReassignGrantId('')
+        onGrantCreated()
+      })
+    }
+  }, [reassignSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleReassign = () => withChain(() => {
+    if (!reassignGrantId || !newBuilderValid) return
+    reassignWrite({
+      address: PROOF_SPRING_ADDRESS,
+      abi: PROOF_SPRING_ABI,
+      functionName: 'adminReassignBuilder',
+      args: [BigInt(reassignGrantId), newBuilderAddr.trim() as `0x${string}`],
+    }, { onError: (e) => toast.error(parseOnchainError(e)) })
+  })
+
 
   // ── Add reviewer ──
   const [addReviewerAddr, setAddReviewerAddr] = useState('')
@@ -226,8 +274,10 @@ export function AdminPanel({ onGrantCreated }: Props) {
     { id: 'create' as const, icon: Plus, label: 'New Grant' },
     { id: 'reviewers' as const, icon: UserCheck, label: 'Reviewers' },
     { id: 'settings' as const, icon: Sliders, label: 'Settings' },
+    { id: 'reassign' as const, icon: Users, label: 'Reassign' },
     { id: 'cancel' as const, icon: Ban, label: 'Cancel Grant' },
   ]
+
 
   return (
     <div
@@ -296,6 +346,26 @@ export function AdminPanel({ onGrantCreated }: Props) {
               style={inputStyle}
               aria-label="Grant description"
             />
+
+            {/* Deadline */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5" style={{ color: 'var(--subtle)' }}>
+                <Clock size={12} /> Grant Deadline (Optional)
+              </label>
+              <input
+                type="date"
+                value={grantDeadline}
+                min={todayDateString}
+                onChange={e => setGrantDeadline(e.target.value)}
+                className={inputCls}
+                style={inputStyle}
+                aria-label="Grant deadline"
+              />
+              <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                Optional. Grants with incomplete milestones past deadline can be expired to refund unreleased escrow.
+              </p>
+            </div>
+
 
             {/* Milestones */}
             <div className="space-y-2">
@@ -532,6 +602,96 @@ export function AdminPanel({ onGrantCreated }: Props) {
           </div>
         )}
 
+        {/* ── Reassign Builder ── */}
+        {tab === 'reassign' && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold text-sm mb-1" style={{ color: 'var(--ink)' }}>
+                Reassign Stalled Grant Builder
+              </h3>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                If an assigned builder becomes inactive or unresponsive, the admin can reassign the grant to a new builder wallet.
+              </p>
+            </div>
+
+            {activeGrants.length === 0 ? (
+              <div
+                className="rounded-xl border p-6 text-center text-xs"
+                style={{ borderColor: 'var(--border)', color: 'var(--muted)', background: 'var(--surface-muted)' }}
+              >
+                No active grants currently available for reassignment.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>
+                    Select Grant
+                  </label>
+                  <select
+                    value={reassignGrantId}
+                    onChange={e => setReassignGrantId(e.target.value)}
+                    className={inputCls}
+                    style={inputStyle}
+                    aria-label="Select grant to reassign"
+                  >
+                    <option value="">Select an active grant…</option>
+                    {activeGrants.map(g => (
+                      <option key={g.id.toString()} value={g.id.toString()}>
+                        #{g.id.toString()} — {g.title} ({g.builder !== '0x0000000000000000000000000000000000000000' ? `Current: ${g.builder.slice(0, 6)}…${g.builder.slice(-4)}` : 'No builder'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>
+                    New Builder Wallet Address
+                  </label>
+                  <input
+                    value={newBuilderAddr}
+                    onChange={e => setNewBuilderAddr(e.target.value)}
+                    placeholder="0x… replacement builder"
+                    className={`${inputCls} mono`}
+                    style={{
+                      ...inputStyle,
+                      borderColor: newBuilderAddr && !newBuilderValid ? 'var(--danger)' : 'var(--border)',
+                    }}
+                    aria-label="New builder wallet address"
+                  />
+                  {newBuilderAddr && !newBuilderValid && (
+                    <p className="text-xs flex items-center gap-1" style={{ color: 'var(--danger)' }}>
+                      <AlertCircle size={11} /> Not a valid 0x address
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleReassign}
+                  disabled={reassignPending || reassignConfirming || !reassignGrantId || !newBuilderValid || isWrongChain}
+                  className="w-full h-10 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-50 btn-focus"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  {(reassignPending || reassignConfirming) && <Loader2 size={13} className="animate-spin" />}
+                  {reassignPending ? 'Confirm in wallet…' : reassignConfirming ? 'Reassigning…' : 'Reassign Builder'}
+                </button>
+
+                {reassignHash && (
+                  <a
+                    href={buildTxExplorerUrl(targetChainId, reassignHash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs btn-focus rounded"
+                    style={{ color: 'var(--accent)' }}
+                  >
+                    <ExternalLink size={10} aria-hidden="true" />
+                    {reassignConfirmed ? 'Reassignment confirmed — view on explorer' : 'Confirming reassignment…'}
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Cancel grant ── */}
         {tab === 'cancel' && (
           <div className="space-y-3">
@@ -673,7 +833,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
             )}
             {claimRefundHash && (
               <a
-                href={`https://explorer.testnet.arc.io/tx/${claimRefundHash}`}
+                href={buildTxExplorerUrl(targetChainId, claimRefundHash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs btn-focus rounded"
@@ -683,6 +843,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
                 {!claimRefundConfirming && !claimRefundPending ? 'Refund confirmed — view on explorer' : 'View pending refund claim'}
               </a>
             )}
+
           </div>
         )}
       </div>

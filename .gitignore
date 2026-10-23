@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production & Build outputs
+dist/
+dist-ssr/
+out/
+contracts/out/
+contracts/cache/
+*.local
+
+# Cache & Temporary
+.vite/
+.cache/
+.oxlint-cache/
+*.log
+console.jsonl
+traces.jsonl
+
+# OS files
+.DS_Store
+Thumbs.db
+
+.agents/
+skills-lock.json
+*.tmp
+node_modules/.tmp/
+
+*.pdf
+UI (2).md
+UX guide (3).txt

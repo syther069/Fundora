@@ -1,260 +1,416 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useAccount } from 'wagmi'
-import { ConnectKitButton } from 'connectkit'
-import { Leaf, Sprout, Users, LayoutGrid, Info, AlertCircle, RefreshCw } from 'lucide-react'
-import { Header } from './components/Header'
+import {
+  LayoutGrid,
+  Info,
+  ShieldCheck,
+  ExternalLink,
+} from 'lucide-react'
+import { formatUnits } from 'viem'
+import { Header, NavTab } from './components/Header'
 import { GrantCard } from './components/GrantCard'
 import { GrantSkeleton } from './components/GrantSkeleton'
 import { GrantDetail } from './components/GrantDetail'
 import { AdminPanel } from './components/AdminPanel'
+import { LandingPage } from './components/landing/LandingPage'
+import { BorrowView } from './components/features/BorrowView'
+import { EarnView } from './components/features/EarnView'
+import { SwapView } from './components/features/SwapView'
+import { SpendView } from './components/features/SpendView'
+import { DocsPage } from './components/docs/DocsPage'
+import { Card } from './components/ui/Card'
+import { Button } from './components/ui/Button'
+import { EmptyState } from './components/ui/EmptyState'
 import { useContractAdmin, useIsReviewer } from './hooks/useProofSpring'
 import { useGrants } from './context/GrantsContext'
 import type { Grant } from './hooks/useProofSpring'
 import { PROOF_SPRING_ADDRESS } from './contracts/proofSpring'
 
-type View = 'grants' | 'detail' | 'admin'
+type GrantsSubView = 'list' | 'detail' | 'admin'
 
 const NOT_DEPLOYED = PROOF_SPRING_ADDRESS === '0x0000000000000000000000000000000000000000'
 
 export default function App() {
   const { address, isConnected } = useAccount()
-  const [view, setView] = useState<View>('grants')
+  const [currentTab, setCurrentTab] = useState<NavTab>('home')
+  const [grantsView, setGrantsView] = useState<GrantsSubView>('list')
   const [selectedGrant, setSelectedGrant] = useState<Grant | null>(null)
   const [navigating, setNavigating] = useState<string | null>(null)
 
-  // 3.3 — consume from GrantsContext; no duplicate RPC calls
-  const { grants, grantCount, isLoading: grantsLoading, isError: grantsError, refetch: refetchGrants } = useGrants()
+  // Centralized grants context
+  const {
+    grants,
+    grantCount,
+    isLoading: grantsLoading,
+    isError: grantsError,
+    refetch: refetchGrants,
+  } = useGrants()
+
   const grantCountData = grantCount > 0 ? BigInt(grantCount) : undefined
 
   const { data: contractAdmin } = useContractAdmin()
   const { data: isReviewer } = useIsReviewer(address)
 
-  const isAdmin = !!(address && contractAdmin && address.toLowerCase() === (contractAdmin as string).toLowerCase())
+  const isAdmin = !!(
+    address &&
+    contractAdmin &&
+    address.toLowerCase() === (contractAdmin as string).toLowerCase()
+  )
 
   const handleRefresh = useCallback(() => {
     refetchGrants()
   }, [refetchGrants])
 
-  // Fix 16: click feedback — brief navigating state before showing detail
   const handleSelectGrant = (grant: Grant) => {
     setNavigating(grant.id.toString())
     setTimeout(() => {
       setSelectedGrant(grant)
-      setView('detail')
+      setGrantsView('detail')
       setNavigating(null)
     }, 80)
   }
 
-  const handleBack = () => {
+  const handleBackToGrants = () => {
     setSelectedGrant(null)
-    setView('grants')
+    setGrantsView('list')
     handleRefresh()
   }
 
+  // Summary statistics for grants escrow
+  const stats = useMemo(() => {
+    let totalUsdc = 0
+    let totalReleased = 0
+    let activeGrants = 0
+    for (const g of grants) {
+      totalUsdc += parseFloat(formatUnits(g.totalAmount, 6))
+      totalReleased += parseFloat(formatUnits(g.releasedAmount, 6))
+      if (g.status === 1 || g.status === 2) activeGrants++
+    }
+    return {
+      totalGrants: grants.length,
+      activeGrants,
+      totalUsdc: totalUsdc.toFixed(2),
+      totalReleased: totalReleased.toFixed(2),
+    }
+  }, [grants])
+
+  // Scroll reveal observer for light motion
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible')
+          }
+        })
+      },
+      { threshold: 0.1 }
+    )
+
+    const revealElements = document.querySelectorAll('.fade-up')
+    revealElements.forEach(el => observer.observe(el))
+
+    return () => observer.disconnect()
+  }, [currentTab, grantsView])
+
   if (NOT_DEPLOYED) {
     return (
-      <div className="min-h-dvh flex flex-col" style={{ background: 'var(--bg-gradient)' }}>
-        <Header />
+      <div className="min-h-dvh flex flex-col bg-[var(--bg)] text-[var(--ink)]">
+        <Header currentTab={currentTab} onSelectTab={setCurrentTab} />
         <main className="flex-1 flex items-center justify-center px-4">
-          <div className="max-w-md w-full text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto" style={{ background: 'var(--spring-light)' }}>
-              <Sprout size={28} style={{ color: 'var(--spring)' }} />
-            </div>
-            <h1 className="display font-bold text-2xl" style={{ color: 'var(--ink)' }}>Awaiting Deployment</h1>
-            <p className="text-sm" style={{ color: 'var(--muted)' }}>
-              The ProofSpring contract is not yet deployed. Deploy it from the Contracts panel to activate the platform.
-            </p>
-          </div>
+          <EmptyState
+            type="error"
+            title="Awaiting Smart Contract Deployment"
+            description="The GrantFlow smart contracts are not yet deployed on this network. Configure deployment to activate."
+          />
         </main>
       </div>
     )
   }
 
   return (
-    <div className="min-h-dvh flex flex-col" style={{ background: 'var(--bg-gradient)' }}>
-      <Header />
+    <div className="min-h-dvh flex flex-col bg-[var(--bg)] text-[var(--ink)]">
+      <Header currentTab={currentTab} onSelectTab={setCurrentTab} />
 
-      {/* Role banner */}
+      {/* Role banner for Admin / Reviewer */}
       {isConnected && (isAdmin || isReviewer) && (
         <div
-          className="border-b py-2 px-4"
-          style={{ background: isAdmin ? '#f0fdf4' : '#eff6ff', borderColor: isAdmin ? '#bbf7d0' : '#bfdbfe' }}
+          role="status"
+          className="border-b py-2.5 px-4 backdrop-blur-xs transition-colors"
+          style={{
+            background: isAdmin ? 'rgba(240, 253, 244, 0.92)' : 'rgba(239, 246, 255, 0.92)',
+            borderColor: isAdmin ? '#86efac' : '#93c5fd',
+          }}
         >
-          <div className="max-w-6xl mx-auto flex items-center gap-2 text-xs font-medium" style={{ color: isAdmin ? 'var(--spring)' : '#1d4ed8' }}>
-            {isAdmin ? <Users size={12} /> : <Info size={12} />}
-            {isAdmin
-              ? 'You are the grant admin — manage grants, reviewers, and settings from the Admin panel.'
-              : 'You are a reviewer — open a grant to vote on submitted milestones.'}
+          <div
+            className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-xs font-medium"
+            style={{ color: isAdmin ? '#166534' : '#1e40af' }}
+          >
+            <div className="flex items-center gap-2">
+              {isAdmin ? <ShieldCheck size={15} /> : <Info size={15} />}
+              <span>
+                {isAdmin
+                  ? 'Admin Access Verified — Create milestone grants, fund escrow, and assign reviewers.'
+                  : 'Reviewer Access Active — Review milestone proof-of-work submissions.'}
+              </span>
+            </div>
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setCurrentTab('grants')
+                  setGrantsView('admin')
+                }}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors shadow-2xs btn-focus shrink-0"
+              >
+                Open Admin Dashboard
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6">
-        {view === 'detail' && selectedGrant ? (
-          <GrantDetail
-            grant={selectedGrant}
-            onBack={handleBack}
-            onRefresh={handleRefresh}
-            isAdmin={isAdmin}
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+        {/* Tab 1: Landing Page */}
+        {currentTab === 'home' && (
+          <LandingPage
+            onStartBorrowing={() => setCurrentTab('borrow')}
+            onOpenDocs={() => setCurrentTab('learn')}
+            onOpenApp={() => setCurrentTab('grants')}
+            onNavigateTab={tab => {
+              if (tab === 'grants') {
+                setCurrentTab('grants')
+                setGrantsView('list')
+              } else {
+                setCurrentTab(tab)
+              }
+            }}
           />
-        ) : (
+        )}
+
+        {/* Tab 2: Borrow View */}
+        {currentTab === 'borrow' && <BorrowView />}
+
+        {/* Tab 3: Earn View */}
+        {currentTab === 'earn' && <EarnView />}
+
+        {/* Tab 4: Swap View */}
+        {currentTab === 'swap' && <SwapView />}
+
+        {/* Tab 5: Spend View */}
+        {currentTab === 'spend' && <SpendView />}
+
+        {/* Tab 6: Learn / Docs View */}
+        {currentTab === 'learn' && <DocsPage />}
+
+        {/* Tab 7: Grants & Onchain Banking App Mode */}
+        {currentTab === 'grants' && (
           <div className="space-y-6">
-            {/* Page header */}
-            {(view === 'grants' || view === 'admin') && (
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h1
-                    className="display font-bold text-2xl mb-1"
-                    style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}
-                  >
-                    {view === 'admin' ? 'Admin Panel' : 'Active Grants'}
-                  </h1>
-                  <p className="text-sm" style={{ color: 'var(--muted)' }}>
-                    Fund ideas. Verify progress. Release grants with proof.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {isAdmin && (
-                    <button
-                      onClick={() => setView(view === 'admin' ? 'grants' : 'admin')}
-                      className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-sm font-medium border transition-all hover:opacity-80"
-                      style={{
-                        background: view === 'admin' ? 'var(--accent)' : 'var(--surface-strong)',
-                        borderColor: view === 'admin' ? 'var(--accent)' : 'var(--border)',
-                        color: view === 'admin' ? 'white' : 'var(--ink)',
-                      }}
-                    >
-                      <LayoutGrid size={13} />
-                      {view === 'admin' ? 'Back to Grants' : 'Admin'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Admin panel */}
-            {view === 'admin' && isAdmin && (
-              <AdminPanel onGrantCreated={handleRefresh} />
-            )}
-
-            {/* Grants list */}
-            {view === 'grants' && (
-              <>
-                {!isConnected ? (
-                  <div
-                    className="rounded-2xl border p-10 text-center space-y-4"
-                    style={{ background: 'var(--surface-strong)', borderColor: 'var(--border)' }}
-                  >
-                    <div
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
-                      style={{ background: 'var(--spring-light)' }}
-                    >
-                      <Leaf size={22} style={{ color: 'var(--spring)' }} />
-                    </div>
-                    <div>
-                      <h2 className="display font-bold text-xl mb-1" style={{ color: 'var(--ink)' }}>ProofSpring</h2>
-                      <p className="text-sm max-w-xs mx-auto" style={{ color: 'var(--muted)' }}>
-                        Milestone-based USDC grants with onchain evidence, reviewer votes, and transparent payouts.
-                      </p>
-                    </div>
-                    <ConnectKitButton label="Connect Wallet to Get Started" />
+            {grantsView === 'detail' && selectedGrant ? (
+              <GrantDetail
+                grant={selectedGrant}
+                onBack={handleBackToGrants}
+                onRefresh={handleRefresh}
+                isAdmin={isAdmin}
+              />
+            ) : (
+              <div className="space-y-6">
+                {/* Header & Sub-view toggle */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-5">
+                  <div>
+                    <h1 className="heading-1 text-[var(--ink)] mb-1">
+                      {grantsView === 'admin' ? 'Admin Dashboard' : 'Explore Microgrants'}
+                    </h1>
+                    <p className="text-sm text-[var(--muted)] max-w-2xl leading-relaxed">
+                      Milestone-gated USDC grants on Arc. Fund builders with cryptographic proof-of-work, peer reviewer approval, and pull-payment escrow.
+                    </p>
                   </div>
-                ) : (
+
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    {isAdmin && (
+                      <Button
+                        variant={grantsView === 'admin' ? 'primary' : 'secondary'}
+                        size="md"
+                        onClick={() =>
+                          setGrantsView(grantsView === 'admin' ? 'list' : 'admin')
+                        }
+                        leftIcon={<LayoutGrid size={15} />}
+                        actionOutcome={{
+                          action: grantsView === 'admin' ? 'Explore grants' : 'Admin panel',
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Summary Metrics */}
+                {grantsView === 'list' && isConnected && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                    <Card padding="md" variant="default">
+                      <span className="text-xs font-semibold text-[var(--subtle)] block mb-1 uppercase tracking-wider">
+                        Total Grants
+                      </span>
+                      <span className="text-xl font-bold text-[var(--ink)] tabular-nums">
+                        {stats.totalGrants}
+                      </span>
+                    </Card>
+
+                    <Card padding="md" variant="default">
+                      <span className="text-xs font-semibold text-[var(--subtle)] block mb-1 uppercase tracking-wider">
+                        Active Programs
+                      </span>
+                      <span className="text-xl font-bold text-[var(--spring)] tabular-nums">
+                        {stats.activeGrants}
+                      </span>
+                    </Card>
+
+                    <Card padding="md" variant="default">
+                      <span className="text-xs font-semibold text-[var(--subtle)] block mb-1 uppercase tracking-wider">
+                        Committed Escrow
+                      </span>
+                      <span className="text-xl font-bold text-[var(--ink)] tabular-nums">
+                        ${stats.totalUsdc} <span className="text-xs font-normal text-[var(--muted)]">USDC</span>
+                      </span>
+                    </Card>
+
+                    <Card padding="md" variant="default">
+                      <span className="text-xs font-semibold text-[var(--subtle)] block mb-1 uppercase tracking-wider">
+                        Released Payouts
+                      </span>
+                      <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
+                        ${stats.totalReleased} <span className="text-xs font-normal text-[var(--muted)]">USDC</span>
+                      </span>
+                    </Card>
+                  </div>
+                )}
+
+                {/* Admin sub-panel */}
+                {grantsView === 'admin' && isAdmin && (
+                  <AdminPanel onGrantCreated={handleRefresh} />
+                )}
+
+                {/* Grants list */}
+                {grantsView === 'list' && (
                   <>
-                    {/* C8: RPC/network error — clearly distinct from "no grants yet" */}
-                    {grantsError && (
-                      <div
-                        className="rounded-2xl border p-8 text-center space-y-3"
-                        style={{ background: 'var(--surface-strong)', borderColor: '#fecaca' }}
-                      >
-                        <AlertCircle size={22} className="mx-auto" style={{ color: 'var(--danger)' }} />
-                        <div>
-                          <p className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
-                            Could not load grants
-                          </p>
-                          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
-                            A network error occurred while reading the contract. Check your connection
-                            and try again — the page retries automatically.
-                          </p>
-                        </div>
-                        <button
-                          onClick={handleRefresh}
-                          className="inline-flex items-center gap-1.5 px-4 h-9 rounded-xl text-sm font-medium border transition-all hover:opacity-80"
-                          style={{ borderColor: 'var(--border)', color: 'var(--ink)', background: 'var(--surface-strong)' }}
-                        >
-                          <RefreshCw size={13} />
-                          Retry
-                        </button>
-                      </div>
-                    )}
-
-                    {/* A3: skeletons while grantCount itself hasn't resolved yet */}
-                    {!grantsError && grantCountData === undefined && (
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {Array.from({ length: 3 }, (_, i) => <GrantSkeleton key={i} />)}
-                      </div>
-                    )}
-
-                    {/* Loading skeletons while grants fetch (count known but results pending) */}
-                    {!grantsError && grantCountData !== undefined && grantsLoading && grantCount > 0 && grants.length === 0 && (
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {Array.from({ length: Math.min(grantCount, 6) }, (_, i) => (
-                          <GrantSkeleton key={i} />
-                        ))}
-                      </div>
-                    )}
-
-                    {/* True empty state — no grants exist yet */}
-                    {!grantsError && grantCountData !== undefined && !grantsLoading && grants.length === 0 && (
-                      <div
-                        className="rounded-2xl border p-10 text-center space-y-3"
-                        style={{ background: 'var(--surface-strong)', borderColor: 'var(--border)' }}
-                      >
-                        <div
-                          className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
-                          style={{ background: 'var(--surface-muted)' }}
-                        >
-                          <Sprout size={22} style={{ color: 'var(--subtle)' }} />
-                        </div>
-                        <p className="text-sm font-medium" style={{ color: 'var(--ink)' }}>No grants yet</p>
-                        <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                          {isAdmin
-                            ? 'Open the Admin panel to create the first grant.'
-                            : 'Check back soon — grants will appear here once created by the admin.'}
-                        </p>
-                      </div>
-                    )}
-
-                    {!grantsError && grants.length > 0 && (
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {grants.map(grant => (
-                          <GrantCard
-                            key={grant.id.toString()}
-                            grant={grant}
-                            onClick={() => handleSelectGrant(grant)}
-                            isNavigating={navigating === grant.id.toString()}
+                    {!isConnected ? (
+                      <EmptyState
+                        type="first-use"
+                        title="Connect Wallet to View Grants"
+                        description="Connect your wallet to browse milestone-gated grants, submit proof-of-work, and claim approved USDC payouts."
+                        actionLabel="Connect Wallet"
+                        onAction={() => {
+                          const btn = document.querySelector('button[data-testid="rk-connect-button"]') as HTMLButtonElement
+                          btn?.click()
+                        }}
+                      />
+                    ) : (
+                      <>
+                        {grantsError && (
+                          <EmptyState
+                            type="error"
+                            title="Could Not Load Grants from Network"
+                            description="A network error occurred while reading the ProofSpring contract. Check your connection to Arc Testnet or retry."
+                            actionLabel="Retry"
+                            onAction={handleRefresh}
                           />
-                        ))}
-                      </div>
+                        )}
+
+                        {/* Loading skeletons */}
+                        {!grantsError && grantCountData === undefined && (
+                          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                            {Array.from({ length: 3 }, (_, i) => (
+                              <GrantSkeleton key={i} />
+                            ))}
+                          </div>
+                        )}
+
+                        {!grantsError &&
+                          grantCountData !== undefined &&
+                          grantsLoading &&
+                          grantCount > 0 &&
+                          grants.length === 0 && (
+                            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                              {Array.from({ length: Math.min(grantCount, 6) }, (_, i) => (
+                                <GrantSkeleton key={i} />
+                              ))}
+                            </div>
+                          )}
+
+                        {/* Empty state */}
+                        {!grantsError &&
+                          grantCountData !== undefined &&
+                          !grantsLoading &&
+                          grants.length === 0 && (
+                            <EmptyState
+                              type="first-use"
+                              title="No Grants Found on Network"
+                              description={
+                                isAdmin
+                                  ? 'Open the Admin Panel to create your first milestone grant and fund escrow.'
+                                  : 'No grants are currently active on this network. Connect as an administrator to create one.'
+                              }
+                              actionLabel={isAdmin ? 'Create First Grant' : undefined}
+                              onAction={isAdmin ? () => setGrantsView('admin') : undefined}
+                            />
+                          )}
+
+                        {/* Grants Grid */}
+                        {!grantsError && grants.length > 0 && (
+                          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                            {grants.map(grant => (
+                              <GrantCard
+                                key={grant.id.toString()}
+                                grant={grant}
+                                onClick={() => handleSelectGrant(grant)}
+                                isNavigating={navigating === grant.id.toString()}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </>
                 )}
-              </>
+              </div>
             )}
           </div>
         )}
       </main>
 
-      {/* Footer — Fix 8: removed external faucet link, point to sidebar instead */}
-      <footer className="py-4 px-4 border-t mt-auto" style={{ borderColor: 'var(--border)' }}>
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <span className="text-xs" style={{ color: 'var(--subtle)' }}>ProofSpring — built on Arc Testnet</span>
-          {/* C3: faucet hint always visible — connected users need test USDC too */}
-          <span className="text-xs" style={{ color: 'var(--muted)' }}>
-            Need test USDC? Use the{' '}
-            <strong style={{ color: 'var(--spring)' }}>Get test USDC</strong>
-            {' '}button in the sidebar.
-          </span>
+      {/* Footer */}
+      <footer className="py-8 px-4 sm:px-6 lg:px-8 border-t border-[var(--border)] bg-[var(--surface-strong)] transition-colors mt-auto">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[var(--muted)]">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-[var(--ink)]">Mezo</span>
+            <span>—</span>
+            <span>Bitcoin banking on Arc (Deposit BTC, borrow MUSD, earn & spend)</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-5 text-[var(--subtle)]">
+            <button
+              onClick={() => setCurrentTab('learn')}
+              className="hover:text-[var(--ink)] transition-colors btn-focus"
+            >
+              Docs & Contracts
+            </button>
+            <span>•</span>
+            <button
+              onClick={() => setCurrentTab('borrow')}
+              className="hover:text-[var(--ink)] transition-colors btn-focus"
+            >
+              Borrow Calculator
+            </button>
+            <span>•</span>
+            <a
+              href="https://explorer.testnet.arc.io"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[var(--ink)] inline-flex items-center gap-1 transition-colors btn-focus"
+            >
+              <span>Arc Explorer</span>
+              <ExternalLink size={11} />
+            </a>
+          </div>
         </div>
       </footer>
     </div>

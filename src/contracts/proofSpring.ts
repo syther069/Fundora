@@ -5,8 +5,13 @@
 import artifact from '../../contracts/out/ProofSpring.sol/ProofSpring.json'
 
 export const ARC_TESTNET_ID = 5042002
+export const ARC_MAINNET_ID = 5042
 
+export const CANONICAL_USDC_ADDRESS = '0x3600000000000000000000000000000000000000' as `0x${string}`
+
+// Target deployment address (on Arc Mainnet, redeployed instance address; fallback: testnet v2 address)
 export const PROOF_SPRING_ADDRESS = '0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388' as `0x${string}`
+
 
 // Cast through unknown so TypeScript accepts the wide artifact type as our strict const.
 export const PROOF_SPRING_ABI = artifact.abi as unknown as typeof PROOF_SPRING_ABI_CONST
