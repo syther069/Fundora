@@ -1,7 +1,7 @@
 # MEMORY.md — Persistent Project Context
 
 > Purpose: Preserve essential project knowledge across AI coding-agent sessions.
-> Last Updated: 2026-10-22
+> Last Updated: 2026-10-23
 
 ---
 
@@ -12,13 +12,17 @@
 - **Core Value Proposition:** 
   1. **Mezo:** Bitcoin banking where users deposit BTC, borrow MUSD, earn yield, swap, and spend with a sovereign debit card without selling their BTC.
   2. **GrantFlow / ProofSpring:** Milestone-based USDC microgrants where every payout requires verified onchain proof of work.
-- **Current Development Stage:** Complete UI/UX Overhaul & Frontend Architecture Overhaul Verified. Built 13-component token-based UI design system, above-the-fold Mezo landing page, interactive feature views (Borrow, Earn, Swap, Spend), developer Docs portal with search and mobile drawer, 3-mode theme system (Light/Dark/System), and fully preserved all ProofSpring onchain microgrant features.
+- **Current Development Stage:** Complete UI/UX Overhaul & Escrow Workflow Hardening Verified. Built 13-component token-based UI design system, above-the-fold Mezo landing page, interactive feature views, developer Docs portal, and resolved two critical escrow & UX workflow findings in GrantFlow (Finding #1 & #2). Configured zero-secret static Vercel deployment pipeline.
 
 ---
 
 ## 2. Project Status
 
 ### Implemented
+- **Escrow & Admin Workflow Hardening (2026-10-23):**
+  - **Finding #1 Fixed (`GrantDetail.tsx`):** Added onchain USDC `allowance` check with 1-click funding bypass when allowance covers `grant.totalAmount`. Gated Step 2 ("Fund Grant") on verified transaction receipt confirmation (`useWaitForTransactionReceipt`), preventing approval race conditions. Explorer links updated to resolve target chain.
+  - **Finding #2 Fixed (`AdminPanel.tsx`):** Decoupled form reset from write trigger; form inputs (title, desc, deadline, milestone rows) are preserved across user signature rejections or failed transactions. Inputs lock while pending and only clear upon confirmed onchain receipt (`createSuccess`) with a dwell toast. Aligned reviewer management actions to receipt confirmation.
+  - **Vercel Build Integration:** Added `"build": "vite build"` script to `package.json` and strict typing to `scripts/compass-chains.d.ts`. Verified 0 env variables/secrets required for hosting.
 - **Mezo Bitcoin Banking & Design System:**
   - Standardized token-based styling (`src/index.css`) preserving core colors (`--ink: #122d45`, `--spring: #2d7d46`) with complete dark mode (`#0b131e` surfaces).
   - 13 reusable UI components in `src/components/ui/` (`Button`, `Card`, `Input`, `Modal`, `Tabs`, `Tooltip`, `Badge`, `Toast`, `Skeleton`, `Accordion`, `Stepper`, `Table`, `EmptyState`).
@@ -220,12 +224,16 @@
 
 ## 12. Verification Status
 
-- **Last Successful Contract Build:** `forge build` — 2026-10-20, zero errors
-- **Last Contract Test Run:** `forge test` — 2026-10-20, 23/23 passing
-- **TypeScript Check:** `tsc --noEmit` — 2026-10-20, 0 errors
-- **Vite Production Bundle:** `vite build` — 2026-10-20, successfully built into `dist/` in 2m 11s
+- **Last Successful Contract Build:** `forge build` — 2026-10-23, zero errors
+- **Last Contract Test Run:** `forge test` — 2026-10-23, 23/23 passing
+- **TypeScript Check:** `tsc --noEmit` — 2026-10-23, 0 errors
+- **Linter Check:** `oxlint .` — 2026-10-23, 0 errors, 0 warnings
+- **Vite Production Bundle:** `npm run build` — 2026-10-23, successfully built into `dist/` in 32.9s
 - **Known Failing Tests:** None
-- **Last Verified Commit:** Clean local state, ready for deployment
+- **Last Verified Commits:**
+  - `de11439ae` — `fix(escrow): resolve USDC funding race condition and admin form data retention`
+  - `cfdbd046d` — `build: add standard build script to package.json for Vercel deployment`
+- **Session Record:** `docs/GRANTFLOW_SESSION_2026_10_23.md`
 
 ---
 
