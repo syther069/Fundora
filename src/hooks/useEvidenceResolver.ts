@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { usePublicClient, useChainId } from 'wagmi'
 import { parseAbiItem, keccak256, stringToBytes } from 'viem'
-import { PROOF_SPRING_ADDRESS } from '../contracts/proofSpring'
+import { getFundoraAddress } from '../contracts/fundora'
 
 const ZERO_HASH = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
 export function evidenceCacheKey(chainId: number, grantId: bigint, milestoneIndex: number): string {
-  return `proofspring:evidence:${chainId}:${grantId}:${milestoneIndex}`
+  return `fundora:evidence:${chainId}:${grantId}:${milestoneIndex}`
 }
 
 export function saveEvidenceToCache(chainId: number, grantId: bigint, milestoneIndex: number, uri: string) {
@@ -48,7 +48,8 @@ const MILESTONE_SUBMITTED_EVENT = parseAbiItem(
 export function useEvidenceResolver(
   grantId: bigint | undefined,
   milestoneIndex: number | undefined,
-  expectedHash: `0x${string}` | undefined
+  expectedHash: `0x${string}` | undefined,
+  submittedAt?: number | undefined,
 ): UseEvidenceResolverResult {
   const chainId = useChainId()
   const publicClient = usePublicClient()
@@ -89,7 +90,7 @@ export function useEvidenceResolver(
       return
     }
 
-    // 2. Query event logs for MilestoneSubmitted
+    // 2. Query event logs for MilestoneSubmitted within a bounded block window (<5,000 blocks to satisfy Arc RPC)
     let isCancelled = false
     queueMicrotask(() => {
       if (!isCancelled) {
@@ -98,18 +99,62 @@ export function useEvidenceResolver(
       }
     })
 
-    publicClient
-      .getLogs({
-        address: PROOF_SPRING_ADDRESS,
-        event: MILESTONE_SUBMITTED_EVENT,
-        args: {
-          grantId,
-          milestoneIndex: BigInt(milestoneIndex),
-        },
-        fromBlock: 0n,
-        toBlock: 'latest',
-      })
-      .then((logs) => {
+    const targetAddress = getFundoraAddress(chainId)
+
+    const fetchLogs = async () => {
+      try {
+        const latestBlock = await publicClient.getBlockNumber()
+        const now = Math.floor(Date.now() / 1000)
+
+        // Arc block time is ~0.5s (~2 blocks/sec)
+        // Clamp each query window to 4,000 blocks max (Arc RPC max is ~9,000)
+        const CHUNK_SIZE = 4000n
+
+        let fromBlock: bigint
+        let toBlock: bigint
+
+        if (submittedAt && submittedAt > 0) {
+          const secondsAgo = Math.max(0, now - submittedAt)
+          const estimatedBlocksAgo = BigInt(secondsAgo) * 2n // 2 blocks per second
+          const estimatedBlock = latestBlock > estimatedBlocksAgo ? latestBlock - estimatedBlocksAgo : 0n
+
+          // Center a 4,000 block window around the estimated block
+          fromBlock = estimatedBlock > (CHUNK_SIZE / 2n) ? estimatedBlock - (CHUNK_SIZE / 2n) : 0n
+          toBlock = fromBlock + CHUNK_SIZE > latestBlock ? latestBlock : fromBlock + CHUNK_SIZE
+        } else {
+          // Fall back to most recent 4,000 blocks
+          fromBlock = latestBlock > CHUNK_SIZE ? latestBlock - CHUNK_SIZE : 0n
+          toBlock = latestBlock
+        }
+
+        let logs = await publicClient.getLogs({
+          address: targetAddress,
+          event: MILESTONE_SUBMITTED_EVENT,
+          args: {
+            grantId,
+            milestoneIndex: BigInt(milestoneIndex),
+          },
+          fromBlock,
+          toBlock,
+        })
+
+        // If not found in estimated window and window didn't cover latest blocks, do a recent chunk check
+        if (logs.length === 0 && toBlock < latestBlock) {
+          const recentFrom = latestBlock > CHUNK_SIZE ? latestBlock - CHUNK_SIZE : 0n
+          if (recentFrom > fromBlock) {
+            logs = await publicClient.getLogs({
+              address: targetAddress,
+              event: MILESTONE_SUBMITTED_EVENT,
+              args: {
+                grantId,
+                milestoneIndex: BigInt(milestoneIndex),
+              },
+              fromBlock: recentFrom,
+              toBlock: latestBlock,
+            })
+          }
+        }
+
         if (isCancelled) return
 
         if (logs.length > 0) {
@@ -132,18 +177,20 @@ export function useEvidenceResolver(
           }
         }
         setIsLoading(false)
-      })
-      .catch((err) => {
+      } catch (err) {
         if (isCancelled) return
-        console.warn('Could not query MilestoneSubmitted logs:', err)
+        console.warn('Could not query MilestoneSubmitted logs within bounded block window:', err)
         setError(err instanceof Error ? err : new Error(String(err)))
         setIsLoading(false)
-      })
+      }
+    }
+
+    void fetchLogs()
 
     return () => {
       isCancelled = true
     }
-  }, [grantId, milestoneIndex, expectedHash, chainId, publicClient])
+  }, [grantId, milestoneIndex, expectedHash, submittedAt, chainId, publicClient])
 
   return { evidenceUri, isLoading, isVerified, error }
 }

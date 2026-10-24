@@ -7,10 +7,15 @@ import {
   Clock, Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/proofSpring'
-import { useRequiredApprovals, usePendingFunderRefund } from '../hooks/useProofSpring'
+import {
+  FUNDORA_ABI,
+  ARC_TESTNET_ID,
+  ARC_MAINNET_ID,
+  getFundoraAddress,
+} from '../contracts/fundora'
+import { useRequiredApprovals, usePendingFunderRefund } from '../hooks/useFundora'
 import { useGrants } from '../context/GrantsContext'
-import type { Grant } from '../hooks/useProofSpring'
+import type { Grant } from '../hooks/useFundora'
 import { buildTxExplorerUrl } from '@/onchain-facts'
 import { parseOnchainError } from '../utils/errors'
 
@@ -40,18 +45,19 @@ export function AdminPanel({ onGrantCreated }: Props) {
 
   const isArcChain = chainId === ARC_MAINNET_ID || chainId === ARC_TESTNET_ID
   const targetChainId = chainId === ARC_MAINNET_ID ? ARC_MAINNET_ID : ARC_TESTNET_ID
+  const contractAddress = getFundoraAddress(targetChainId)
   const isWrongChain = !isArcChain
 
   const withChain = useCallback((action: () => void) => {
     if (isWrongChain) {
-      switchChain({ chainId: ARC_MAINNET_ID }, { onSuccess: () => action() })
+      switchChain({ chainId: targetChainId }, { onSuccess: () => action() })
       return
     }
     action()
-  }, [isWrongChain, switchChain])
+  }, [isWrongChain, switchChain, targetChainId])
 
   const { grants } = useGrants()
-  const activeGrants = grants.filter(g => g.status === 1 || g.status === 2)
+  const activeGrants = grants.filter(g => g.status === 1 && g.builder !== '0x0000000000000000000000000000000000000000')
 
   // ── Create grant ──
   const [grantTitle, setGrantTitle] = useState('')
@@ -107,8 +113,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
     const deadlineTimestamp = grantDeadline ? Math.floor(new Date(grantDeadline + 'T23:59:59Z').getTime() / 1000) : 0
 
     createWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: contractAddress,
+      abi: FUNDORA_ABI,
       functionName: 'createGrant',
       args: [
         grantTitle,
@@ -151,8 +157,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const handleReassign = () => withChain(() => {
     if (!reassignGrantId || !newBuilderValid) return
     reassignWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: contractAddress,
+      abi: FUNDORA_ABI,
       functionName: 'adminReassignBuilder',
       args: [BigInt(reassignGrantId), newBuilderAddr.trim() as `0x${string}`],
     }, { onError: (e) => toast.error(parseOnchainError(e)) })
@@ -176,8 +182,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const handleAddReviewer = () => withChain(() => {
     if (!isAddress(addReviewerAddr)) { toast.error('Enter a valid 0x address.'); return }
     addRWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: contractAddress,
+      abi: FUNDORA_ABI,
       functionName: 'addReviewer',
       args: [addReviewerAddr],
     }, {
@@ -202,8 +208,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const handleRemoveReviewer = () => withChain(() => {
     if (!isAddress(removeReviewerAddr)) { toast.error('Enter a valid 0x address.'); return }
     removeRWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: contractAddress,
+      abi: FUNDORA_ABI,
       functionName: 'removeReviewer',
       args: [removeReviewerAddr],
     }, {
@@ -231,16 +237,15 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const handleSetRA = () => withChain(() => {
     if (isNaN(newRequiredN) || newRequiredN < 1) { toast.error('Must be at least 1.'); return }
     setRAWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: contractAddress,
+      abi: FUNDORA_ABI,
       functionName: 'setRequiredApprovals',
       args: [BigInt(newRequiredN)],
     }, { onError: (e) => toast.error(parseOnchainError(e)) })
   })
 
-  // ── Cancel grant — 3.3: read from shared context, no duplicate RPC ──
-  const { grants: allGrants } = useGrants()
-  const cancellableGrants: Grant[] = allGrants
+  // ── Cancel grant — read from shared context, no duplicate RPC ──
+  const cancellableGrants: Grant[] = grants
     .filter((g): g is Grant => g.status === 0 || g.status === 1)
 
   const [cancelGrantId, setCancelGrantId] = useState<bigint | null>(null)
@@ -256,8 +261,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const handleCancelGrant = (grantId: bigint) => withChain(() => {
     setCancelGrantId(grantId)
     cancelWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: contractAddress,
+      abi: FUNDORA_ABI,
       functionName: 'cancelGrant',
       args: [grantId],
     }, {
@@ -278,8 +283,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
 
   const handleClaimRefund = () => withChain(() => {
     claimRefundWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: contractAddress,
+      abi: FUNDORA_ABI,
       functionName: 'claimFunderRefund',
     }, { onError: (e) => toast.error(parseOnchainError(e)) })
   })

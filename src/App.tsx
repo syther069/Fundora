@@ -21,14 +21,14 @@ import { DocsPage } from './components/docs/DocsPage'
 import { Card } from './components/ui/Card'
 import { Button } from './components/ui/Button'
 import { EmptyState } from './components/ui/EmptyState'
-import { useContractAdmin, useIsReviewer } from './hooks/useProofSpring'
+import { useContractAdmin, useIsReviewer } from './hooks/useFundora'
 import { useGrants } from './context/GrantsContext'
-import type { Grant } from './hooks/useProofSpring'
-import { PROOF_SPRING_ADDRESS } from './contracts/proofSpring'
+import type { Grant } from './hooks/useFundora'
+import { FUNDORA_ADDRESS } from './contracts/fundora'
 
 type GrantsSubView = 'list' | 'detail' | 'admin'
 
-const NOT_DEPLOYED = PROOF_SPRING_ADDRESS === '0x0000000000000000000000000000000000000000'
+const NOT_DEPLOYED = FUNDORA_ADDRESS === '0x0000000000000000000000000000000000000000'
 
 export default function App() {
   const { address, isConnected } = useAccount()
@@ -121,7 +121,7 @@ export default function App() {
           <EmptyState
             type="error"
             title="Awaiting Smart Contract Deployment"
-            description="The GrantFlow smart contracts are not yet deployed on this network. Configure deployment to activate."
+            description="The Fundora smart contracts are not yet deployed on this network. Configure deployment to activate."
           />
         </main>
       </div>
@@ -309,7 +309,7 @@ export default function App() {
                           <EmptyState
                             type="error"
                             title="Could Not Load Grants from Network"
-                            description="A network error occurred while reading the ProofSpring contract. Check your connection to Arc Testnet or retry."
+                            description="A network error occurred while reading the Fundora contract. Check your connection to Arc Testnet or retry."
                             actionLabel="Retry"
                             onAction={handleRefresh}
                           />
@@ -381,9 +381,9 @@ export default function App() {
       <footer className="py-8 px-4 sm:px-6 lg:px-8 border-t border-[var(--border)] bg-[var(--surface-strong)] transition-colors mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[var(--muted)]">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-[var(--ink)]">Mezo</span>
+            <span className="font-bold text-[var(--ink)]">Fundora</span>
             <span>—</span>
-            <span>Bitcoin banking on Arc (Deposit BTC, borrow MUSD, earn & spend)</span>
+            <span>Onchain milestone-gated USDC microgrants & escrow on Arc</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-5 text-[var(--subtle)]">

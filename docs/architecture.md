@@ -1,18 +1,18 @@
-# GrantFlow — System Architecture & Technical Specification
+# Fundora — System Architecture & Technical Specification
 
 > **Target Network:** Arc Mainnet (Chain ID `5042`)  
-> **Contract Engine:** ProofSpring v2  
-> **Status:** Approved for Implementation (Phase 3 UI Redesign)
+> **Contract Engine:** Fundora v2  
+> **Status:** Production Ready & Mainnet Configured
 
 ---
 
 ## 1. System Overview
 
-**GrantFlow** (contract identifier: `ProofSpring`) is a decentralized, milestone-gated microgrants platform engineered for the Arc blockchain ecosystem. It enables grant committees, DAOs, and funding bodies to create USDC-backed grants where funds are held safely in escrow and disbursed only upon cryptographic, onchain verification of work.
+**Fundora** is a decentralized, milestone-gated microgrants platform engineered for the Arc blockchain ecosystem. It enables grant committees, DAOs, and funding bodies to create USDC-backed grants where funds are held safely in escrow and disbursed only upon cryptographic, onchain verification of work.
 
 ### Core Principles
 1. **Zero-Trust Milestone Escrow:** Capital is locked in the smart contract and only queued for payout when designated reviewers vote to approve submitted evidence.
-2. **Pull Payment Security:** GrantFlow never pushes USDC automatically. Instead, approved funds accumulate in `pendingWithdrawals` (for builders) or `pendingFunderRefunds` (for funders on cancellation/expiry), protecting the protocol against malicious recipient reverts and reentrancy vectors.
+2. **Pull Payment Security:** Fundora never pushes USDC automatically. Instead, approved funds accumulate in `pendingWithdrawals` (for builders) or `pendingFunderRefunds` (for funders on cancellation/expiry), protecting the protocol against malicious recipient reverts and reentrancy vectors.
 3. **Storage-Gas Efficiency with Event-Indexed Evidence:** Raw evidence strings (URLs, IPFS CIDs, and markdown reports) are emitted in `MilestoneSubmitted` events rather than stored in expensive contract storage. Only a `bytes32` hash (`keccak256(evidenceUri)`) is persisted in state.
 4. **Deterministic Quorum & Anti-Deadlock:** Grant funding requires `reviewerCount >= requiredApprovals`. Strict voting math enables early auto-approval (when approval threshold is met) and early auto-rejection (when remaining reviewers cannot possibly reach quorum).
 

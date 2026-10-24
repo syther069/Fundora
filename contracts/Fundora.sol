@@ -5,7 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract ProofSpring is ReentrancyGuard {
+contract Fundora is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     enum GrantStatus {

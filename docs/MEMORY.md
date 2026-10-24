@@ -1,24 +1,28 @@
 # MEMORY.md — Persistent Project Context
 
 > Purpose: Preserve essential project knowledge across AI coding-agent sessions.
-> Last Updated: 2026-10-23
+> Last Updated: 2026-10-24
 
 ---
 
 ## 1. Project Identity
 
-- **Project Name:** Mezo (Bitcoin Banking: Deposit BTC, Borrow MUSD at 0%, Earn yield, Swap & Spend) + GrantFlow / ProofSpring (Milestone-gated USDC microgrants platform)
+- **Project Name:** Fundora (Milestone-gated USDC microgrants & escrow platform on Arc) + Mezo Banking
 - **Target Chains:** Arc Mainnet (Chain ID 5042) and Arc Testnet (Chain ID 5042002)
 - **Core Value Proposition:** 
-  1. **Mezo:** Bitcoin banking where users deposit BTC, borrow MUSD, earn yield, swap, and spend with a sovereign debit card without selling their BTC.
-  2. **GrantFlow / ProofSpring:** Milestone-based USDC microgrants where every payout requires verified onchain proof of work.
-- **Current Development Stage:** Complete UI/UX Overhaul & Escrow Workflow Hardening Verified. Built 13-component token-based UI design system, above-the-fold Mezo landing page, interactive feature views, developer Docs portal, and resolved two critical escrow & UX workflow findings in GrantFlow (Finding #1 & #2). Configured zero-secret static Vercel deployment pipeline.
+  1. **Fundora:** Milestone-based USDC microgrants where every payout requires verified onchain proof of work and pull disbursements.
+  2. **Mezo:** Bitcoin banking on Arc (Deposit BTC, borrow MUSD at 0%, earn yield, swap & spend).
+- **Current Development Stage:** Rebranded to Fundora and Arc Mainnet Ready. Full contract audit completed, Arc Mainnet deployment script `contracts/script/DeployFundoraMainnet.s.sol` created with canonical USDC `0x3600...0000`, 25 Foundry unit tests verified passing, and multi-network routing hardened across all UI components and hooks.
 
 ---
 
 ## 2. Project Status
 
 ### Implemented
+- **Ponytail Review & RPC Bound Hardening (2026-10-24):**
+  - Documented `docs/GRANTFLOW_SESSION_2026_10_24.md` capturing all codebase audit findings and uncommitted working-tree adjustments.
+  - Audited Arc Testnet block production rate (~0.507s/block) and `eth_getLogs` window limits (~9,000 blocks).
+  - Detected invalid `status === 2` inclusion in `adminReassignBuilder` dropdown and `expireGrant` trigger.
 - **Escrow & Admin Workflow Hardening (2026-10-23):**
   - **Finding #1 Fixed (`GrantDetail.tsx`):** Added onchain USDC `allowance` check with 1-click funding bypass when allowance covers `grant.totalAmount`. Gated Step 2 ("Fund Grant") on verified transaction receipt confirmation (`useWaitForTransactionReceipt`), preventing approval race conditions. Explorer links updated to resolve target chain.
   - **Finding #2 Fixed (`AdminPanel.tsx`):** Decoupled form reset from write trigger; form inputs (title, desc, deadline, milestone rows) are preserved across user signature rejections or failed transactions. Inputs lock while pending and only clear upon confirmed onchain receipt (`createSuccess`) with a dwell toast. Aligned reviewer management actions to receipt confirmation.

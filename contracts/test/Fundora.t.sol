@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {ProofSpring} from "../ProofSpring.sol";
+import {Fundora} from "../Fundora.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // ---------------------------------------------------------------------------
@@ -61,8 +61,8 @@ contract MockUSDC {
 // ---------------------------------------------------------------------------
 // Test contract
 // ---------------------------------------------------------------------------
-contract ProofSpringTest is Test {
-    ProofSpring internal ps;
+contract FundoraTest is Test {
+    Fundora internal fundora;
     MockUSDC    internal usdc;
 
     address internal admin    = makeAddr("admin");
@@ -90,7 +90,7 @@ contract ProofSpringTest is Test {
         titles[1]  = "Milestone 1";   descs[1]  = "Do thing B";  amounts[1] = M1_AMOUNT;
 
         vm.prank(admin);
-        grantId = ps.createGrant("Grant Title", "Description", 2, titles, descs, amounts, 0);
+        grantId = fundora.createGrant("Grant Title", "Description", 2, titles, descs, amounts, 0);
     }
 
     /// Create a grant with a custom number of milestones (each 10e6).
@@ -104,35 +104,35 @@ contract ProofSpringTest is Test {
             amounts[i] = 10e6;
         }
         vm.prank(admin);
-        grantId = ps.createGrant("G", "D", n, titles, descs, amounts, deadline);
+        grantId = fundora.createGrant("G", "D", n, titles, descs, amounts, deadline);
     }
 
     /// Approve USDC and call fundGrant as admin.
     function _fundGrant(uint256 grantId) internal {
-        uint128 total = ps.getGrant(grantId).totalAmount;
+        uint128 total = fundora.getGrant(grantId).totalAmount;
         usdc.mint(admin, total);
         vm.startPrank(admin);
-        usdc.approve(address(ps), total);
-        ps.fundGrant(grantId);
+        usdc.approve(address(fundora), total);
+        fundora.fundGrant(grantId);
         vm.stopPrank();
     }
 
     /// Apply for a grant as `who`.
     function _applyForGrant(uint256 grantId, address who) internal {
         vm.prank(who);
-        ps.applyForGrant(grantId);
+        fundora.applyForGrant(grantId);
     }
 
     /// Submit milestone evidence as the current grant builder.
     function _submitEvidence(uint256 grantId, uint256 mIdx, address who, string memory uri) internal {
         vm.prank(who);
-        ps.submitMilestoneEvidence(grantId, mIdx, uri);
+        fundora.submitMilestoneEvidence(grantId, mIdx, uri);
     }
 
     /// Review a milestone (approve or reject) as `reviewer`.
     function _review(uint256 grantId, uint256 mIdx, address reviewer, bool approve) internal {
         vm.prank(reviewer);
-        ps.reviewMilestone(grantId, mIdx, approve);
+        fundora.reviewMilestone(grantId, mIdx, approve);
     }
 
     // -----------------------------------------------------------------------
@@ -144,11 +144,11 @@ contract ProofSpringTest is Test {
         vm.prank(admin);
         // Deploy with requiredApprovals = 1 (will add reviewer after)
         // We need at least 1 reviewer when funding, so set RA=1 in basic tests.
-        ps = new ProofSpring(address(usdc), admin, 1);
+        fundora = new Fundora(address(usdc), admin, 1);
 
         // Add reviewer1 as default reviewer (satisfies reviewerCount >= requiredApprovals=1)
         vm.prank(admin);
-        ps.addReviewer(reviewer1);
+        fundora.addReviewer(reviewer1);
     }
 
     // =======================================================================
@@ -164,32 +164,32 @@ contract ProofSpringTest is Test {
 
         // Before approval: pull model – balance unchanged
         uint256 balBefore = usdc.balanceOf(builder);
-        assertEq(ps.pendingWithdrawals(builder), 0, "no pending before approve");
+        assertEq(fundora.pendingWithdrawals(builder), 0, "no pending before approve");
 
         _review(grantId, 0, reviewer1, true);
 
         // Payment queued, not yet transferred
-        assertEq(ps.pendingWithdrawals(builder), M0_AMOUNT, "pending after approve M0");
+        assertEq(fundora.pendingWithdrawals(builder), M0_AMOUNT, "pending after approve M0");
         assertEq(usdc.balanceOf(builder), balBefore, "balance unchanged before claim");
 
         // Builder claims
         vm.prank(builder);
-        ps.claimPayment();
+        fundora.claimPayment();
         assertEq(usdc.balanceOf(builder), balBefore + M0_AMOUNT, "balance after M0 claim");
-        assertEq(ps.pendingWithdrawals(builder), 0, "pending cleared");
+        assertEq(fundora.pendingWithdrawals(builder), 0, "pending cleared");
 
         // --- Milestone 1 ---
         _submitEvidence(grantId, 1, builder, "https://github.com/pr/2");
         _review(grantId, 1, reviewer1, true);
 
         // Grant should now be Completed
-        ProofSpring.Grant memory g = ps.getGrant(grantId);
-        assertEq(uint8(g.status), uint8(ProofSpring.GrantStatus.Completed), "grant Completed");
+        Fundora.Grant memory g = fundora.getGrant(grantId);
+        assertEq(uint8(g.status), uint8(Fundora.GrantStatus.Completed), "grant Completed");
         assertEq(g.approvedMilestoneCount, 2, "all milestones approved");
 
         // Builder claims remaining
         vm.prank(builder);
-        ps.claimPayment();
+        fundora.claimPayment();
         assertEq(usdc.balanceOf(builder), balBefore + TOTAL, "builder received full payment");
     }
 
@@ -201,9 +201,9 @@ contract ProofSpringTest is Test {
         // auto-reject fires when vc.rejections > reviewerCount - requiredApprovals
         //   = 2 - 2 = 0  → fires when rejections > 0, i.e. on first rejection
         vm.prank(admin);
-        ps.addReviewer(reviewer2);           // now reviewerCount = 2
+        fundora.addReviewer(reviewer2);           // now reviewerCount = 2
         vm.prank(admin);
-        ps.setRequiredApprovals(2);          // requiredApprovals = 2
+        fundora.setRequiredApprovals(2);          // requiredApprovals = 2
 
         uint256 grantId = _createStandardGrant();
         _fundGrant(grantId);
@@ -214,21 +214,21 @@ contract ProofSpringTest is Test {
         // First rejection → auto-reject (rejections=1 > 2-2=0)
         _review(grantId, 0, reviewer1, false);
 
-        ProofSpring.Milestone memory m = ps.getMilestone(grantId, 0);
-        assertEq(uint8(m.status), uint8(ProofSpring.MilestoneStatus.Rejected), "milestone Rejected");
+        Fundora.Milestone memory m = fundora.getMilestone(grantId, 0);
+        assertEq(uint8(m.status), uint8(Fundora.MilestoneStatus.Rejected), "milestone Rejected");
 
         // Builder resubmits
         _submitEvidence(grantId, 0, builder, "evidence-v2");
 
-        m = ps.getMilestone(grantId, 0);
-        assertEq(uint8(m.status), uint8(ProofSpring.MilestoneStatus.SubmittedForReview), "re-submitted");
+        m = fundora.getMilestone(grantId, 0);
+        assertEq(uint8(m.status), uint8(Fundora.MilestoneStatus.SubmittedForReview), "re-submitted");
 
         // Both reviewers approve
         _review(grantId, 0, reviewer1, true);
         _review(grantId, 0, reviewer2, true);
 
-        m = ps.getMilestone(grantId, 0);
-        assertEq(uint8(m.status), uint8(ProofSpring.MilestoneStatus.Approved), "milestone Approved");
+        m = fundora.getMilestone(grantId, 0);
+        assertEq(uint8(m.status), uint8(Fundora.MilestoneStatus.Approved), "milestone Approved");
     }
 
     // =======================================================================
@@ -242,20 +242,20 @@ contract ProofSpringTest is Test {
 
         // Cancel the grant
         vm.prank(admin);
-        ps.cancelGrant(grantId);
+        fundora.cancelGrant(grantId);
 
-        ProofSpring.Grant memory g = ps.getGrant(grantId);
-        assertEq(uint8(g.status), uint8(ProofSpring.GrantStatus.Cancelled), "grant Cancelled");
+        Fundora.Grant memory g = fundora.getGrant(grantId);
+        assertEq(uint8(g.status), uint8(Fundora.GrantStatus.Cancelled), "grant Cancelled");
 
         // No milestones approved → full refund queued for funder (= admin)
-        assertEq(ps.pendingFunderRefunds(admin), TOTAL, "full refund queued");
+        assertEq(fundora.pendingFunderRefunds(admin), TOTAL, "full refund queued");
 
         // Funder claims refund
         vm.prank(admin);
-        ps.claimFunderRefund();
+        fundora.claimFunderRefund();
 
         assertEq(usdc.balanceOf(admin), adminUsdcBefore + TOTAL, "funder received refund");
-        assertEq(ps.pendingFunderRefunds(admin), 0, "refund cleared");
+        assertEq(fundora.pendingFunderRefunds(admin), 0, "refund cleared");
     }
 
     // =======================================================================
@@ -266,8 +266,8 @@ contract ProofSpringTest is Test {
         _fundGrant(grantId);
 
         vm.prank(reviewer1);
-        vm.expectRevert(ProofSpring.InvalidStatus.selector);
-        ps.applyForGrant(grantId);
+        vm.expectRevert(Fundora.InvalidStatus.selector);
+        fundora.applyForGrant(grantId);
     }
 
     // =======================================================================
@@ -278,8 +278,8 @@ contract ProofSpringTest is Test {
         _fundGrant(grantId);
 
         vm.prank(admin);
-        vm.expectRevert(ProofSpring.AdminCannotBeBuilder.selector);
-        ps.applyForGrant(grantId);
+        vm.expectRevert(Fundora.AdminCannotBeBuilder.selector);
+        fundora.applyForGrant(grantId);
     }
 
     // =======================================================================
@@ -288,9 +288,9 @@ contract ProofSpringTest is Test {
     function testAlreadyVotedReverts() public {
         // Setup: 2 reviewers, RA=2 so neither a single approve nor reject auto-closes
         vm.prank(admin);
-        ps.addReviewer(reviewer2);
+        fundora.addReviewer(reviewer2);
         vm.prank(admin);
-        ps.setRequiredApprovals(2);
+        fundora.setRequiredApprovals(2);
 
         uint256 grantId = _createStandardGrant();
         _fundGrant(grantId);
@@ -302,8 +302,8 @@ contract ProofSpringTest is Test {
 
         // reviewer1 tries to approve again in the same round → AlreadyVoted
         vm.prank(reviewer1);
-        vm.expectRevert(ProofSpring.AlreadyVoted.selector);
-        ps.reviewMilestone(grantId, 0, true);
+        vm.expectRevert(Fundora.AlreadyVoted.selector);
+        fundora.reviewMilestone(grantId, 0, true);
     }
 
     // =======================================================================
@@ -312,9 +312,9 @@ contract ProofSpringTest is Test {
     function testRoundResetOnResubmit() public {
         // 2 reviewers, requiredApprovals = 2 so one approval doesn't close the milestone
         vm.prank(admin);
-        ps.addReviewer(reviewer2);
+        fundora.addReviewer(reviewer2);
         vm.prank(admin);
-        ps.setRequiredApprovals(2);
+        fundora.setRequiredApprovals(2);
 
         uint256 grantId = _createStandardGrant();
         _fundGrant(grantId);
@@ -322,27 +322,27 @@ contract ProofSpringTest is Test {
 
         // Round 1: reviewer1 approves (1/2 needed, milestone still open)
         _submitEvidence(grantId, 0, builder, "round1");
-        uint256 roundBefore = ps.getMilestoneRound(grantId, 0);
+        uint256 roundBefore = fundora.getMilestoneRound(grantId, 0);
 
         _review(grantId, 0, reviewer1, true);
         // Confirm vote is recorded
-        assertTrue(ps.getReviewerVote(grantId, 0, reviewer1), "vote recorded round 1");
+        assertTrue(fundora.getReviewerVote(grantId, 0, reviewer1), "vote recorded round 1");
 
         // Force rejection so builder can resubmit: reviewer2 rejects
         // rejections=1 > reviewerCount-requiredApprovals = 0 → auto-reject
         _review(grantId, 0, reviewer2, false);
 
-        ProofSpring.Milestone memory m = ps.getMilestone(grantId, 0);
-        assertEq(uint8(m.status), uint8(ProofSpring.MilestoneStatus.Rejected), "rejected");
+        Fundora.Milestone memory m = fundora.getMilestone(grantId, 0);
+        assertEq(uint8(m.status), uint8(Fundora.MilestoneStatus.Rejected), "rejected");
 
         // Builder resubmits → new round
         _submitEvidence(grantId, 0, builder, "round2");
-        uint256 roundAfter = ps.getMilestoneRound(grantId, 0);
+        uint256 roundAfter = fundora.getMilestoneRound(grantId, 0);
         assertEq(roundAfter, roundBefore + 1, "round incremented once on resubmit");
 
         // reviewer1 can vote again in the new round without AlreadyVoted
         _review(grantId, 0, reviewer1, true);
-        assertTrue(ps.getReviewerVote(grantId, 0, reviewer1), "reviewer1 voted in round 2");
+        assertTrue(fundora.getReviewerVote(grantId, 0, reviewer1), "reviewer1 voted in round 2");
     }
 
     // =======================================================================
@@ -363,14 +363,14 @@ contract ProofSpringTest is Test {
         assertEq(usdc.balanceOf(builder), balBefore, "no immediate transfer");
 
         // pendingWithdrawals should be positive
-        assertGt(ps.pendingWithdrawals(builder), 0, "pending > 0");
+        assertGt(fundora.pendingWithdrawals(builder), 0, "pending > 0");
 
         // Builder claims
         vm.prank(builder);
-        ps.claimPayment();
+        fundora.claimPayment();
 
         assertEq(usdc.balanceOf(builder), balBefore + M0_AMOUNT, "balance increased after claim");
-        assertEq(ps.pendingWithdrawals(builder), 0, "pending zeroed");
+        assertEq(fundora.pendingWithdrawals(builder), 0, "pending zeroed");
     }
 
     // =======================================================================
@@ -380,25 +380,25 @@ contract ProofSpringTest is Test {
         // reviewerCount = 1 (reviewer1 added in setUp)
         // setRequiredApprovals(reviewerCount + 1) should revert
         vm.prank(admin);
-        vm.expectRevert(ProofSpring.InsufficientApprovers.selector);
-        ps.setRequiredApprovals(2); // reviewerCount is 1, so 2 > 1 → revert
+        vm.expectRevert(Fundora.InsufficientApprovers.selector);
+        fundora.setRequiredApprovals(2); // reviewerCount is 1, so 2 > 1 → revert
 
         // removeReviewer when it would drop reviewerCount below requiredApprovals
         // requiredApprovals = 1, reviewerCount = 1 → removing would leave 0 < 1
         vm.prank(admin);
-        vm.expectRevert(ProofSpring.InsufficientApprovers.selector);
-        ps.removeReviewer(reviewer1);
+        vm.expectRevert(Fundora.InsufficientApprovers.selector);
+        fundora.removeReviewer(reviewer1);
 
         // Add reviewer2 so we can remove reviewer1 safely
         vm.prank(admin);
-        ps.addReviewer(reviewer2); // reviewerCount = 2, RA = 1 → OK to remove one
+        fundora.addReviewer(reviewer2); // reviewerCount = 2, RA = 1 → OK to remove one
         vm.prank(admin);
-        ps.removeReviewer(reviewer1); // reviewerCount becomes 1 >= RA=1 → OK
+        fundora.removeReviewer(reviewer1); // reviewerCount becomes 1 >= RA=1 → OK
 
         // Now try to set RA = 2 when reviewerCount = 1
         vm.prank(admin);
-        vm.expectRevert(ProofSpring.InsufficientApprovers.selector);
-        ps.setRequiredApprovals(2);
+        vm.expectRevert(Fundora.InsufficientApprovers.selector);
+        fundora.setRequiredApprovals(2);
     }
 
     // =======================================================================
@@ -411,34 +411,34 @@ contract ProofSpringTest is Test {
 
         // Pause
         vm.prank(admin);
-        ps.pause();
-        assertTrue(ps.paused(), "contract is paused");
+        fundora.pause();
+        assertTrue(fundora.paused(), "contract is paused");
 
         // fundGrant should revert Paused
         // Create another open grant first
         uint256 grantId2 = _createStandardGrant();
         usdc.mint(admin, TOTAL);
         vm.startPrank(admin);
-        usdc.approve(address(ps), TOTAL);
-        vm.expectRevert(ProofSpring.Paused.selector);
-        ps.fundGrant(grantId2);
+        usdc.approve(address(fundora), TOTAL);
+        vm.expectRevert(Fundora.Paused.selector);
+        fundora.fundGrant(grantId2);
         vm.stopPrank();
 
         // submitMilestoneEvidence should revert Paused
         vm.prank(builder);
-        vm.expectRevert(ProofSpring.Paused.selector);
-        ps.submitMilestoneEvidence(grantId, 0, "ev");
+        vm.expectRevert(Fundora.Paused.selector);
+        fundora.submitMilestoneEvidence(grantId, 0, "ev");
 
         // Unpause
         vm.prank(admin);
-        ps.unpause();
-        assertFalse(ps.paused(), "contract unpaused");
+        fundora.unpause();
+        assertFalse(fundora.paused(), "contract unpaused");
 
         // submitMilestoneEvidence now succeeds
         vm.prank(builder);
-        ps.submitMilestoneEvidence(grantId, 0, "ev");
-        ProofSpring.Milestone memory m = ps.getMilestone(grantId, 0);
-        assertEq(uint8(m.status), uint8(ProofSpring.MilestoneStatus.SubmittedForReview));
+        fundora.submitMilestoneEvidence(grantId, 0, "ev");
+        Fundora.Milestone memory m = fundora.getMilestone(grantId, 0);
+        assertEq(uint8(m.status), uint8(Fundora.MilestoneStatus.SubmittedForReview));
     }
 
     // =======================================================================
@@ -451,30 +451,30 @@ contract ProofSpringTest is Test {
 
         // Builder submits milestone 0 → SubmittedForReview
         _submitEvidence(grantId, 0, builder, "ev");
-        ProofSpring.Milestone memory m = ps.getMilestone(grantId, 0);
-        assertEq(uint8(m.status), uint8(ProofSpring.MilestoneStatus.SubmittedForReview));
+        Fundora.Milestone memory m = fundora.getMilestone(grantId, 0);
+        assertEq(uint8(m.status), uint8(Fundora.MilestoneStatus.SubmittedForReview));
 
         // Admin reassigns to builder2
         vm.prank(admin);
-        ps.adminReassignBuilder(grantId, builder2);
+        fundora.adminReassignBuilder(grantId, builder2);
 
-        ProofSpring.Grant memory g = ps.getGrant(grantId);
+        Fundora.Grant memory g = fundora.getGrant(grantId);
         assertEq(g.builder, builder2, "builder reassigned");
 
         // Milestone 0 should be reset to Pending
-        m = ps.getMilestone(grantId, 0);
-        assertEq(uint8(m.status), uint8(ProofSpring.MilestoneStatus.Pending), "milestone reset");
+        m = fundora.getMilestone(grantId, 0);
+        assertEq(uint8(m.status), uint8(Fundora.MilestoneStatus.Pending), "milestone reset");
 
         // Old builder can no longer submit evidence
         vm.prank(builder);
-        vm.expectRevert(ProofSpring.NotBuilder.selector);
-        ps.submitMilestoneEvidence(grantId, 0, "old-ev");
+        vm.expectRevert(Fundora.NotBuilder.selector);
+        fundora.submitMilestoneEvidence(grantId, 0, "old-ev");
 
         // New builder can submit evidence
         vm.prank(builder2);
-        ps.submitMilestoneEvidence(grantId, 0, "new-ev");
-        m = ps.getMilestone(grantId, 0);
-        assertEq(uint8(m.status), uint8(ProofSpring.MilestoneStatus.SubmittedForReview));
+        fundora.submitMilestoneEvidence(grantId, 0, "new-ev");
+        m = fundora.getMilestone(grantId, 0);
+        assertEq(uint8(m.status), uint8(Fundora.MilestoneStatus.SubmittedForReview));
     }
 
     // =======================================================================
@@ -489,13 +489,13 @@ contract ProofSpringTest is Test {
         uint256[] memory amounts = new uint256[](1);
         titles[0] = "M"; descs[0] = "D"; amounts[0] = 10e6;
         vm.prank(admin);
-        uint256 grantId = ps.createGrant("Expiring Grant", "Desc", 1, titles, descs, amounts, deadline);
+        uint256 grantId = fundora.createGrant("Expiring Grant", "Desc", 1, titles, descs, amounts, deadline);
 
         // Fund it
         usdc.mint(admin, 10e6);
         vm.startPrank(admin);
-        usdc.approve(address(ps), 10e6);
-        ps.fundGrant(grantId);
+        usdc.approve(address(fundora), 10e6);
+        fundora.fundGrant(grantId);
         vm.stopPrank();
 
         // Warp past the deadline
@@ -503,13 +503,13 @@ contract ProofSpringTest is Test {
 
         // Anyone can call expireGrant
         vm.prank(anyone);
-        ps.expireGrant(grantId);
+        fundora.expireGrant(grantId);
 
-        ProofSpring.Grant memory g = ps.getGrant(grantId);
-        assertEq(uint8(g.status), uint8(ProofSpring.GrantStatus.Cancelled), "grant Cancelled via expire");
+        Fundora.Grant memory g = fundora.getGrant(grantId);
+        assertEq(uint8(g.status), uint8(Fundora.GrantStatus.Cancelled), "grant Cancelled via expire");
 
         // Funder (admin) should have refund queued
-        assertEq(ps.pendingFunderRefunds(admin), 10e6, "funder refund queued");
+        assertEq(fundora.pendingFunderRefunds(admin), 10e6, "funder refund queued");
     }
 
     // =======================================================================
@@ -521,8 +521,8 @@ contract ProofSpringTest is Test {
         _fundGrant(grantId);
 
         vm.prank(anyone);
-        vm.expectRevert(ProofSpring.NotExpired.selector);
-        ps.expireGrant(grantId);
+        vm.expectRevert(Fundora.NotExpired.selector);
+        fundora.expireGrant(grantId);
     }
 
     // =======================================================================
@@ -536,14 +536,14 @@ contract ProofSpringTest is Test {
         titles[0] = "M"; descs[0] = "D"; amounts[0] = 10e6;
 
         vm.prank(admin);
-        ps.createGrant("Alpha", "D", 1, titles, descs, amounts, 0);
+        fundora.createGrant("Alpha", "D", 1, titles, descs, amounts, 0);
         vm.prank(admin);
-        ps.createGrant("Beta",  "D", 1, titles, descs, amounts, 0);
+        fundora.createGrant("Beta",  "D", 1, titles, descs, amounts, 0);
         vm.prank(admin);
-        ps.createGrant("Gamma", "D", 1, titles, descs, amounts, 0);
+        fundora.createGrant("Gamma", "D", 1, titles, descs, amounts, 0);
 
         // getGrantsBatch(1, 3) → 3 elements
-        ProofSpring.Grant[] memory batch = ps.getGrantsBatch(1, 3);
+        Fundora.Grant[] memory batch = fundora.getGrantsBatch(1, 3);
         assertEq(batch.length, 3, "batch length 3");
         assertEq(batch[0].title, "Alpha");
         assertEq(batch[1].title, "Beta");
@@ -565,11 +565,11 @@ contract ProofSpringTest is Test {
         // Create 51 more grants (batch call = 52 total).
         for (uint256 i = 0; i < 50; i++) {
             vm.prank(admin);
-            ps.createGrant("X", "D", 1, titles, descs, amounts, 0);
+            fundora.createGrant("X", "D", 1, titles, descs, amounts, 0);
         }
         // grantCount is now 53
-        vm.expectRevert(ProofSpring.BatchTooLarge.selector);
-        ps.getGrantsBatch(1, 52);
+        vm.expectRevert(Fundora.BatchTooLarge.selector);
+        fundora.getGrantsBatch(1, 52);
     }
 
     // =======================================================================
@@ -584,8 +584,8 @@ contract ProofSpringTest is Test {
             titles21[i] = "M"; descs21[i] = "D"; amounts21[i] = 10e6;
         }
         vm.prank(admin);
-        vm.expectRevert(ProofSpring.MaxMilestonesExceeded.selector);
-        ps.createGrant("Big", "D", 21, titles21, descs21, amounts21, 0);
+        vm.expectRevert(Fundora.MaxMilestonesExceeded.selector);
+        fundora.createGrant("Big", "D", 21, titles21, descs21, amounts21, 0);
 
         // 20 milestones → success
         string[]  memory titles20  = new string[](20);
@@ -595,7 +595,7 @@ contract ProofSpringTest is Test {
             titles20[i] = "M"; descs20[i] = "D"; amounts20[i] = 10e6;
         }
         vm.prank(admin);
-        uint256 grantId = ps.createGrant("Max", "D", 20, titles20, descs20, amounts20, 0);
+        uint256 grantId = fundora.createGrant("Max", "D", 20, titles20, descs20, amounts20, 0);
         assertGt(grantId, 0, "grant created with 20 milestones");
     }
 
@@ -603,8 +603,8 @@ contract ProofSpringTest is Test {
     // Bonus: testZeroRequiredApprovalsReverts (constructor guard)
     // =======================================================================
     function testZeroRequiredApprovalsReverts() public {
-        vm.expectRevert(ProofSpring.ZeroAmount.selector);
-        new ProofSpring(address(usdc), admin, 0);
+        vm.expectRevert(Fundora.ZeroAmount.selector);
+        new Fundora(address(usdc), admin, 0);
     }
 
     // =======================================================================
@@ -615,13 +615,13 @@ contract ProofSpringTest is Test {
     function testMilestoneNotAutoRejectedBelowThreshold() public {
         // reviewerCount = 1 currently; add 2 more → reviewerCount = 3
         vm.prank(admin);
-        ps.addReviewer(reviewer2);
+        fundora.addReviewer(reviewer2);
         address reviewer3 = makeAddr("reviewer3");
         vm.prank(admin);
-        ps.addReviewer(reviewer3);
+        fundora.addReviewer(reviewer3);
         // setRequiredApprovals = 2
         vm.prank(admin);
-        ps.setRequiredApprovals(2);
+        fundora.setRequiredApprovals(2);
         // Threshold: rejections > 3-2 = 1, i.e. need >=2 rejections
 
         uint256 grantId = _createStandardGrant();
@@ -631,13 +631,13 @@ contract ProofSpringTest is Test {
 
         // One rejection → threshold not reached
         _review(grantId, 0, reviewer1, false);
-        ProofSpring.Milestone memory m = ps.getMilestone(grantId, 0);
-        assertEq(uint8(m.status), uint8(ProofSpring.MilestoneStatus.SubmittedForReview), "still in review");
+        Fundora.Milestone memory m = fundora.getMilestone(grantId, 0);
+        assertEq(uint8(m.status), uint8(Fundora.MilestoneStatus.SubmittedForReview), "still in review");
 
         // Second rejection → threshold reached (rejections=2 > 1)
         _review(grantId, 0, reviewer2, false);
-        m = ps.getMilestone(grantId, 0);
-        assertEq(uint8(m.status), uint8(ProofSpring.MilestoneStatus.Rejected), "now rejected");
+        m = fundora.getMilestone(grantId, 0);
+        assertEq(uint8(m.status), uint8(Fundora.MilestoneStatus.Rejected), "now rejected");
     }
 
     // =======================================================================
@@ -647,12 +647,12 @@ contract ProofSpringTest is Test {
         uint256 grantId = _createStandardGrant();
 
         vm.prank(admin);
-        ps.cancelGrant(grantId);
+        fundora.cancelGrant(grantId);
 
-        ProofSpring.Grant memory g = ps.getGrant(grantId);
-        assertEq(uint8(g.status), uint8(ProofSpring.GrantStatus.Cancelled));
+        Fundora.Grant memory g = fundora.getGrant(grantId);
+        assertEq(uint8(g.status), uint8(Fundora.GrantStatus.Cancelled));
         // No funder → no refund queued
-        assertEq(ps.pendingFunderRefunds(admin), 0);
+        assertEq(fundora.pendingFunderRefunds(admin), 0);
     }
 
     // =======================================================================
@@ -664,8 +664,8 @@ contract ProofSpringTest is Test {
         _applyForGrant(grantId, builder);
 
         vm.prank(anyone);
-        vm.expectRevert(ProofSpring.InvalidStatus.selector);
-        ps.applyForGrant(grantId);
+        vm.expectRevert(Fundora.InvalidStatus.selector);
+        fundora.applyForGrant(grantId);
     }
 
     // =======================================================================
@@ -673,8 +673,8 @@ contract ProofSpringTest is Test {
     // =======================================================================
     function testClaimPaymentZeroReverts() public {
         vm.prank(builder);
-        vm.expectRevert(ProofSpring.ZeroAmount.selector);
-        ps.claimPayment();
+        vm.expectRevert(Fundora.ZeroAmount.selector);
+        fundora.claimPayment();
     }
 
     // =======================================================================
@@ -682,8 +682,8 @@ contract ProofSpringTest is Test {
     // =======================================================================
     function testClaimFunderRefundZeroReverts() public {
         vm.prank(anyone);
-        vm.expectRevert(ProofSpring.NoRefundDue.selector);
-        ps.claimFunderRefund();
+        vm.expectRevert(Fundora.NoRefundDue.selector);
+        fundora.claimFunderRefund();
     }
 
     // =======================================================================
@@ -691,8 +691,8 @@ contract ProofSpringTest is Test {
     // =======================================================================
     function testOnlyAdminModifier() public {
         vm.prank(anyone);
-        vm.expectRevert(ProofSpring.NotAdmin.selector);
-        ps.pause();
+        vm.expectRevert(Fundora.NotAdmin.selector);
+        fundora.pause();
     }
 
     // =======================================================================
@@ -705,7 +705,60 @@ contract ProofSpringTest is Test {
         _submitEvidence(grantId, 0, builder, "ev");
 
         vm.prank(anyone);
-        vm.expectRevert(ProofSpring.NotReviewer.selector);
-        ps.reviewMilestone(grantId, 0, true);
+        vm.expectRevert(Fundora.NotReviewer.selector);
+        fundora.reviewMilestone(grantId, 0, true);
+    }
+
+    // =======================================================================
+    // 24. testRemoveReviewerQuorumGuard
+    // =======================================================================
+    function testRemoveReviewerQuorumGuard() public {
+        // reviewerCount = 1, requiredApprovals = 1
+        // Removing reviewer1 would leave 0 < 1 => InsufficientApprovers
+        vm.prank(admin);
+        vm.expectRevert(Fundora.InsufficientApprovers.selector);
+        fundora.removeReviewer(reviewer1);
+
+        // Add reviewer2 -> reviewerCount = 2
+        vm.prank(admin);
+        fundora.addReviewer(reviewer2);
+
+        // Now removing reviewer2 succeeds (2 - 1 >= 1)
+        vm.prank(admin);
+        fundora.removeReviewer(reviewer2);
+        assertFalse(fundora.isReviewer(reviewer2));
+        assertEq(fundora.reviewerCount(), 1);
+    }
+
+    // =======================================================================
+    // 25. testTransferAdmin
+    // =======================================================================
+    function testTransferAdmin() public {
+        address newAdmin = makeAddr("newAdmin");
+
+        // Non-admin cannot transfer
+        vm.prank(anyone);
+        vm.expectRevert(Fundora.NotAdmin.selector);
+        fundora.transferAdmin(newAdmin);
+
+        // Admin cannot transfer to zero address
+        vm.prank(admin);
+        vm.expectRevert(Fundora.ZeroAddress.selector);
+        fundora.transferAdmin(address(0));
+
+        // Admin transfers to newAdmin
+        vm.prank(admin);
+        fundora.transferAdmin(newAdmin);
+        assertEq(fundora.admin(), newAdmin);
+
+        // Old admin can no longer perform admin tasks
+        vm.prank(admin);
+        vm.expectRevert(Fundora.NotAdmin.selector);
+        fundora.pause();
+
+        // New admin can pause
+        vm.prank(newAdmin);
+        fundora.pause();
+        assertTrue(fundora.paused());
     }
 }

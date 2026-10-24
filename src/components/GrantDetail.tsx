@@ -7,7 +7,13 @@ import {
   CalendarDays, CheckCircle2, Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { PROOF_SPRING_ADDRESS, PROOF_SPRING_ABI, ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/proofSpring'
+import {
+  FUNDORA_ABI,
+  ARC_TESTNET_ID,
+  ARC_MAINNET_ID,
+  CANONICAL_USDC_ADDRESS,
+  getFundoraAddress,
+} from '../contracts/fundora'
 import { getUsdc, buildTxExplorerUrl } from '@/onchain-facts'
 import { StatusBadge } from './StatusBadge'
 import {
@@ -18,8 +24,9 @@ import {
   useApprovalCount,
   useReviewerVote,
   useGrant,
-} from '../hooks/useProofSpring'
-import type { Grant, Milestone } from '../hooks/useProofSpring'
+  useContractUsdc,
+} from '../hooks/useFundora'
+import type { Grant, Milestone } from '../hooks/useFundora'
 import { useEvidenceResolver, saveEvidenceToCache } from '../hooks/useEvidenceResolver'
 import { parseOnchainError } from '../utils/errors'
 
@@ -81,18 +88,27 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
 
   const isArcChain = chainId === ARC_MAINNET_ID || chainId === ARC_TESTNET_ID
   const targetChainId = chainId === ARC_MAINNET_ID ? ARC_MAINNET_ID : ARC_TESTNET_ID
+  const contractAddress = getFundoraAddress(targetChainId)
   // Gates write buttons if not on Arc Mainnet or Testnet
   const isWrongChain = !isArcChain
 
+  const { data: contractUsdc } = useContractUsdc()
   const usdcFact = getUsdc(targetChainId) || getUsdc(ARC_TESTNET_ID)!
-  const USDC_ADDRESS = usdcFact.address as `0x${string}`
+  const fallbackUsdc = (usdcFact?.address as `0x${string}`) || CANONICAL_USDC_ADDRESS
+  // Read target token dynamically from contract; fallback to canonical fact
+  const USDC_ADDRESS = (contractUsdc as `0x${string}`) || fallbackUsdc
 
-  // Query USDC allowance for ProofSpring contract on Arc (6 decimals)
+  // Check if contract has the defective zero-code BSC address
+  const isDefectiveToken =
+    !!contractUsdc &&
+    (contractUsdc as string).toLowerCase() === '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d'
+
+  // Query USDC allowance for Fundora contract on Arc (6 decimals)
   const { data: usdcAllowance, refetch: refetchAllowance } = useReadContract({
     address: USDC_ADDRESS,
     abi: erc20Abi,
     functionName: 'allowance',
-    args: address ? [address, PROOF_SPRING_ADDRESS] : undefined,
+    args: address ? [address, contractAddress] : undefined,
     query: {
       enabled: !!address && grant.status === 0,
       refetchInterval: 12_000,
@@ -109,18 +125,18 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
     if (isWrongChain) {
       setPendingAction(() => action)
       switchChain(
-        { chainId: ARC_MAINNET_ID },
+        { chainId: targetChainId },
         { onSuccess: () => { action(); setPendingAction(null) } },
       )
       return
     }
     action()
-  }, [isWrongChain, switchChain])
+  }, [isWrongChain, switchChain, targetChainId])
 
-  // Expiration check: active or open grant past deadline
+  // Expiration check: active grant past deadline
   const [nowSeconds] = useState(() => Math.floor(Date.now() / 1000))
   const isExpired = grant.deadline > 0n && BigInt(nowSeconds) > grant.deadline
-  const canExpire = (grant.status === 1 || grant.status === 2) && isExpired
+  const canExpire = grant.status === 1 && isExpired
 
   const [confirmExpire, setConfirmExpire] = useState(false)
   const { writeContract: expireWrite, data: expireHash, isPending: expirePending } = useWriteContract()
@@ -142,8 +158,8 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
   const handleExpire = () => withChain(() => {
     expireWrite(
       {
-        address: PROOF_SPRING_ADDRESS,
-        abi: PROOF_SPRING_ABI,
+        address: contractAddress,
+        abi: FUNDORA_ABI,
         functionName: 'expireGrant',
         args: [grant.id],
       },
@@ -200,8 +216,8 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
 
   const handleApply = () => withChain(() => {
     applyWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: contractAddress,
+      abi: FUNDORA_ABI,
       functionName: 'applyForGrant',
       args: [grant.id],
     }, { onError: (e) => toast.error(parseOnchainError(e)) })
@@ -211,7 +227,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
     // If allowance already covers totalAmount, execute fundGrant directly
     if (hasSufficientAllowance) {
       fundWrite(
-        { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'fundGrant', args: [grant.id] },
+        { address: contractAddress, abi: FUNDORA_ABI, functionName: 'fundGrant', args: [grant.id] },
         { onError: (e) => toast.error(parseOnchainError(e)) },
       )
       return
@@ -219,21 +235,21 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
 
     // Step 1: Request allowance approval for exact grant amount (6 decimals)
     approveWrite(
-      { address: USDC_ADDRESS, abi: erc20Abi, functionName: 'approve', args: [PROOF_SPRING_ADDRESS, grant.totalAmount] },
+      { address: USDC_ADDRESS, abi: erc20Abi, functionName: 'approve', args: [contractAddress, grant.totalAmount] },
       { onError: (e) => toast.error(parseOnchainError(e)) },
     )
   })
 
   const handleClaim = () => withChain(() => {
     claimWrite(
-      { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'claimPayment' },
+      { address: contractAddress, abi: FUNDORA_ABI, functionName: 'claimPayment' },
       { onError: (e) => toast.error(parseOnchainError(e)) },
     )
   })
 
   const handleCancel = () => withChain(() => {
     cancelWrite(
-      { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'cancelGrant', args: [grant.id] },
+      { address: contractAddress, abi: FUNDORA_ABI, functionName: 'cancelGrant', args: [grant.id] },
       {
         onSuccess: () => setConfirmCancel(false),
         onError: (e) => { toast.error(parseOnchainError(e)); setConfirmCancel(false) },
@@ -402,14 +418,32 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin }: Pr
           </div>
         )}
 
+        {/* Token warning if contract was initialized with defective zero-code address */}
+        {isDefectiveToken && grant.status === 0 && (
+          <div
+            className="rounded-xl p-3 text-xs space-y-1"
+            style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b' }}
+            role="alert"
+          >
+            <div className="flex items-center gap-1.5 font-semibold">
+              <AlertTriangle size={13} className="shrink-0" />
+              <span>Contract Token Misconfiguration Detected</span>
+            </div>
+            <p className="leading-relaxed">
+              This contract was deployed with token address <code className="mono text-[11px] bg-red-100 px-1 py-0.5 rounded">0x8AC7...580d</code>, which has 0 bytecode on Arc Testnet. Escrow funding will revert until the contract is redeployed with canonical Arc USDC (<code className="mono text-[11px] bg-red-100 px-1 py-0.5 rounded">0x3600...0000</code>).
+            </p>
+          </div>
+        )}
+
         {/* C1: Fund grant — admin only, status Open */}
         {grant.status === 0 && isAdmin && (
           <>
             <button
               onClick={handleFund}
-              disabled={fundBusy || isWrongChain || grant.totalAmount === 0n}
+              disabled={fundBusy || isWrongChain || grant.totalAmount === 0n || isDefectiveToken}
               title={
-                isWrongChain ? 'Switch to Arc first'
+                isDefectiveToken ? 'Contract initialized with invalid USDC token address — redeployment required'
+                : isWrongChain ? 'Switch to Arc first'
                 : grant.totalAmount === 0n ? 'Grant has no milestone amounts set'
                 : undefined
               }
@@ -758,7 +792,7 @@ function MilestoneCard({
 
   // useEvidenceResolver checks localStorage first and queries onchain MilestoneSubmitted event logs as fallback
   const { evidenceUri: resolvedEvidenceUri, isLoading: isResolvingEvidence, isVerified } =
-    useEvidenceResolver(grant.id, index, milestone.evidenceHash)
+    useEvidenceResolver(grant.id, index, milestone.evidenceHash, milestone.submittedAt)
 
   // Local state for immediate update upon submission in the current browser session
   const [submittedEvidenceUri, setSubmittedEvidenceUri] = useState<string | null>(null)
@@ -790,13 +824,15 @@ function MilestoneCard({
   const submitConfirmed = !!submitHash && !submitConfirming && !submitPending
   const reviewConfirmed = !!reviewHash && !reviewConfirming && !reviewPending
 
+  const cardContractAddress = getFundoraAddress(targetChainId)
+
   const handleSubmit = () => {
     const uri = evidenceInput.trim()
     if (!uri) { toast.error('Please enter an evidence URL or IPFS CID.'); return }
     submitWrite(
       {
-        address: PROOF_SPRING_ADDRESS,
-        abi: PROOF_SPRING_ABI,
+        address: cardContractAddress,
+        abi: FUNDORA_ABI,
         functionName: 'submitMilestoneEvidence',
         args: [grant.id, BigInt(index), uri],
       },
@@ -816,8 +852,8 @@ function MilestoneCard({
   const handleReview = (approve: boolean) => {
     reviewWrite(
       {
-        address: PROOF_SPRING_ADDRESS,
-        abi: PROOF_SPRING_ABI,
+        address: cardContractAddress,
+        abi: FUNDORA_ABI,
         functionName: 'reviewMilestone',
         args: [grant.id, BigInt(index), approve],
       },

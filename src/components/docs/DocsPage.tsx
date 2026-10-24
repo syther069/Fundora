@@ -155,7 +155,7 @@ function repayAndWithdraw(
     description: 'Contract addresses, RPC configuration, sub-second finality, and USDC gas tokens.',
     content: {
       heading: 'Deployed Contracts on Arc',
-      body: 'Mezo and GrantFlow smart contracts are deployed on the high-performance Arc network, where USDC acts as the native gas token with sub-second finality.',
+      body: 'Fundora smart contracts are deployed on the high-performance Arc network, where USDC acts as the native gas token with sub-second finality.',
       subsections: [
         {
           id: 'addresses',
@@ -172,7 +172,7 @@ function repayAndWithdraw(
   "rpcUrl": "https://rpc.testnet.arc.io",
   "nativeGasToken": "USDC (6 decimals)",
   "contracts": {
-    "ProofSpring": "0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388",
+    "Fundora": "0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388",
     "MUSD": "0x3600000000000000000000000000000000000000",
     "VaultManager": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
   }

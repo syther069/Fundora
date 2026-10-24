@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ConnectKitButton } from 'connectkit'
 import { Sparkles, AlertTriangle, Menu, X, ArrowUpRight } from 'lucide-react'
 import { useChainId, useAccount } from 'wagmi'
-import { ARC_MAINNET_ID, ARC_TESTNET_ID } from '../contracts/proofSpring'
+import { ARC_MAINNET_ID, ARC_TESTNET_ID } from '../contracts/fundora'
 import { ThemeToggle } from './ThemeToggle'
 import { Button } from './ui/Button'
 
@@ -92,10 +92,10 @@ export function Header({ currentTab, onSelectTab }: HeaderProps) {
             </div>
             <div className="flex flex-col">
               <span className="display font-bold text-lg leading-tight tracking-tight text-[var(--ink)]">
-                Mezo
+                Fundora
               </span>
               <span className="hidden sm:inline text-[10px] font-medium tracking-wide uppercase text-[var(--subtle)]">
-                Bitcoin Banking
+                Onchain Grants & Escrow
               </span>
             </div>
           </button>
@@ -182,7 +182,7 @@ export function Header({ currentTab, onSelectTab }: HeaderProps) {
               className="w-full"
               actionOutcome={{
                 action: 'Open app',
-                outcome: 'Bitcoin microgrants & escrow',
+                outcome: 'Onchain microgrants & escrow',
               }}
             />
           </div>

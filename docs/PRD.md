@@ -1,12 +1,12 @@
 # Product Requirements Document (PRD)
-## GrantFlow — Milestone-Gated USDC Microgrants Platform
+## Fundora — Milestone-Gated USDC Microgrants Platform
 
 ---
 
 ## 1. Product Overview
 
-- **Product Name:** GrantFlow
-- **Product Summary:** GrantFlow is a fully onchain USDC microgrants platform built on Arc Testnet. It enables grant administrators to create milestone-based grants, fund them with USDC, and release payments automatically when reviewers verify completed work. Builders submit evidence per milestone; reviewers vote to approve or reject; payments are queued as pull-withdrawals and claimed by builders directly.
+- **Product Name:** Fundora
+- **Product Summary:** Fundora is a fully onchain USDC microgrants platform built on Arc Mainnet and Testnet. It enables grant administrators to create milestone-based grants, fund them with USDC, and release payments automatically when reviewers verify completed work. Builders submit evidence per milestone; reviewers vote to approve or reject; payments are queued as pull-withdrawals and claimed by builders directly.
 - **Problem Statement:** Traditional grant platforms rely on centralised intermediaries to hold funds and approve disbursements. This creates trust gaps, payment delays, blocklist risks, and no verifiable audit trail. DAOs, protocols, and open-source foundations have no transparent, self-executing tool to fund contributors milestone by milestone without a middleman.
 - **Product Vision:** A trustless, transparent, and gas-efficient grant infrastructure where every funding decision is recorded onchain, every payment is pull-based and blocklist-safe, and every stakeholder — admin, builder, reviewer — has a clear, role-gated interface.
 - **Primary Goals:**

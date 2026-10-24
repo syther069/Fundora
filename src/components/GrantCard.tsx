@@ -1,7 +1,7 @@
 import { formatUnits } from 'viem'
 import { ArrowRight, Users, CheckCircle2, CalendarDays, Clock, AlertTriangle } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
-import type { Grant } from '../hooks/useProofSpring'
+import type { Grant } from '../hooks/useFundora'
 
 function UsdcPill({ amount }: { amount: string }) {
   return (
@@ -152,7 +152,7 @@ export function GrantCard({ grant, onClick, isNavigating }: Props) {
         <div className="flex items-center gap-3 flex-wrap">
           <span className="flex items-center gap-1 text-xs text-[var(--subtle)]">
             <CheckCircle2 size={12} aria-hidden="true" />
-            {grant.milestoneCount.toString()} milestone{grant.milestoneCount !== 1n ? 's' : ''}
+            {grant.milestoneCount.toString()} milestone{Number(grant.milestoneCount) !== 1 ? 's' : ''}
           </span>
           {!noBuilder && (
             <span className="flex items-center gap-1 text-xs text-[var(--subtle)]">
