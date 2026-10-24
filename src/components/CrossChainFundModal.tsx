@@ -1,5 +1,5 @@
 /**
- * CrossChainFundModal — one-click CCTP bridge from Base / Arbitrum / Ethereum → Arc.
+ * CrossChainFundModal — one-click CCTP bridge from Base / Arbitrum / Ethereum → Arc (Fundora).
  *
  * Flow:
  *   1. Funder selects source chain (filtered to their connected tier: testnet or mainnet).

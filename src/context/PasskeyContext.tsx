@@ -27,7 +27,7 @@ import {
 import { ARC_TESTNET_ID } from '../contracts/proofSpring'
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
-const STORAGE_KEY = 'grantflow:passkey:credential'
+const STORAGE_KEY = 'fundora:passkey:credential'
 
 function saveCredential(credential: P256Credential): void {
   try {
@@ -72,7 +72,7 @@ export interface PasskeyContextValue {
   /** Clear the session and remove the stored credential */
   disconnect: () => void
   /**
-   * One-line helper for components: encode a ProofSpring call and submit as a
+   * One-line helper for components: encode a Fundora contract call and submit as a
    * sponsored UserOperation. Returns the transaction hash.
    */
   executeGaslessAction: (

@@ -1,5 +1,5 @@
 /**
- * PasskeyAuthModal.tsx — Two-tab passkey onboarding modal for GrantFlow.
+ * PasskeyAuthModal.tsx — Two-tab passkey onboarding modal for Fundora.
  *
  * Tab 1 "Create New Account": nickname input + "Create Passkey" button.
  * Tab 2 "Sign In": single "Continue with Passkey" button.

@@ -66,7 +66,7 @@ function HeroConnect() {
           className="font-jakarta font-extrabold text-3xl mb-3"
           style={{ color: 'var(--ink)', letterSpacing: '-0.03em' }}
         >
-          GrantFlow
+          Fundora
         </h1>
         <p className="text-base leading-relaxed max-w-sm mx-auto mb-6" style={{ color: 'var(--muted)' }}>
           Milestone-based USDC grants with onchain evidence, reviewer votes, and transparent payouts — built on Arc.
@@ -287,7 +287,7 @@ export default function App() {
                 Awaiting Deployment
               </h1>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>
-                The GrantFlow contract is not yet deployed. Deploy it from the Contracts panel to activate the platform.
+                The Fundora contract is not yet deployed. Deploy it from the Contracts panel to activate the platform.
               </p>
             </div>
           </div>
@@ -538,7 +538,7 @@ export default function App() {
       >
         <div className="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-2">
           <span className="text-xs font-medium" style={{ color: 'var(--subtle)' }}>
-            GrantFlow — built on Arc Testnet
+            Fundora — built on Arc Testnet
           </span>
           <span className="text-xs" style={{ color: 'var(--subtle)' }}>
             Need test USDC?{' '}

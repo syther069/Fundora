@@ -1,5 +1,5 @@
 /**
- * CCTP funding utilities for GrantFlow cross-chain grant sponsorship.
+ * CCTP funding utilities for Fundora cross-chain grant sponsorship.
  *
  * Uses Circle App Kit (CCTP v2 Fast Transfer) to bridge USDC from
  * Base / Arbitrum / Ethereum → Arc in a single kit.bridge() call.

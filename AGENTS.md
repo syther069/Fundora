@@ -1,4 +1,4 @@
-# ProofSpring
+# Fundora
 
 > Built with Arc Studio - money-powered apps in minutes
 
@@ -8,7 +8,9 @@ This is the **project memory** — what Arc Studio remembers about building this
 
 ## What This App Does
 
-ProofSpring is a full-stack onchain microgrants platform. Grant admins create milestone-based USDC grants, fund them, and assign reviewers. Builders apply, submit evidence (URLs/IPFS CIDs) per milestone, and reviewers vote to approve. USDC is queued for the builder on milestone approval and claimed via `claimPayment()`. All decisions are recorded onchain.
+Fundora is a full-stack onchain microgrants platform. Grant admins create milestone-based USDC grants, fund them, and assign reviewers. Builders apply, submit evidence (URLs/IPFS CIDs) per milestone, and reviewers vote to approve. USDC is queued for the builder on milestone approval and claimed via `claimPayment()`. All decisions are recorded onchain.
+
+> Note: The underlying smart contract is named `ProofSpring` (Solidity identifier and Foundry artifact). The brand name is Fundora.
 
 ## Deployed Contracts
 

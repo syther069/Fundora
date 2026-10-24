@@ -1,5 +1,5 @@
 /**
- * modularWallet.ts — Circle Modular Wallets engine for GrantFlow
+ * modularWallet.ts — Circle Modular Wallets engine for Fundora
  *
  * Provides passkey registration, login, and gasless contract calls via
  * Circle MSCA (ERC-4337 smart account) on Arc Testnet.
@@ -157,7 +157,7 @@ export interface GaslessCallParams {
 }
 
 /**
- * Encode a ProofSpring contract call and submit it as a sponsored UserOperation.
+ * Encode a Fundora contract call and submit it as a sponsored UserOperation.
  * Returns the transaction hash once the operation is confirmed onchain.
  */
 export async function sendGaslessContractCall({

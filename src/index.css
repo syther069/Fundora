@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── GrantFlow design tokens ─────────────────────────────────────────────── */
+/* ── Fundora design tokens ─────────────────────────────────────────────── */
 :root {
   /* Brand — indigo-600 (WCAG AA verified 5.5:1 on white) */
   --brand:        #4F46E5;

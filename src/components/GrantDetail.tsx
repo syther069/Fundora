@@ -46,7 +46,7 @@ function shortHash(hash: `0x${string}`): string {
 }
 
 function evidenceCacheKey(grantId: bigint, milestoneIndex: number): string {
-  return `proofspring:evidence:5042002:${grantId}:${milestoneIndex}`
+  return `fundora:evidence:5042002:${grantId}:${milestoneIndex}`
 }
 function saveEvidenceToCache(grantId: bigint, milestoneIndex: number, uri: string) {
   try { localStorage.setItem(evidenceCacheKey(grantId, milestoneIndex), uri) } catch { /* storage blocked */ }

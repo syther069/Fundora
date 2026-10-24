@@ -86,7 +86,7 @@ export function Header() {
                 className="font-jakarta font-bold text-lg tracking-tight shrink-0"
                 style={{ color: 'var(--ink)', letterSpacing: '-0.025em' }}
               >
-                GrantFlow
+                Fundora
               </span>
               <ChainBadge />
             </div>

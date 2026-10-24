@@ -1,4 +1,4 @@
-// ProofSpring contract config — v4
+// Fundora (ProofSpring) contract config — v4
 // ABI is imported from the Foundry artifact for runtime use; the const below
 // provides full TypeScript inference for wagmi/viem callsites.
 // After any contract change: run `forge build` — the artifact auto-updates.
