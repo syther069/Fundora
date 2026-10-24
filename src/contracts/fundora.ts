@@ -14,7 +14,7 @@ export const FUNDORA_ADDRESS = '0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388' as `
 
 export const FUNDORA_ADDRESSES: Record<number, `0x${string}`> = {
   [ARC_TESTNET_ID]: '0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388',
-  [ARC_MAINNET_ID]: '0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388', // Fallback until Mainnet deployment broadcast
+  [ARC_MAINNET_ID]: '0x371b4b6894882082e706cd84b781bf749472a602',
 }
 
 export function getFundoraAddress(chainId?: number): `0x${string}` {

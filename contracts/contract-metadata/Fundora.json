@@ -5,11 +5,21 @@
   "contract_code_path": "/home/user/app/contracts/Fundora.sol",
   "contract_compiled_code_path": "/home/user/app/contracts/out/Fundora.sol/Fundora.json",
   "contract_network_and_links": {
+    "Arc Mainnet": "https://explorer.arc.io/address/0x371b4b6894882082e706cd84b781bf749472a602",
     "Arc Testnet": "https://explorer.testnet.arc.io/address/0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388"
   },
   "contract_deployments": [
     {
+      "chain": "Arc Mainnet",
+      "chainId": 5042,
+      "address": "0x371b4b6894882082e706cd84b781bf749472a602",
+      "explorerUrl": "https://explorer.arc.io/address/0x371b4b6894882082e706cd84b781bf749472a602",
+      "txHash": "0x5d68fc6caaf6217a9a6b0e68b2c9fff145ed84360501d635c610971c5018fb20",
+      "deployedAt": "2026-10-24T16:47:35.000Z"
+    },
+    {
       "chain": "Arc Testnet",
+      "chainId": 5042002,
       "address": "0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388",
       "explorerUrl": "https://explorer.testnet.arc.io/address/0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388",
       "txHash": "0x22083b6d552784a87e7eb62a153b1b208dfb52b452f6d8d39c10f58506322305",

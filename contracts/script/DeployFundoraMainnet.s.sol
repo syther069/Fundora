@@ -12,16 +12,24 @@ contract DeployFundoraMainnet is Script {
     uint256 public constant DEFAULT_REQUIRED_APPROVALS = 1;
 
     function run() external returns (address deployedAddress) {
-        address deployer = msg.sender;
+        uint256 deployerPrivateKey = vm.envOr("PRIVATE_KEY", uint256(0));
+        address deployer = deployerPrivateKey != 0 ? vm.addr(deployerPrivateKey) : msg.sender;
         address initialAdmin = vm.envOr("INITIAL_ADMIN", deployer);
         uint256 requiredApprovals = vm.envOr("REQUIRED_APPROVALS", DEFAULT_REQUIRED_APPROVALS);
 
-        console.log("Deploying Fundora to Arc Mainnet (Chain ID 5042)...");
+        console.log("=== Fundora Arc Mainnet Deployment ===");
+        console.log("Chain ID: 5042 (Arc Mainnet)");
+        console.log("Deployer Address:", deployer);
         console.log("Canonical Arc USDC:", CANONICAL_ARC_USDC);
         console.log("Initial Admin:", initialAdmin);
         console.log("Required Approvals:", requiredApprovals);
 
-        vm.startBroadcast();
+        if (deployerPrivateKey != 0) {
+            vm.startBroadcast(deployerPrivateKey);
+        } else {
+            vm.startBroadcast();
+        }
+
         Fundora fundora = new Fundora(CANONICAL_ARC_USDC, initialAdmin, requiredApprovals);
         vm.stopBroadcast();
 

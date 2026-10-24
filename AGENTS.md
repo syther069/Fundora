@@ -14,14 +14,23 @@ Fundora is a full-stack onchain microgrants platform. Grant admins create milest
 
 | Contract | Version | Network | Address |
 |----------|---------|---------|---------|
-| Fundora | v2 (current) | Arc Testnet | `0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388` |
+| Fundora | v2 (live) | Arc Mainnet (`5042`) | `0x371b4b6894882082e706cd84b781bf749472a602` |
+| Fundora | v2 (current) | Arc Testnet (`5042002`) | `0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388` |
 | Fundora | v1 (superseded) | Arc Testnet | `0x090e040f2a56676d3f91c773ea8a42106435f920` |
-| Fundora | Arc Mainnet Ready | Arc Mainnet (`5042`) | Run `contracts/script/DeployFundoraMainnet.s.sol` |
 
-v2 Constructor args: `_usdc=0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, _initialAdmin=0x5B12Ce46C7194aD57d143bC22847224047b1Ef42, _requiredApprovals=1`
-v2 Tx hash: `0x22083b6d552784a87e7eb62a153b1b208dfb52b452f6d8d39c10f58506322305`
+### Arc Mainnet Deployment
+- **Contract Address:** `0x371b4b6894882082e706cd84b781bf749472a602`
+- **Tx Hash:** `0x5d68fc6caaf6217a9a6b0e68b2c9fff145ed84360501d635c610971c5018fb20`
+- **Block:** `27655153`
+- **Deployer / Admin:** `0xb5fd2471b99e9c7324309a43282a391e87585c5e`
+- **USDC Token:** Canonical Arc USDC (`0x3600000000000000000000000000000000000000`)
+- **Explorer:** https://explorer.arc.io/address/0x371b4b6894882082e706cd84b781bf749472a602
+- **Tx Explorer:** https://explorer.arc.io/tx/0x5d68fc6caaf6217a9a6b0e68b2c9fff145ed84360501d635c610971c5018fb20
 
-Explorer (v2): https://explorer.testnet.arc.io/address/0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388
+### Arc Testnet Deployment
+- **Contract Address:** `0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388`
+- **Tx Hash:** `0x22083b6d552784a87e7eb62a153b1b208dfb52b452f6d8d39c10f58506322305`
+- **Explorer:** https://explorer.testnet.arc.io/address/0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388
 
 ## Post-Deploy Checklist (run after each redeployment)
 

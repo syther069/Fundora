@@ -47,14 +47,23 @@
   - All unit tests passing: 23/23 Foundry unit tests
   - All quality gates passing: `npx oxlint src` (0 errors), `tsc --noEmit` (0 errors), `vite build` (0 errors)
 
-### In Progress
-- Smart contract deployment to Arc Mainnet (Chain ID `5042`) with canonical USDC `0x3600000000000000000000000000000000000000`
-- Generation of live Arc Mainnet proof transaction on `explorer.arc.io`
+### Completed Arc Mainnet Deployment (2026-10-24)
+- **Live Contract:** `0x371b4b6894882082e706cd84b781bf749472a602`
+- **Tx Hash:** `0x5d68fc6caaf6217a9a6b0e68b2c9fff145ed84360501d635c610971c5018fb20`
+- **Network:** Arc Mainnet (`5042`)
+- **Block:** `27655153`
+- **Deployer / Admin:** `0xb5fd2471b99e9c7324309a43282a391e87585c5e`
+- **USDC Address:** Canonical Arc USDC (`0x3600000000000000000000000000000000000000`)
+- **Explorer:** https://explorer.arc.io/address/0x371b4b6894882082e706cd84b781bf749472a602
+- **Tx Explorer:** https://explorer.arc.io/tx/0x5d68fc6caaf6217a9a6b0e68b2c9fff145ed84360501d635c610971c5018fb20
 
-### Critical Audit Findings & Blockers
-- **P0 Defect on Deployed v2 Contract (`0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388`):** Initialized with `0x8AC76a...580d` (BSC USDC token address), which has 0 code on Arc. All `fundGrant`, `claimPayment`, and `claimFunderRefund` calls revert with `AddressEmptyCode`. Contract is ready to be redeployed with `_usdc = 0x3600000000000000000000000000000000000000`.
-- **P1 Hackathon Compliance (DoraHacks Arc Microgrants):** Mandatory submission requires Arc Mainnet contract deployment (`explorer.arc.io`) and a live mainnet USDC transaction hash.
-- **P1 Data Integrity (Resolved):** Milestone evidence plaintext URIs now resolve across devices via onchain `getLogs` fallback and cryptographic hash verification.
+### In Progress / Next Steps
+- Post-deployment operational checks (admin adding initial reviewers via `addReviewer` on Mainnet)
+
+### Critical Audit Findings & Resolutions
+- **Arc Mainnet Canonical USDC:** Successfully deployed with canonical USDC `0x3600000000000000000000000000000000000000`, solving token interface issues.
+- **DoraHacks Arc Microgrants Compliance:** Live Arc Mainnet contract deployed with verified broadcast transaction.
+- **P1 Data Integrity (Resolved):** Milestone evidence plaintext URIs resolve across devices via onchain `getLogs` fallback and cryptographic hash verification.
 
 ---
 
