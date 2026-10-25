@@ -8,14 +8,8 @@ dist/
 dist-ssr/
 out/
 contracts/out/
-!contracts/out/Fundora.sol/
 contracts/cache/
-broadcast/
-contracts/broadcast/
 *.local
-.env
-.env.*
-.env.local
 
 # Cache & Temporary
 .vite/

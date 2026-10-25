@@ -167,29 +167,14 @@ function repayAndWithdraw(
             lang: 'json',
             filename: 'deployments.json',
             code: `{
-  "networks": {
-    "arcMainnet": {
-      "name": "Arc Mainnet",
-      "chainId": 5042,
-      "rpcUrl": "https://rpc.arc.io",
-      "nativeGasToken": "USDC (6 decimals / 18 decimals gas)",
-      "contracts": {
-        "Fundora": "0x371b4b6894882082e706cd84b781bf749472a602",
-        "USDC": "0x3600000000000000000000000000000000000000"
-      },
-      "explorer": "https://explorer.arc.io/address/0x371b4b6894882082e706cd84b781bf749472a602"
-    },
-    "arcTestnet": {
-      "name": "Arc Testnet",
-      "chainId": 5042002,
-      "rpcUrl": "https://rpc.testnet.arc.io",
-      "nativeGasToken": "USDC (6 decimals)",
-      "contracts": {
-        "Fundora": "0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388",
-        "USDC": "0x3600000000000000000000000000000000000000"
-      },
-      "explorer": "https://explorer.testnet.arc.io/address/0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388"
-    }
+  "network": "Arc Testnet",
+  "chainId": 5042002,
+  "rpcUrl": "https://rpc.testnet.arc.io",
+  "nativeGasToken": "USDC (6 decimals)",
+  "contracts": {
+    "Fundora": "0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388",
+    "MUSD": "0x3600000000000000000000000000000000000000",
+    "VaultManager": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
   }
 }`,
           },
