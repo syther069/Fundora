@@ -1,23 +1,220 @@
-// Fundora contract config — v4
+// Fundora & AdminRegistry contract configuration
 // ABI is exported as a strict typed const for full TypeScript inference with wagmi/viem.
 
-export const ARC_TESTNET_ID  = 5042002
-export const ARC_MAINNET_ID  = 5042
+export const ARC_TESTNET_ID = 5042002
+export const ARC_MAINNET_ID = 5042
+
+export const ARC_USDC_ADDRESS = '0x3600000000000000000000000000000000000000' as `0x${string}`
+
+// Registration fees: 10 USDC on Testnet, 1 USDC on Mainnet
+export const ADMIN_FEE_TESTNET = 10_000_000n // 10 USDC (6 decimals)
+export const ADMIN_FEE_MAINNET = 1_000_000n  // 1 USDC (6 decimals)
+
+export function getAdminRegistrationFee(chainId: number): bigint {
+  return chainId === ARC_MAINNET_ID ? ADMIN_FEE_MAINNET : ADMIN_FEE_TESTNET
+}
 
 // Deployed contract addresses per network
-export const FUNDORA_ADDRESS          = '0xef34036dda3960a1cd57b1368329bfcf29700259' as `0x${string}` // Arc Testnet v4
-export const FUNDORA_ADDRESS_MAINNET  = '0x371b4b6894882082e706cd84b781bf749472a602' as `0x${string}` // Arc Mainnet v1
+export const FUNDORA_ADDRESS = (import.meta.env?.VITE_FUNDORA_ADDRESS || '0xef34036dda3960a1cd57b1368329bfcf29700259') as `0x${string}` // Arc Testnet v4/v5
+export const FUNDORA_ADDRESS_MAINNET = (import.meta.env?.VITE_FUNDORA_ADDRESS_MAINNET || '0x371b4b6894882082e706cd84b781bf749472a602') as `0x${string}` // Arc Mainnet
+
+export const ADMIN_REGISTRY_ADDRESS = (import.meta.env?.VITE_ADMIN_REGISTRY_ADDRESS || '0xef34036dda3960a1cd57b1368329bfcf29700259') as `0x${string}`
+export const ADMIN_REGISTRY_ADDRESS_MAINNET = (import.meta.env?.VITE_ADMIN_REGISTRY_ADDRESS_MAINNET || '0x371b4b6894882082e706cd84b781bf749472a602') as `0x${string}`
 
 export function getContractAddress(chainId: number): `0x${string}` {
   return chainId === ARC_MAINNET_ID ? FUNDORA_ADDRESS_MAINNET : FUNDORA_ADDRESS
 }
 
+export function getAdminRegistryAddress(chainId: number): `0x${string}` {
+  return chainId === ARC_MAINNET_ID ? ADMIN_REGISTRY_ADDRESS_MAINNET : ADMIN_REGISTRY_ADDRESS
+}
+
 export const SUPPORTED_CHAIN_IDS = [ARC_TESTNET_ID, ARC_MAINNET_ID] as const
 
-// ── ABI const ─────────────────────────────────────────────────────────────────
-// Reflects the v4 contract: Grant struct has no `id` field, amounts are uint128,
-// Milestone has evidenceHash (bytes32) instead of evidenceUri (string),
-// createGrant takes a `deadline` (uint40) parameter, and new functions are added.
+// ── AdminRegistry ABI ──────────────────────────────────────────────────────────
+export const ADMIN_REGISTRY_ABI = [
+  {
+    type: 'constructor',
+    inputs: [
+      { name: '_usdc', type: 'address' },
+      { name: '_initialTreasury', type: 'address' },
+      { name: '_registrationFee', type: 'uint128' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  { type: 'error', name: 'AlreadyRegistered', inputs: [] },
+  { type: 'error', name: 'EmptyField', inputs: [] },
+  { type: 'error', name: 'NotOwner', inputs: [] },
+  { type: 'error', name: 'NotRegistered', inputs: [] },
+  { type: 'error', name: 'ZeroAddress', inputs: [] },
+  { type: 'error', name: 'ZeroAmount', inputs: [] },
+  {
+    type: 'event',
+    name: 'AdminRegistered',
+    inputs: [
+      { name: 'admin', type: 'address', indexed: true },
+      { name: 'arcHouseUsername', type: 'string', indexed: false },
+      { name: 'orgName', type: 'string', indexed: false },
+      { name: 'feePaid', type: 'uint128', indexed: false },
+      { name: 'registeredAt', type: 'uint40', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'OwnershipTransferred',
+    inputs: [
+      { name: 'oldOwner', type: 'address', indexed: true },
+      { name: 'newOwner', type: 'address', indexed: true },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'RegistrationFeeUpdated',
+    inputs: [
+      { name: 'oldFee', type: 'uint128', indexed: false },
+      { name: 'newFee', type: 'uint128', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'TreasuryUpdated',
+    inputs: [
+      { name: 'oldTreasury', type: 'address', indexed: true },
+      { name: 'newTreasury', type: 'address', indexed: true },
+    ],
+  },
+  {
+    type: 'function',
+    name: 'adminCount',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'adminProfiles',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [
+      { name: 'arcHouseUsername', type: 'string' },
+      { name: 'orgName', type: 'string' },
+      { name: 'grantDescription', type: 'string' },
+      { name: 'estimatedBudget', type: 'uint128' },
+      { name: 'numWinners', type: 'uint32' },
+      { name: 'prizePoolDetails', type: 'string' },
+      { name: 'registeredAt', type: 'uint40' },
+      { name: 'feePaid', type: 'uint128' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getAdminProfile',
+    inputs: [{ name: 'admin', type: 'address' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'arcHouseUsername', type: 'string' },
+          { name: 'orgName', type: 'string' },
+          { name: 'grantDescription', type: 'string' },
+          { name: 'estimatedBudget', type: 'uint128' },
+          { name: 'numWinners', type: 'uint32' },
+          { name: 'prizePoolDetails', type: 'string' },
+          { name: 'registeredAt', type: 'uint40' },
+          { name: 'feePaid', type: 'uint128' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getRegisteredAdmins',
+    inputs: [],
+    outputs: [{ name: '', type: 'address[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'isAdmin',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'owner',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'registerAdmin',
+    inputs: [
+      { name: 'arcHouseUsername', type: 'string' },
+      { name: 'orgName', type: 'string' },
+      { name: 'grantDescription', type: 'string' },
+      { name: 'estimatedBudget', type: 'uint128' },
+      { name: 'numWinners', type: 'uint32' },
+      { name: 'prizePoolDetails', type: 'string' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'registeredAdmins',
+    inputs: [{ name: '', type: 'uint256' }],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'registrationFee',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint128' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'setRegistrationFee',
+    inputs: [{ name: 'newFee', type: 'uint128' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'setTreasury',
+    inputs: [{ name: 'newTreasury', type: 'address' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'transferOwnership',
+    inputs: [{ name: 'newOwner', type: 'address' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'treasury',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'usdc',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+] as const
+
+// ── Fundora ABI const ──────────────────────────────────────────────────────────
 const FUNDORA_ABI_CONST = [
   // Constructor
   { type: 'constructor', inputs: [{ name: '_usdc', type: 'address' }, { name: '_initialAdmin', type: 'address' }, { name: '_requiredApprovals', type: 'uint256' }], stateMutability: 'nonpayable' },
@@ -45,13 +242,13 @@ const FUNDORA_ABI_CONST = [
   // ── Events ──────────────────────────────────────────────────────────────────
   { type: 'event', name: 'AdminSet', inputs: [{ name: 'admin', type: 'address', indexed: true }] },
   { type: 'event', name: 'AdminTransferred', inputs: [{ name: 'oldAdmin', type: 'address', indexed: true }, { name: 'newAdmin', type: 'address', indexed: true }] },
+  { type: 'event', name: 'AdminRegistrySet', inputs: [{ name: 'adminRegistry', type: 'address', indexed: true }] },
   { type: 'event', name: 'ReviewerAdded', inputs: [{ name: 'reviewer', type: 'address', indexed: true }] },
   { type: 'event', name: 'ReviewerRemoved', inputs: [{ name: 'reviewer', type: 'address', indexed: true }] },
   { type: 'event', name: 'RequiredApprovalsChanged', inputs: [{ name: 'oldVal', type: 'uint256', indexed: false }, { name: 'newVal', type: 'uint256', indexed: false }] },
   { type: 'event', name: 'GrantCreated', inputs: [{ name: 'grantId', type: 'uint256', indexed: true }, { name: 'title', type: 'string', indexed: false }, { name: 'creator', type: 'address', indexed: true }] },
   { type: 'event', name: 'GrantFunded', inputs: [{ name: 'grantId', type: 'uint256', indexed: true }, { name: 'amount', type: 'uint256', indexed: false }, { name: 'funder', type: 'address', indexed: true }] },
   { type: 'event', name: 'GrantApplied', inputs: [{ name: 'grantId', type: 'uint256', indexed: true }, { name: 'builder', type: 'address', indexed: true }] },
-  // MilestoneSubmitted emits the full evidenceUri string (not stored in contract storage)
   { type: 'event', name: 'MilestoneSubmitted', inputs: [{ name: 'grantId', type: 'uint256', indexed: true }, { name: 'milestoneIndex', type: 'uint256', indexed: true }, { name: 'evidenceUri', type: 'string', indexed: false }, { name: 'builder', type: 'address', indexed: true }] },
   { type: 'event', name: 'MilestoneReviewCast', inputs: [{ name: 'grantId', type: 'uint256', indexed: true }, { name: 'milestoneIndex', type: 'uint256', indexed: true }, { name: 'reviewer', type: 'address', indexed: true }, { name: 'approved', type: 'bool', indexed: false }] },
   { type: 'event', name: 'MilestoneApproved', inputs: [{ name: 'grantId', type: 'uint256', indexed: true }, { name: 'milestoneIndex', type: 'uint256', indexed: true }, { name: 'amount', type: 'uint256', indexed: false }, { name: 'builder', type: 'address', indexed: true }] },
@@ -69,6 +266,9 @@ const FUNDORA_ABI_CONST = [
 
   // ── View functions ──────────────────────────────────────────────────────────
   { type: 'function', name: 'admin', inputs: [], outputs: [{ name: '', type: 'address' }], stateMutability: 'view' },
+  { type: 'function', name: 'adminRegistry', inputs: [], outputs: [{ name: '', type: 'address' }], stateMutability: 'view' },
+  { type: 'function', name: 'isAuthorizedAdmin', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'bool' }], stateMutability: 'view' },
+  { type: 'function', name: 'grantCreator', inputs: [{ name: '', type: 'uint256' }], outputs: [{ name: '', type: 'address' }], stateMutability: 'view' },
   { type: 'function', name: 'grantCount', inputs: [], outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view' },
   { type: 'function', name: 'reviewerCount', inputs: [], outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view' },
   { type: 'function', name: 'requiredApprovals', inputs: [], outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view' },
@@ -78,7 +278,6 @@ const FUNDORA_ABI_CONST = [
   { type: 'function', name: 'pendingWithdrawals', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'uint128' }], stateMutability: 'view' },
   { type: 'function', name: 'pendingFunderRefunds', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'uint128' }], stateMutability: 'view' },
 
-  // Grant struct — v2: no `id`, packed amounts (uint128), uint8 counts, uint40 timestamps, deadline
   {
     type: 'function', name: 'getGrant',
     inputs: [{ name: 'grantId', type: 'uint256' }],
@@ -101,7 +300,6 @@ const FUNDORA_ABI_CONST = [
     stateMutability: 'view',
   },
 
-  // Batch fetch — single call replaces N multicalls (3.1)
   {
     type: 'function', name: 'getGrantsBatch',
     inputs: [{ name: 'fromId', type: 'uint256' }, { name: 'toId', type: 'uint256' }],
@@ -124,7 +322,6 @@ const FUNDORA_ABI_CONST = [
     stateMutability: 'view',
   },
 
-  // Milestone struct — v2: evidenceHash (bytes32) instead of evidenceUri, packed types
   {
     type: 'function', name: 'getMilestone',
     inputs: [{ name: 'grantId', type: 'uint256' }, { name: 'milestoneIndex', type: 'uint256' }],
@@ -154,8 +351,8 @@ const FUNDORA_ABI_CONST = [
   { type: 'function', name: 'addReviewer', inputs: [{ name: 'reviewer', type: 'address' }], outputs: [], stateMutability: 'nonpayable' },
   { type: 'function', name: 'removeReviewer', inputs: [{ name: 'reviewer', type: 'address' }], outputs: [], stateMutability: 'nonpayable' },
   { type: 'function', name: 'setRequiredApprovals', inputs: [{ name: 'n', type: 'uint256' }], outputs: [], stateMutability: 'nonpayable' },
+  { type: 'function', name: 'setAdminRegistry', inputs: [{ name: '_adminRegistry', type: 'address' }], outputs: [], stateMutability: 'nonpayable' },
 
-  // createGrant now takes `deadline` (uint40) as last parameter; 0 = no deadline
   {
     type: 'function', name: 'createGrant',
     inputs: [

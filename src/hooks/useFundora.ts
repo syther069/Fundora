@@ -228,3 +228,16 @@ export function useReviewerVote(
     chainId,
   })
 }
+
+export function useGrantCreator(grantId: bigint | null) {
+  const chainId = useActiveChainId()
+  return useReadContract({
+    address: getContractAddress(chainId),
+    abi: FUNDORA_ABI,
+    functionName: 'grantCreator',
+    args: grantId !== null ? [grantId] : undefined,
+    query: { enabled: grantId !== null, refetchInterval: POLL_INTERVAL },
+    chainId,
+  })
+}
+

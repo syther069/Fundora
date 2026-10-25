@@ -6,6 +6,7 @@ import { Loader2, Plus, UserCheck, UserMinus, Sliders, Ban, AlertTriangle, Alert
 import { toast } from 'sonner'
 import { FUNDORA_ABI, getContractAddress } from '../contracts/fundora'
 import { useRequiredApprovals, usePendingFunderRefund, usePaused, useActiveChainId } from '../hooks/useFundora'
+import { useAdminProfile, useUnifiedIsAdmin } from '../hooks/useAdminRegistry'
 import { buildTxExplorerUrl } from '@/onchain-facts'
 import { useGrants } from '../context/GrantsContext'
 import type { Grant } from '../hooks/useFundora'
@@ -36,6 +37,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const FUNDORA_ADDRESS = getContractAddress(activeChainId)
   const { data: requiredApprovals, refetch: refetchRA } = useRequiredApprovals()
   const { data: isPaused, refetch: refetchPaused } = usePaused()
+  const { data: adminProfile } = useAdminProfile(address)
+  const { isPlatformAdmin } = useUnifiedIsAdmin()
   const [tab, setTab] = useState<Tab>('create')
   const isWrongChain = chainId !== activeChainId
 
@@ -300,9 +303,24 @@ export function AdminPanel({ onGrantCreated }: Props) {
             if (e.key === 'ArrowLeft')  { e.preventDefault(); setTab(tabs[(idx - 1 + tabs.length) % tabs.length].id) }
           }}
         >
-          <h2 className="display font-bold text-base mr-4 pb-3 shrink-0" style={{ color: 'var(--ink)' }}>
-            Admin Panel
-          </h2>
+          <div className="flex items-center gap-2 mr-4 pb-3 shrink-0">
+            <h2 className="display font-bold text-base" style={{ color: 'var(--ink)' }}>
+              Admin Panel
+            </h2>
+            {adminProfile && (
+              <span
+                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold"
+                style={{
+                  background: 'var(--brand-light)',
+                  borderColor: 'var(--brand-border)',
+                  color: 'var(--brand)',
+                }}
+              >
+                <ShieldCheck size={12} />
+                @{(adminProfile as any).arcHouseUsername || (adminProfile as any)[0]}
+              </span>
+            )}
+          </div>
           {tabs.map(({ id, icon: Icon, label }) => (
             <button
               key={id}

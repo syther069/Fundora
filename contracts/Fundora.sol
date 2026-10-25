@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IAdminRegistry} from "./AdminRegistry.sol";
 
 contract Fundora is ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -104,11 +105,13 @@ contract Fundora is ReentrancyGuard {
     event FunderRefundQueued(uint256 indexed grantId, uint256 amount, address indexed funder);
     event FunderRefundClaimed(address indexed funder, uint256 amount);
     event GrantDeadlineSet(uint256 indexed grantId, uint40 deadline);
+    event AdminRegistrySet(address indexed adminRegistry);
 
     uint8 public constant MAX_MILESTONES = 20;
 
     IERC20 public usdc;
     address public admin;
+    IAdminRegistry public adminRegistry;
     uint256 public grantCount;
     uint256 public reviewerCount;
     uint256 public requiredApprovals;
@@ -117,6 +120,7 @@ contract Fundora is ReentrancyGuard {
 
     mapping(address => bool) public isReviewer;
     mapping(uint256 => Grant) public grants;
+    mapping(uint256 => address) public grantCreator;
     mapping(uint256 => mapping(uint256 => Milestone)) public milestones;
     mapping(uint256 => mapping(uint256 => uint256)) public milestoneRound;
     mapping(uint256 => mapping(uint256 => mapping(uint256 => mapping(address => bool)))) public milestoneVotes;
@@ -124,7 +128,24 @@ contract Fundora is ReentrancyGuard {
     mapping(address => uint128) public pendingWithdrawals;
     mapping(address => uint128) public pendingFunderRefunds;
 
+    function isAuthorizedAdmin(address account) public view returns (bool) {
+        if (account == admin) return true;
+        if (address(adminRegistry) != address(0)) {
+            try adminRegistry.isAdmin(account) returns (bool res) {
+                return res;
+            } catch {
+                return false;
+            }
+        }
+        return false;
+    }
+
     modifier onlyAdmin() {
+        if (!isAuthorizedAdmin(msg.sender)) revert NotAdmin();
+        _;
+    }
+
+    modifier onlyPlatformAdmin() {
         if (msg.sender != admin) revert NotAdmin();
         _;
     }
@@ -150,7 +171,7 @@ contract Fundora is ReentrancyGuard {
         emit AdminSet(_initialAdmin);
     }
 
-    function addReviewer(address reviewer) external onlyAdmin {
+    function addReviewer(address reviewer) external onlyPlatformAdmin {
         if (reviewer == address(0)) revert ZeroAddress();
         if (isReviewer[reviewer]) revert InvalidStatus();
 
@@ -160,7 +181,7 @@ contract Fundora is ReentrancyGuard {
         emit ReviewerAdded(reviewer);
     }
 
-    function removeReviewer(address reviewer) external onlyAdmin {
+    function removeReviewer(address reviewer) external onlyPlatformAdmin {
         if (reviewer == address(0)) revert ZeroAddress();
         if (!isReviewer[reviewer]) revert InvalidStatus();
         if (reviewerCount - 1 < requiredApprovals) revert InsufficientApprovers();
@@ -171,7 +192,7 @@ contract Fundora is ReentrancyGuard {
         emit ReviewerRemoved(reviewer);
     }
 
-    function setRequiredApprovals(uint256 n) external onlyAdmin {
+    function setRequiredApprovals(uint256 n) external onlyPlatformAdmin {
         if (n == 0) revert ZeroAmount();
         if (reviewerCount > 0 && n > reviewerCount) revert InsufficientApprovers();
 
@@ -179,6 +200,11 @@ contract Fundora is ReentrancyGuard {
         requiredApprovals = n;
 
         emit RequiredApprovalsChanged(old, n);
+    }
+
+    function setAdminRegistry(address _adminRegistry) external onlyPlatformAdmin {
+        adminRegistry = IAdminRegistry(_adminRegistry);
+        emit AdminRegistrySet(_adminRegistry);
     }
 
     function createGrant(
@@ -223,6 +249,7 @@ contract Fundora is ReentrancyGuard {
 
         grantCount += 1;
         grantId = grantCount;
+        grantCreator[grantId] = msg.sender;
 
         grants[grantId] = Grant({
             title: title,
@@ -242,8 +269,9 @@ contract Fundora is ReentrancyGuard {
         emit GrantDeadlineSet(grantId, deadline);
     }
 
-    function fundGrant(uint256 grantId) external onlyAdmin whenNotPaused nonReentrant {
+    function fundGrant(uint256 grantId) external whenNotPaused nonReentrant {
         Grant storage grant = _requireValidGrant(grantId);
+        if (msg.sender != admin && msg.sender != grantCreator[grantId]) revert NotAdmin();
         if (grant.status != GrantStatus.Open) revert InvalidStatus();
         if (grant.totalAmount == 0) revert ZeroAmount();
         if (reviewerCount < requiredApprovals) revert InsufficientApprovers();
@@ -357,8 +385,9 @@ contract Fundora is ReentrancyGuard {
         emit PaymentClaimed(msg.sender, amount);
     }
 
-    function cancelGrant(uint256 grantId) external onlyAdmin {
+    function cancelGrant(uint256 grantId) external {
         Grant storage grant = _requireValidGrant(grantId);
+        if (msg.sender != admin && msg.sender != grantCreator[grantId]) revert NotAdmin();
         if (grant.status != GrantStatus.Open && grant.status != GrantStatus.Active) revert InvalidStatus();
 
         uint128 unreleased = grant.totalAmount - grant.releasedAmount;
@@ -382,12 +411,13 @@ contract Fundora is ReentrancyGuard {
         emit FunderRefundClaimed(msg.sender, amount);
     }
 
-    function adminReassignBuilder(uint256 grantId, address newBuilder) external onlyAdmin {
+    function adminReassignBuilder(uint256 grantId, address newBuilder) external {
         Grant storage grant = _requireValidGrant(grantId);
+        if (msg.sender != admin && msg.sender != grantCreator[grantId]) revert NotAdmin();
         if (grant.status != GrantStatus.Active) revert InvalidStatus();
         if (newBuilder == address(0)) revert ZeroAddress();
         if (isReviewer[newBuilder]) revert InvalidStatus();
-        if (newBuilder == admin) revert AdminCannotBeBuilder();
+        if (newBuilder == admin || newBuilder == grantCreator[grantId]) revert AdminCannotBeBuilder();
 
         address oldBuilder = grant.builder;
 
@@ -421,17 +451,17 @@ contract Fundora is ReentrancyGuard {
         emit GrantExpired(grantId);
     }
 
-    function pause() external onlyAdmin {
+    function pause() external onlyPlatformAdmin {
         paused = true;
         emit ContractPaused(msg.sender);
     }
 
-    function unpause() external onlyAdmin {
+    function unpause() external onlyPlatformAdmin {
         paused = false;
         emit ContractUnpaused(msg.sender);
     }
 
-    function transferAdmin(address newAdmin) external onlyAdmin {
+    function transferAdmin(address newAdmin) external onlyPlatformAdmin {
         if (newAdmin == address(0)) revert ZeroAddress();
 
         address oldAdmin = admin;

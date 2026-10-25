@@ -1,11 +1,16 @@
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
-import { Fingerprint } from 'lucide-react'
+import { Fingerprint, ShieldCheck } from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
 import { ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/fundora'
 import { usePasskeyContext } from '../context/PasskeyContext'
 import { PasskeyAuthModal } from './PasskeyAuthModal'
+
+interface HeaderProps {
+  onOpenApplyAdmin?: () => void
+  isAdmin?: boolean
+}
 
 function LogoMark() {
   return (
@@ -56,7 +61,7 @@ function ChainBadge() {
   )
 }
 
-export function Header() {
+export function Header({ onOpenApplyAdmin, isAdmin }: HeaderProps = {}) {
   const { isConnected } = useAccount()
   const { isPasskeyConnected, smartAccountAddress, disconnect: passkeyDisconnect } = usePasskeyContext()
   const [showPasskeyModal, setShowPasskeyModal] = useState(false)
@@ -92,8 +97,26 @@ export function Header() {
             </div>
           </div>
 
-          {/* Right: wallet area */}
+          {/* Right: wallet & action area */}
           <div className="shrink-0 flex items-center gap-2">
+            {/* Apply as Admin button — shown for non-admin connected / visitor */}
+            {!isAdmin && onOpenApplyAdmin && (
+              <button
+                id="header-apply-admin-btn"
+                onClick={onOpenApplyAdmin}
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full border transition-all hover:opacity-85 btn-focus"
+                style={{
+                  background: 'var(--warm-surface)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--ink)',
+                }}
+                aria-label="Apply to launch grants as an Admin"
+              >
+                <ShieldCheck size={13} style={{ color: 'var(--brand)' }} aria-hidden="true" />
+                Apply as Admin
+              </button>
+            )}
+
             {/* ConnectKit button — always present */}
             <ConnectKitButton />
 

@@ -4,7 +4,7 @@ import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
   Users, LayoutGrid, Info, AlertCircle, RefreshCw,
-  Sprout, Zap, ShieldCheck, TrendingUp, AlertTriangle,
+  Sprout, Zap, ShieldCheck, TrendingUp, AlertTriangle, ArrowRight,
 } from 'lucide-react'
 import { Header } from './components/Header'
 import { GrantCard } from './components/GrantCard'
@@ -14,6 +14,8 @@ import { AdminPanel } from './components/AdminPanel'
 import { GrantsToolbar } from './components/GrantsToolbar'
 import type { StatusFilter } from './components/GrantsToolbar'
 import { useContractAdmin, useIsReviewer } from './hooks/useFundora'
+import { useUnifiedIsAdmin } from './hooks/useAdminRegistry'
+import { ApplyAdminModal } from './components/ApplyAdminModal'
 import { useGrants } from './context/GrantsContext'
 import type { Grant } from './hooks/useFundora'
 import { FUNDORA_ADDRESS, ARC_TESTNET_ID, ARC_MAINNET_ID, SUPPORTED_CHAIN_IDS } from './contracts/fundora'
@@ -24,7 +26,7 @@ type View = 'grants' | 'detail' | 'admin'
 const NOT_DEPLOYED = FUNDORA_ADDRESS === '0x0000000000000000000000000000000000000000'
 
 // ── Hero: disconnected state ──────────────────────────────────────────────────
-function HeroConnect() {
+function HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
   const features = [
     { icon: <Zap size={12} />,        label: 'Instant USDC payouts',   color: 'var(--amber)'  },
     { icon: <ShieldCheck size={12} />, label: 'Onchain evidence',       color: 'var(--teal)'   },
@@ -86,7 +88,24 @@ function HeroConnect() {
           ))}
         </div>
 
-        <ConnectKitButton label="Connect Wallet to Get Started" />
+        <div className="flex flex-col items-center gap-3">
+          <ConnectKitButton label="Connect Wallet to Get Started" />
+          {onOpenApplyAdmin && (
+            <button
+              id="hero-apply-admin-btn"
+              onClick={onOpenApplyAdmin}
+              className="text-xs font-semibold flex items-center gap-1.5 transition-all hover:opacity-80 py-1 px-3 rounded-full border btn-focus"
+              style={{
+                color: 'var(--brand)',
+                borderColor: 'var(--brand-border)',
+                background: 'var(--brand-light)',
+              }}
+            >
+              <ShieldCheck size={13} aria-hidden="true" />
+              Apply as a Grant Admin
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -226,9 +245,8 @@ export default function App() {
 
   const { data: contractAdmin } = useContractAdmin()
   const { data: isReviewer }    = useIsReviewer(address)
-
-  const isAdmin = !!(address && contractAdmin &&
-    address.toLowerCase() === (contractAdmin as string).toLowerCase())
+  const { isAdmin, isPlatformAdmin, isRegisteredAdmin, refetch: refetchIsAdmin } = useUnifiedIsAdmin()
+  const [showApplyModal, setShowApplyModal] = useState(false)
 
   const STATUS_MAP: Record<StatusFilter, number | null> = {
     all: null, open: 0, active: 1, completed: 2, cancelled: 3,
@@ -307,7 +325,10 @@ export default function App() {
         Skip to main content
       </a>
 
-      <Header />
+      <Header
+        onOpenApplyAdmin={() => setShowApplyModal(true)}
+        isAdmin={isAdmin}
+      />
 
       {/* Wrong-chain banner — proactive, before user tries to act (A7) */}
       {isConnected && <WrongChainBanner chainId={chainId} />}
@@ -394,11 +415,46 @@ export default function App() {
             {view === 'grants' && (
               <>
                 {!isConnected ? (
-                  <HeroConnect />
+                  <HeroConnect onOpenApplyAdmin={() => setShowApplyModal(true)} />
                 ) : (
                   <>
                     {/* Stats strip — shown when grants exist */}
                     {grants.length > 0 && <StatsStrip grants={grants} />}
+
+                    {/* Non-admin CTA: Launch your grant program */}
+                    {!isAdmin && (
+                      <div
+                        className="rounded-2xl p-4 sm:p-5 border flex items-center justify-between gap-4 flex-wrap"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(13,148,136,0.06) 100%)',
+                          borderColor: 'var(--brand-border)',
+                        }}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                            style={{ background: 'var(--brand-light)', color: 'var(--brand)' }}
+                          >
+                            <ShieldCheck size={20} />
+                          </div>
+                          <div className="min-w-0">
+                            <h2 className="font-jakarta font-bold text-sm" style={{ color: 'var(--ink)' }}>
+                              Want to launch and fund your own grant program?
+                            </h2>
+                            <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                              Register as an on-chain Admin on Arc Testnet (10 USDC) or Arc Mainnet (1 USDC) to create milestone grants.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setShowApplyModal(true)}
+                          className="btn btn-sm btn-primary btn-focus shrink-0 ml-auto sm:ml-0"
+                        >
+                          Apply as Admin
+                          <ArrowRight size={13} />
+                        </button>
+                      </div>
+                    )}
 
                     {/* Error state */}
                     {grantsError && (
@@ -554,6 +610,18 @@ export default function App() {
           </span>
         </div>
       </footer>
+      {/* Apply as Admin Modal */}
+      <AnimatePresence>
+        {showApplyModal && (
+          <ApplyAdminModal
+            onClose={() => setShowApplyModal(false)}
+            onSuccessRedirect={() => {
+              refetchIsAdmin()
+              setView('admin')
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

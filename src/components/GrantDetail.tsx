@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useReadContract, usePublicClient } from 'wagmi'
 import { erc20Abi, formatUnits } from 'viem'
 import {
   ArrowLeft, ExternalLink, Send, CheckCircle, XCircle,
@@ -21,7 +21,9 @@ import {
   useApprovalCount,
   useReviewerVote,
   useGrant,
+  useGrantCreator,
 } from '../hooks/useFundora'
+import { useUnifiedIsAdmin } from '../hooks/useAdminRegistry'
 import type { Grant, Milestone } from '../hooks/useFundora'
 import { parseOnchainError } from '../utils/errors'
 import { CrossChainFundModal } from './CrossChainFundModal'
@@ -45,14 +47,45 @@ function shortHash(hash: `0x${string}`): string {
   return `${hash.slice(0, 10)}…${hash.slice(-8)}`
 }
 
-function evidenceCacheKey(grantId: bigint, milestoneIndex: number): string {
-  return `fundora:evidence:5042002:${grantId}:${milestoneIndex}`
+function evidenceCacheKey(chainId: number, grantId: bigint, milestoneIndex: number): string {
+  return `fundora:evidence:${chainId}:${grantId}:${milestoneIndex}`
 }
-function saveEvidenceToCache(grantId: bigint, milestoneIndex: number, uri: string) {
-  try { localStorage.setItem(evidenceCacheKey(grantId, milestoneIndex), uri) } catch { /* storage blocked */ }
+function saveEvidenceToCache(chainId: number, grantId: bigint, milestoneIndex: number, uri: string) {
+  try { localStorage.setItem(evidenceCacheKey(chainId, grantId, milestoneIndex), uri) } catch { /* storage blocked */ }
 }
-function readEvidenceFromCache(grantId: bigint, milestoneIndex: number): string | null {
-  try { return localStorage.getItem(evidenceCacheKey(grantId, milestoneIndex)) } catch { return null }
+function readEvidenceFromCache(chainId: number, grantId: bigint, milestoneIndex: number): string | null {
+  try { return localStorage.getItem(evidenceCacheKey(chainId, grantId, milestoneIndex)) } catch { return null }
+}
+
+function formatEvidenceLink(uri: string): { href: string; isLink: boolean; label: string } {
+  const trimmed = uri.trim()
+  if (trimmed.startsWith('ipfs://')) {
+    const cid = trimmed.replace('ipfs://', '')
+    return {
+      href: `https://ipfs.io/ipfs/${cid}`,
+      isLink: true,
+      label: trimmed,
+    }
+  }
+  if (/^(Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[a-z0-9]{55})/i.test(trimmed)) {
+    return {
+      href: `https://ipfs.io/ipfs/${trimmed}`,
+      isLink: true,
+      label: `ipfs://${trimmed}`,
+    }
+  }
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return {
+      href: trimmed,
+      isLink: true,
+      label: trimmed,
+    }
+  }
+  return {
+    href: '',
+    isLink: false,
+    label: trimmed,
+  }
 }
 
 function formatGrantDate(ts: bigint): string {
@@ -85,6 +118,14 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
   const grant = liveGrant ?? grantProp
 
   const { data: isReviewer } = useIsReviewer(address)
+  const { isPlatformAdmin } = useUnifiedIsAdmin()
+  const { data: grantCreator } = useGrantCreator(grant.id)
+  const isGrantCreatorOrPlatformAdmin =
+    isAdmin &&
+    (!grantCreator ||
+      !address ||
+      (grantCreator as string).toLowerCase() === address.toLowerCase() ||
+      isPlatformAdmin)
   const { data: requiredApprovals } = useRequiredApprovals()
   const { data: pendingWithdrawal, refetch: refetchWithdrawal } = usePendingWithdrawal(address)
   const milestoneCount = Number(grant.milestoneCount)
@@ -139,13 +180,43 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
     }
   }, [applySuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Approve USDC + Fund grant ──
+  // ── Approve USDC + Fund grant (Fix 1: Chained sequence & allowance tracking) ──
   const { writeContract: approveWrite, data: approveHash, isPending: approvePending } = useWriteContract()
-  const { isLoading: approveConfirming } = useWaitForTransactionReceipt({ hash: approveHash })
+  const { isLoading: approveConfirming, isSuccess: approveSuccess } = useWaitForTransactionReceipt({ hash: approveHash })
   const { writeContract: fundWrite, data: fundHash, isPending: fundPending } = useWriteContract()
   const { isLoading: fundConfirming, isSuccess: fundSuccess } = useWaitForTransactionReceipt({ hash: fundHash })
+  const [awaitingFundingAfterApprove, setAwaitingFundingAfterApprove] = useState(false)
+
+  const { data: usdcAllowance, refetch: refetchAllowance } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args: address ? [address, FUNDORA_ADDRESS] : undefined,
+    chainId: activeChainId,
+    query: { enabled: !!address && grant.status === 0 && isAdmin },
+  })
+
+  // Automatically execute fundGrant once approve transaction is mined onchain
   useEffect(() => {
-    if (fundSuccess) { onRefresh(); toast.success('Grant funded! Builders can now apply.') }
+    if (approveSuccess && awaitingFundingAfterApprove) {
+      setAwaitingFundingAfterApprove(false)
+      void refetchAllowance()
+      toast.info('USDC approved! Confirm funding in your wallet…')
+      withChain(() => {
+        fundWrite(
+          { address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'fundGrant', args: [grant.id] },
+          { onError: (e) => toast.error(parseOnchainError(e)) },
+        )
+      })
+    }
+  }, [approveSuccess, awaitingFundingAfterApprove]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (fundSuccess) {
+      void refetchAllowance()
+      onRefresh()
+      toast.success('Grant funded! Builders can now apply.')
+    }
   }, [fundSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Claim payment ──
@@ -237,16 +308,24 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
 
   const handleFund = () => withChain(() => {
     const amount = parseAmount(activeChainId, formatUnits(grant.totalAmount, 6))
+    const currentAllowance = usdcAllowance ?? 0n
+
+    if (currentAllowance >= amount.raw) {
+      fundWrite(
+        { address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'fundGrant', args: [grant.id] },
+        { onError: (e) => toast.error(parseOnchainError(e)) },
+      )
+      return
+    }
+
+    setAwaitingFundingAfterApprove(true)
     approveWrite(
       { address: USDC_ADDRESS, abi: erc20Abi, functionName: 'approve', args: [FUNDORA_ADDRESS, amount.raw] },
       {
-        onSuccess: () => {
-          fundWrite(
-            { address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'fundGrant', args: [grant.id] },
-            { onError: (e) => toast.error(parseOnchainError(e)) },
-          )
+        onError: (e) => {
+          setAwaitingFundingAfterApprove(false)
+          toast.error(parseOnchainError(e))
         },
-        onError: (e) => toast.error(parseOnchainError(e)),
       },
     )
   })
@@ -299,25 +378,26 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
   const releasedStr = formatUnits(releasedAmt, 6)
   const refundableStr = formatUnits(refundableAmt, 6)
   const hasPendingWithdrawal = pendingWithdrawal !== undefined && pendingWithdrawal > 0n
-  const canCancel = isAdmin && (grant.status === 0 || grant.status === 1)
+  const canCancel = isGrantCreatorOrPlatformAdmin && (grant.status === 0 || grant.status === 1)
   const claimConfirmed = claimHash !== undefined && !claimConfirming && !claimPending
   const cancelConfirmed = cancelHash !== undefined && !cancelConfirming && !cancelPending
   const createdDate = formatGrantDate(grant.createdAt)
   const bandColor = STATUS_BAND[grant.status] ?? STATUS_BAND[0]
 
+  const hasSufficientAllowance = (usdcAllowance ?? 0n) >= grant.totalAmount
   const fundStep =
-    approvePending ? 1
-    : approveConfirming ? 1
-    : fundPending ? 2
-    : fundConfirming ? 2
+    approvePending || (approveConfirming && awaitingFundingAfterApprove) ? 1
+    : fundPending || fundConfirming ? 2
     : 0
   const fundBusy = fundStep > 0
   const fundBtnLabel =
     fundStep === 1 && approvePending ? 'Step 1/2 — Confirm approval in wallet…'
-    : fundStep === 1 ? 'Step 1/2 — Approving USDC spend…'
+    : fundStep === 1 ? 'Step 1/2 — Approving USDC on Arc…'
     : fundStep === 2 && fundPending ? 'Step 2/2 — Confirm funding in wallet…'
     : fundStep === 2 ? 'Step 2/2 — Funding grant…'
-    : `Fund Grant — $${totalStr} USDC`
+    : hasSufficientAllowance
+    ? `Fund Grant — $${totalStr} USDC`
+    : `Approve & Fund — $${totalStr} USDC`
 
   const isObserver = !!address && !isAdmin && !isReviewer && !isBuilder
 
@@ -523,7 +603,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
             )}
 
             {/* Fund grant */}
-            {grant.status === 0 && isAdmin && (
+            {grant.status === 0 && isGrantCreatorOrPlatformAdmin && (
               <div className="space-y-2 mb-3">
                 <button
                   onClick={handleFund}
@@ -945,6 +1025,7 @@ function MilestoneCard({
   isWrongChain, activeChainId, onRefreshMilestones, onRefresh,
 }: MilestoneCardProps) {
   const { address } = useAccount()
+  const publicClient = usePublicClient({ chainId: activeChainId })
   const { isPasskeyConnected, executeGaslessAction } = usePasskeyContext()
   const { data: approvalCount } = useApprovalCount(grant.id, index)
   const { data: hasVoted } = useReviewerVote(
@@ -961,9 +1042,55 @@ function MilestoneCard({
   const [gaslessSubmitLoading, setGaslessSubmitLoading] = useState(false)
   const [gaslessSubmitError, setGaslessSubmitError] = useState<string | null>(null)
 
-  const [cachedEvidenceUri, setCachedEvidenceUri] = useState<string | null>(() =>
-    readEvidenceFromCache(grant.id, index)
+  const [evidenceUri, setEvidenceUri] = useState<string | null>(() =>
+    readEvidenceFromCache(activeChainId, grant.id, index)
   )
+  const [evidenceTxHash, setEvidenceTxHash] = useState<`0x${string}` | undefined>(submitHash)
+  const [evidenceLoading, setEvidenceLoading] = useState(false)
+
+  // Fix 2: Query MilestoneSubmitted event log onchain when evidence is submitted
+  useEffect(() => {
+    if (!hasEvidence(milestone.evidenceHash) || evidenceUri || !publicClient) return
+    let cancelled = false
+    setEvidenceLoading(true)
+
+    publicClient.getLogs({
+      address: FUNDORA_ADDRESS,
+      event: {
+        type: 'event',
+        name: 'MilestoneSubmitted',
+        inputs: [
+          { name: 'grantId', type: 'uint256', indexed: true },
+          { name: 'milestoneIndex', type: 'uint256', indexed: true },
+          { name: 'evidenceUri', type: 'string', indexed: false },
+          { name: 'builder', type: 'address', indexed: true },
+        ],
+      },
+      args: {
+        grantId: grant.id,
+        milestoneIndex: BigInt(index),
+      },
+      fromBlock: 0n,
+      toBlock: 'latest',
+    }).then(logs => {
+      if (cancelled || !logs || logs.length === 0) return
+      const lastLog = logs[logs.length - 1]
+      const uri = (lastLog.args as { evidenceUri?: string }).evidenceUri
+      if (uri) {
+        setEvidenceUri(uri)
+        saveEvidenceToCache(activeChainId, grant.id, index, uri)
+        if (lastLog.transactionHash) {
+          setEvidenceTxHash(lastLog.transactionHash)
+        }
+      }
+    }).catch((err) => {
+      console.warn('Could not fetch MilestoneSubmitted event log:', err)
+    }).finally(() => {
+      if (!cancelled) setEvidenceLoading(false)
+    })
+
+    return () => { cancelled = true }
+  }, [milestone.evidenceHash, evidenceUri, publicClient, FUNDORA_ADDRESS, grant.id, index, activeChainId])
 
   const { writeContract: submitWrite, isPending: submitPending } = useWriteContract()
   const { writeContract: reviewWrite, isPending: reviewPending } = useWriteContract()
@@ -1002,9 +1129,10 @@ function MilestoneCard({
       executeGaslessAction('submitMilestoneEvidence', [grant.id, BigInt(index), uri])
         .then((hash) => {
           setSubmitHash(hash)
+          setEvidenceTxHash(hash)
           setEvidenceInput('')
-          saveEvidenceToCache(grant.id, index, uri)
-          setCachedEvidenceUri(uri)
+          saveEvidenceToCache(activeChainId, grant.id, index, uri)
+          setEvidenceUri(uri)
           onRefreshMilestones()
           onRefresh()
           toast.success('Evidence submitted via gasless transaction!')
@@ -1028,9 +1156,10 @@ function MilestoneCard({
       {
         onSuccess: (hash) => {
           setSubmitHash(hash)
+          setEvidenceTxHash(hash)
           setEvidenceInput('')
-          saveEvidenceToCache(grant.id, index, uri)
-          setCachedEvidenceUri(uri)
+          saveEvidenceToCache(activeChainId, grant.id, index, uri)
+          setEvidenceUri(uri)
         },
         onError: (e) => toast.error(parseOnchainError(e)),
       },
@@ -1108,9 +1237,9 @@ function MilestoneCard({
                   {shortHash(milestone.evidenceHash)}
                 </span>
               </div>
-              {submitHash && (
+              {(submitHash || evidenceTxHash) && (
                 <a
-                  href={buildTxExplorerUrl(activeChainId, submitHash)}
+                  href={buildTxExplorerUrl(activeChainId, (submitHash || evidenceTxHash)!)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 font-semibold btn-focus rounded"
@@ -1122,25 +1251,42 @@ function MilestoneCard({
                 </a>
               )}
             </div>
-            {cachedEvidenceUri ? (
+
+            {evidenceLoading ? (
+              <div className="flex items-center gap-1.5 py-1 text-xs" style={{ color: 'var(--muted)' }}>
+                <Loader2 size={12} className="animate-spin" />
+                <span>Reading onchain submission from Arc…</span>
+              </div>
+            ) : evidenceUri ? (
               <div className="space-y-0.5">
-                <div className="font-medium" style={{ color: 'var(--subtle)' }}>Submitted URL (cached locally):</div>
-                <a
-                  href={cachedEvidenceUri.startsWith('http') ? cachedEvidenceUri : undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="break-all leading-snug btn-focus rounded"
-                  style={{ color: 'var(--brand)', textDecoration: cachedEvidenceUri.startsWith('http') ? 'underline' : 'none' }}
-                  aria-label={`Evidence link: ${cachedEvidenceUri}`}
-                >
-                  {cachedEvidenceUri}
-                </a>
+                <div className="font-medium" style={{ color: 'var(--subtle)' }}>Submitted Evidence:</div>
+                {(() => {
+                  const parsed = formatEvidenceLink(evidenceUri)
+                  if (parsed.isLink) {
+                    return (
+                      <a
+                        href={parsed.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-semibold break-all leading-snug btn-focus rounded underline"
+                        style={{ color: 'var(--brand)' }}
+                        aria-label={`Evidence link: ${parsed.label}`}
+                      >
+                        {parsed.label}
+                        <ExternalLink size={11} className="shrink-0" aria-hidden="true" />
+                      </a>
+                    )
+                  }
+                  return (
+                    <div className="break-all font-mono text-[11px] leading-snug" style={{ color: 'var(--ink)' }}>
+                      {parsed.label}
+                    </div>
+                  )
+                })()}
               </div>
             ) : (
               <div style={{ color: 'var(--subtle)', lineHeight: 1.4 }}>
-                Full URL stored in the{' '}
-                <span className="font-semibold">MilestoneSubmitted</span> event log —
-                permanently onchain. Find it via the explorer link above or the Tracing panel.
+                Hash recorded onchain. Full submission was emitted in the <span className="font-semibold">MilestoneSubmitted</span> event.
               </div>
             )}
           </div>
