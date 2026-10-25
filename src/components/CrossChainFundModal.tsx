@@ -31,7 +31,7 @@ import {
   type BridgeStepStatus,
   type ChainTier,
 } from '../utils/cctpFunding'
-import type { Grant } from '../hooks/useProofSpring'
+import type { Grant } from '../hooks/useFundora'
 
 // ── Step metadata ─────────────────────────────────────────────────────────────
 

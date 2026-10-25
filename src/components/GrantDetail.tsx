@@ -7,7 +7,7 @@ import {
   CalendarDays, CheckCircle2, Globe, Fingerprint, Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { PROOF_SPRING_ABI, ARC_TESTNET_ID, ARC_MAINNET_ID, getContractAddress } from '../contracts/proofSpring'
+import { FUNDORA_ABI, ARC_TESTNET_ID, ARC_MAINNET_ID, getContractAddress } from '../contracts/fundora'
 import { getUsdc, buildTxExplorerUrl } from '@/onchain-facts'
 import { parseAmount } from '@/onchain-money'
 import { StatusBadge } from './StatusBadge'
@@ -21,8 +21,8 @@ import {
   useApprovalCount,
   useReviewerVote,
   useGrant,
-} from '../hooks/useProofSpring'
-import type { Grant, Milestone } from '../hooks/useProofSpring'
+} from '../hooks/useFundora'
+import type { Grant, Milestone } from '../hooks/useFundora'
 import { parseOnchainError } from '../utils/errors'
 import { CrossChainFundModal } from './CrossChainFundModal'
 import { getCCTPChain } from '../utils/cctpFunding'
@@ -76,7 +76,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
   const { address, chainId } = useAccount()
   const { switchChain } = useSwitchChain()
   const activeChainId = propChainId ?? ARC_TESTNET_ID
-  const PROOF_SPRING_ADDRESS = getContractAddress(activeChainId)
+  const FUNDORA_ADDRESS = getContractAddress(activeChainId)
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [showCrossChainModal, setShowCrossChainModal] = useState(false)
@@ -200,8 +200,8 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
     }
     withChain(() => {
       applyWrite({
-        address: PROOF_SPRING_ADDRESS,
-        abi: PROOF_SPRING_ABI,
+        address: FUNDORA_ADDRESS,
+        abi: FUNDORA_ABI,
         functionName: 'applyForGrant',
         args: [grant.id],
       }, { onError: (e) => toast.error(parseOnchainError(e)) })
@@ -217,7 +217,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
 
   const handleExpire = () => withChain(() => {
     expireWrite(
-      { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'expireGrant', args: [grant.id] },
+      { address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'expireGrant', args: [grant.id] },
       {
         onSuccess: (hash) => { void (hash) },
         onError: (e) => toast.error(parseOnchainError(e)),
@@ -227,7 +227,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
 
   const handleFunderClaim = () => withChain(() => {
     funderClaimWrite(
-      { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'claimFunderRefund' },
+      { address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'claimFunderRefund' },
       {
         onSuccess: (hash) => { void (hash) },
         onError: (e) => toast.error(parseOnchainError(e)),
@@ -238,11 +238,11 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
   const handleFund = () => withChain(() => {
     const amount = parseAmount(activeChainId, formatUnits(grant.totalAmount, 6))
     approveWrite(
-      { address: USDC_ADDRESS, abi: erc20Abi, functionName: 'approve', args: [PROOF_SPRING_ADDRESS, amount.raw] },
+      { address: USDC_ADDRESS, abi: erc20Abi, functionName: 'approve', args: [FUNDORA_ADDRESS, amount.raw] },
       {
         onSuccess: () => {
           fundWrite(
-            { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'fundGrant', args: [grant.id] },
+            { address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'fundGrant', args: [grant.id] },
             { onError: (e) => toast.error(parseOnchainError(e)) },
           )
         },
@@ -273,7 +273,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
     }
     withChain(() => {
       claimWrite(
-        { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'claimPayment' },
+        { address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'claimPayment' },
         { onError: (e) => toast.error(parseOnchainError(e)) },
       )
     })
@@ -281,7 +281,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
 
   const handleCancel = () => withChain(() => {
     cancelWrite(
-      { address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'cancelGrant', args: [grant.id] },
+      { address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'cancelGrant', args: [grant.id] },
       {
         onSuccess: () => setConfirmCancel(false),
         onError: (e) => { toast.error(parseOnchainError(e)); setConfirmCancel(false) },
@@ -952,7 +952,7 @@ function MilestoneCard({
     index,
     address,
   )
-  const PROOF_SPRING_ADDRESS = getContractAddress(activeChainId)
+  const FUNDORA_ADDRESS = getContractAddress(activeChainId)
   const amountStr = formatUnits(milestone.amount, 6)
 
   const [evidenceInput, setEvidenceInput] = useState('')
@@ -1020,8 +1020,8 @@ function MilestoneCard({
 
     submitWrite(
       {
-        address: PROOF_SPRING_ADDRESS,
-        abi: PROOF_SPRING_ABI,
+        address: FUNDORA_ADDRESS,
+        abi: FUNDORA_ABI,
         functionName: 'submitMilestoneEvidence',
         args: [grant.id, BigInt(index), uri],
       },
@@ -1040,8 +1040,8 @@ function MilestoneCard({
   const handleReview = (approve: boolean) => {
     reviewWrite(
       {
-        address: PROOF_SPRING_ADDRESS,
-        abi: PROOF_SPRING_ABI,
+        address: FUNDORA_ADDRESS,
+        abi: FUNDORA_ABI,
         functionName: 'reviewMilestone',
         args: [grant.id, BigInt(index), approve],
       },

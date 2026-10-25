@@ -10,22 +10,27 @@ This is the **project memory** — what Arc Studio remembers about building this
 
 Fundora is a full-stack onchain microgrants platform. Grant admins create milestone-based USDC grants, fund them, and assign reviewers. Builders apply, submit evidence (URLs/IPFS CIDs) per milestone, and reviewers vote to approve. USDC is queued for the builder on milestone approval and claimed via `claimPayment()`. All decisions are recorded onchain.
 
-> Note: The underlying smart contract is named `ProofSpring` (Solidity identifier and Foundry artifact). The brand name is Fundora.
+> Note: The smart contract is named `Fundora` (Solidity identifier and Foundry artifact). The brand name is Fundora.
 
 ## Deployed Contracts
 
 | Contract | Version | Network | Address |
 |----------|---------|---------|---------|
-| ProofSpring | v4 (current) | Arc Testnet | `0xef34036dda3960a1cd57b1368329bfcf29700259` |
-| ProofSpring | v3 (superseded) | Arc Testnet | `0x433cc087e4daf08f7875c9621c7a3efd950ef016` |
-| ProofSpring | v2 (superseded — wrong USDC) | Arc Testnet | `0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388` |
-| ProofSpring | v1 (superseded) | Arc Testnet | `0x090e040f2a56676d3f91c773ea8a42106435f920` |
-| ProofSpring | (pending) | Arc Mainnet | `0x0000000000000000000000000000000000000000` |
+| Fundora | v4 (current) | Arc Testnet | `0xef34036dda3960a1cd57b1368329bfcf29700259` |
+| Fundora | v3 (superseded) | Arc Testnet | `0x433cc087e4daf08f7875c9621c7a3efd950ef016` |
+| Fundora | v2 (superseded — wrong USDC) | Arc Testnet | `0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388` |
+| Fundora | v1 (superseded) | Arc Testnet | `0x090e040f2a56676d3f91c773ea8a42106435f920` |
+| Fundora | v1 (current) | Arc Mainnet | `0x371b4b6894882082e706cd84b781bf749472a602` |
 
-v4 Constructor args: `_usdc=0x3600000000000000000000000000000000000000 (Arc USDC), _initialAdmin=0x5B12Ce46C7194aD57d143bC22847224047b1Ef42, _requiredApprovals=1`
-v4 Tx hash: `0x448a0a8ad34372769102d87a6c9379665b1adb37d675685350baf09da718496c`
+v4 (testnet) Constructor args: `_usdc=0x3600000000000000000000000000000000000000, _initialAdmin=0x5B12Ce46C7194aD57d143bC22847224047b1Ef42, _requiredApprovals=1`
+v4 (testnet) Tx hash: `0x448a0a8ad34372769102d87a6c9379665b1adb37d675685350baf09da718496c`
 
-Explorer (v4): https://explorer.testnet.arc.io/address/0xef34036dda3960a1cd57b1368329bfcf29700259
+Explorer (testnet v4): https://explorer.testnet.arc.io/address/0xef34036dda3960a1cd57b1368329bfcf29700259
+
+Mainnet v1 Constructor args: `_usdc=0x3600000000000000000000000000000000000000, _initialAdmin=0xb5fd2471b99e9c7324309a43282a391e87585c5e, _requiredApprovals=1`
+Mainnet v1 Tx hash: `0x5d68fc6caaf6217a9a6b0e68b2c9fff145ed84360501d635c610971c5018fb20`
+
+Explorer (mainnet v1): https://explorer.mainnet.arc.io/address/0x371b4b6894882082e706cd84b781bf749472a602
 
 ## Post-Deploy Checklist (run after each redeployment)
 
@@ -38,7 +43,7 @@ Explorer (v4): https://explorer.testnet.arc.io/address/0xef34036dda3960a1cd57b13
 
 - Frontend: React 18, Vite, TypeScript, Tailwind CSS
 - Web3: wagmi v2, viem v2, ConnectKit
-- Contracts: Solidity 0.8.28 + Foundry. Sources in `contracts/`, unit tests in `contracts/test/*.t.sol`. Build with `bun run contracts:build` (`forge build`), test with `bun run contracts:test` (`forge test`).
+- Contracts: Solidity 0.8.28 + Foundry. Contract source at `contracts/Fundora.sol`, unit tests at `contracts/test/Fundora.t.sol`. Build with `bun run contracts:build` (`forge build`), test with `bun run contracts:test` (`forge test`).
 - Wallet: injected (MetaMask, etc.)
 - Chain: Arc Testnet (Chain ID: 5042002, imported from `viem/chains`)
 - Token: USDC (6 decimals) (Address: 0x3600000000000000000000000000000000000000, Chain: Arc Testnet)

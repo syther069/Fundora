@@ -3,7 +3,7 @@ import { useAccount } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import { Fingerprint } from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
-import { ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/proofSpring'
+import { ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/fundora'
 import { usePasskeyContext } from '../context/PasskeyContext'
 import { PasskeyAuthModal } from './PasskeyAuthModal'
 

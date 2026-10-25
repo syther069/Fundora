@@ -24,7 +24,7 @@ import {
   sendGaslessContractCall,
   isClientKeyConfigured,
 } from '../utils/modularWallet'
-import { ARC_TESTNET_ID } from '../contracts/proofSpring'
+import { ARC_TESTNET_ID } from '../contracts/fundora'
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
 const STORAGE_KEY = 'fundora:passkey:credential'

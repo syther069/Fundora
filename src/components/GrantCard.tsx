@@ -2,7 +2,7 @@ import { formatUnits } from 'viem'
 import { ArrowRight, Layers } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { DeadlineBadge } from './DeadlineBadge'
-import type { Grant } from '../hooks/useProofSpring'
+import type { Grant } from '../hooks/useFundora'
 
 // Accent bar colour per grant status
 const STATUS_ACCENT: Record<number, string> = {

@@ -13,15 +13,15 @@ import { GrantDetail } from './components/GrantDetail'
 import { AdminPanel } from './components/AdminPanel'
 import { GrantsToolbar } from './components/GrantsToolbar'
 import type { StatusFilter } from './components/GrantsToolbar'
-import { useContractAdmin, useIsReviewer } from './hooks/useProofSpring'
+import { useContractAdmin, useIsReviewer } from './hooks/useFundora'
 import { useGrants } from './context/GrantsContext'
-import type { Grant } from './hooks/useProofSpring'
-import { PROOF_SPRING_ADDRESS, ARC_TESTNET_ID, ARC_MAINNET_ID, SUPPORTED_CHAIN_IDS } from './contracts/proofSpring'
-import { useActiveChainId } from './hooks/useProofSpring'
+import type { Grant } from './hooks/useFundora'
+import { FUNDORA_ADDRESS, ARC_TESTNET_ID, ARC_MAINNET_ID, SUPPORTED_CHAIN_IDS } from './contracts/fundora'
+import { useActiveChainId } from './hooks/useFundora'
 
 type View = 'grants' | 'detail' | 'admin'
 
-const NOT_DEPLOYED = PROOF_SPRING_ADDRESS === '0x0000000000000000000000000000000000000000'
+const NOT_DEPLOYED = FUNDORA_ADDRESS === '0x0000000000000000000000000000000000000000'
 
 // ── Hero: disconnected state ──────────────────────────────────────────────────
 function HeroConnect() {

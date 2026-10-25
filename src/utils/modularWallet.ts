@@ -24,7 +24,7 @@ import {
   toPasskeyTransport,
   toWebAuthnCredential,
 } from '@circle-fin/modular-wallets-core'
-import { ARC_TESTNET_ID, PROOF_SPRING_ABI, getContractAddress } from '../contracts/proofSpring'
+import { ARC_TESTNET_ID, FUNDORA_ABI, getContractAddress } from '../contracts/fundora'
 
 // ── Env vars ──────────────────────────────────────────────────────────────────
 const CLIENT_KEY = import.meta.env.VITE_CLIENT_KEY as string | undefined
@@ -174,7 +174,7 @@ export async function sendGaslessContractCall({
   // which it cannot resolve from a runtime string. The caller is responsible for passing
   // valid function names; a mismatch throws at encode time before any tx is sent.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const looseAbi = PROOF_SPRING_ABI as unknown as any[]
+  const looseAbi = FUNDORA_ABI as unknown as any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = (encodeFunctionData as (opts: { abi: any[]; functionName: string; args?: any[] }) => `0x${string}`)({
     abi: looseAbi,

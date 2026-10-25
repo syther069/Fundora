@@ -4,11 +4,11 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchCh
 import { isAddress, parseUnits, formatUnits } from 'viem'
 import { Loader2, Plus, UserCheck, UserMinus, Sliders, Ban, AlertTriangle, AlertCircle, CheckCircle2, ExternalLink, ShieldOff, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
-import { PROOF_SPRING_ABI, getContractAddress } from '../contracts/proofSpring'
-import { useRequiredApprovals, usePendingFunderRefund, usePaused, useActiveChainId } from '../hooks/useProofSpring'
+import { FUNDORA_ABI, getContractAddress } from '../contracts/fundora'
+import { useRequiredApprovals, usePendingFunderRefund, usePaused, useActiveChainId } from '../hooks/useFundora'
 import { buildTxExplorerUrl } from '@/onchain-facts'
 import { useGrants } from '../context/GrantsContext'
-import type { Grant } from '../hooks/useProofSpring'
+import type { Grant } from '../hooks/useFundora'
 import { parseOnchainError } from '../utils/errors'
 
 interface Props {
@@ -33,7 +33,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const { chainId, address } = useAccount()
   const { switchChain } = useSwitchChain()
   const activeChainId = useActiveChainId()
-  const PROOF_SPRING_ADDRESS = getContractAddress(activeChainId)
+  const FUNDORA_ADDRESS = getContractAddress(activeChainId)
   const { data: requiredApprovals, refetch: refetchRA } = useRequiredApprovals()
   const { data: isPaused, refetch: refetchPaused } = usePaused()
   const [tab, setTab] = useState<Tab>('create')
@@ -87,8 +87,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
     if (!canCreate) return
     const milestoneAmounts = milestoneRows.map(r => parseUsdcAmount(r.amount)!)
     createWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: FUNDORA_ADDRESS,
+      abi: FUNDORA_ABI,
       functionName: 'createGrant',
       args: [
         grantTitle,
@@ -122,8 +122,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const handleAddReviewer = () => withChain(() => {
     if (!isAddress(addReviewerAddr)) { toast.error('Enter a valid 0x address.'); return }
     addRWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: FUNDORA_ADDRESS,
+      abi: FUNDORA_ABI,
       functionName: 'addReviewer',
       args: [addReviewerAddr],
     }, {
@@ -142,8 +142,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const handleRemoveReviewer = () => withChain(() => {
     if (!isAddress(removeReviewerAddr)) { toast.error('Enter a valid 0x address.'); return }
     removeRWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: FUNDORA_ADDRESS,
+      abi: FUNDORA_ABI,
       functionName: 'removeReviewer',
       args: [removeReviewerAddr],
     }, {
@@ -166,8 +166,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const handleSetRA = () => withChain(() => {
     if (isNaN(newRequiredN) || newRequiredN < 1) { toast.error('Must be at least 1.'); return }
     setRAWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: FUNDORA_ADDRESS,
+      abi: FUNDORA_ABI,
       functionName: 'setRequiredApprovals',
       args: [BigInt(newRequiredN)],
     }, { onError: (e) => toast.error(parseOnchainError(e)) })
@@ -191,8 +191,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const handleCancelGrant = (grantId: bigint) => withChain(() => {
     setCancelGrantId(grantId)
     cancelWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: FUNDORA_ADDRESS,
+      abi: FUNDORA_ABI,
       functionName: 'cancelGrant',
       args: [grantId],
     }, {
@@ -213,8 +213,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
 
   const handleClaimRefund = () => withChain(() => {
     claimRefundWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: FUNDORA_ADDRESS,
+      abi: FUNDORA_ABI,
       functionName: 'claimFunderRefund',
     }, { onError: (e) => toast.error(parseOnchainError(e)) })
   })
@@ -230,8 +230,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
     if (isNaN(gid) || gid < 1) { toast.error('Enter a valid grant ID.'); return }
     if (!isAddress(reassignBuilderAddr)) { toast.error('Enter a valid builder address.'); return }
     reassignWrite({
-      address: PROOF_SPRING_ADDRESS,
-      abi: PROOF_SPRING_ABI,
+      address: FUNDORA_ADDRESS,
+      abi: FUNDORA_ABI,
       functionName: 'adminReassignBuilder',
       args: [BigInt(gid), reassignBuilderAddr],
     }, {
@@ -246,7 +246,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
 
   const handlePause = () => withChain(() => {
     pauseWrite({
-      address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'pause',
+      address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'pause',
     }, {
       onSuccess: () => { void refetchPaused(); toast.success('Contract paused') },
       onError: (e) => toast.error(parseOnchainError(e)),
@@ -254,7 +254,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
   })
   const handleUnpause = () => withChain(() => {
     unpauseWrite({
-      address: PROOF_SPRING_ADDRESS, abi: PROOF_SPRING_ABI, functionName: 'unpause',
+      address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'unpause',
     }, {
       onSuccess: () => { void refetchPaused(); toast.success('Contract unpaused') },
       onError: (e) => toast.error(parseOnchainError(e)),

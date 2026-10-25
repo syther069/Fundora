@@ -20,9 +20,9 @@ import {
   type ReactNode,
 } from 'react'
 import { useReadContract, useReadContracts, useWatchContractEvent } from 'wagmi'
-import { PROOF_SPRING_ABI, getContractAddress } from '../contracts/proofSpring'
-import { useActiveChainId } from '../hooks/useProofSpring'
-import type { Grant } from '../hooks/useProofSpring'
+import { FUNDORA_ABI, getContractAddress } from '../contracts/fundora'
+import { useActiveChainId } from '../hooks/useFundora'
+import type { Grant } from '../hooks/useFundora'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -58,42 +58,42 @@ export function GrantsProvider({ children }: { children: ReactNode }) {
   // 3.5 — watch all state-changing events and invalidate the cache
   useWatchContractEvent({
     address: contractAddress,
-    abi: PROOF_SPRING_ABI,
+    abi: FUNDORA_ABI,
     eventName: 'GrantCreated',
     chainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
     address: contractAddress,
-    abi: PROOF_SPRING_ABI,
+    abi: FUNDORA_ABI,
     eventName: 'GrantFunded',
     chainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
     address: contractAddress,
-    abi: PROOF_SPRING_ABI,
+    abi: FUNDORA_ABI,
     eventName: 'GrantApplied',
     chainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
     address: contractAddress,
-    abi: PROOF_SPRING_ABI,
+    abi: FUNDORA_ABI,
     eventName: 'MilestoneApproved',
     chainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
     address: contractAddress,
-    abi: PROOF_SPRING_ABI,
+    abi: FUNDORA_ABI,
     eventName: 'GrantCompleted',
     chainId,
     onLogs: invalidate,
   })
   useWatchContractEvent({
     address: contractAddress,
-    abi: PROOF_SPRING_ABI,
+    abi: FUNDORA_ABI,
     eventName: 'GrantCancelled',
     chainId,
     onLogs: invalidate,
@@ -107,7 +107,7 @@ export function GrantsProvider({ children }: { children: ReactNode }) {
     isError: countError,
   } = useReadContract({
     address: contractAddress,
-    abi: PROOF_SPRING_ABI,
+    abi: FUNDORA_ABI,
     functionName: 'grantCount',
     chainId,
     query: {
@@ -128,7 +128,7 @@ export function GrantsProvider({ children }: { children: ReactNode }) {
     isError: batchError,
   } = useReadContract({
     address: contractAddress,
-    abi: PROOF_SPRING_ABI,
+    abi: FUNDORA_ABI,
     functionName: 'getGrantsBatch',
     args: useBatch ? [1n, BigInt(grantCount)] : undefined,
     chainId,
@@ -144,7 +144,7 @@ export function GrantsProvider({ children }: { children: ReactNode }) {
     if (useBatch || grantCount === 0) return []
     return Array.from({ length: grantCount }, (_, i) => ({
       address: contractAddress,
-      abi: PROOF_SPRING_ABI,
+      abi: FUNDORA_ABI,
       functionName: 'getGrant' as const,
       args: [BigInt(i + 1)] as [bigint],
       chainId,
