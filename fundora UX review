@@ -1,0 +1,234 @@
+# Fundora UX Review & Architecture Plan: Hackathons & Contests Pivot
+
+**Product:** Fundora (Arc Network)  
+**Document Type:** UX Review, Transition Architecture & Product Specifications  
+**Author:** Antigravity  
+**Date:** October 2026  
+**Status:** Aligned via Design Interview (/grill-me & /plan)
+
+---
+
+## 1. Verification of Current Contract & Product Documentation
+
+Based on direct inspection of the smart contract ([Fundora.sol](file:///c:/GrantFlow/contracts/Fundora.sol)), the frontend claim implementation ([GrantDetail.tsx](file:///c:/GrantFlow/src/components/GrantDetail.tsx)), and the product documentation ([PRD.md](file:///c:/GrantFlow/docs/PRD.md)):
+
+### Payout & Settlement Mechanics
+* **Strict Pull-Payment Pattern (Claim-Only):**
+  * **No Automatic Push:** Prize funds are **never automatically transferred** to a builder/winner’s wallet upon approval or winner declaration.
+  * **Contract Escrow Logic:** In `Fundora.sol`, approving work executes:
+    ```solidity
+    pendingWithdrawals[recipient] += amount;
+    emit MilestonePaymentQueued(grantId, milestoneIndex, amount, recipient);
+    ```
+  * **Claim Execution:** The recipient must explicitly invoke `claimPayment()` (lines 378–386), which zeroes their pending balance and transfers USDC via `usdc.safeTransfer(msg.sender, amount)`.
+  * **Security Rationale:** As documented in `PRD.md` Section 1, pull-payments prevent gas griefing, reentrancy vulnerabilities, recipient contract call reverts, and Circle USDC blocklist freezing (where a blacklisted address could revert a batch push and trap everyone else's funds).
+  * **Passkey / Gasless Support:** Already integrated via ERC-4337 Biconomy/Modular accounts (`executeGaslessAction('claimPayment')`), enabling participants to claim rewards without holding Arc native gas tokens.
+* **Funder Refunds are Pull-Based:**
+  * When an organizer cancels an event/grant with unreleased funds, the remainder is credited to `pendingFunderRefunds[grant.funder]`, which the organizer pulls via `claimFunderRefund()`.
+
+---
+
+## 2. Gap Analysis: Current Grant Workflow vs. Hackathon & Contest Workflow
+
+The current Fundora codebase is designed for **1-to-1 sequential microgrants**. The hackathons and contests model requires a **1-to-many-to-many competitive structure**.
+
+| Dimension | Current Fundora Grant Workflow | New Hackathon & Contest Workflow | Architectural & UX Decision |
+| :--- | :--- | :--- | :--- |
+| **Entity Model** | `1 Grant : 1 Funder : 1 Builder : N Milestones` | `1 Event : 1 Organizer : M Tracks : N Submissions : K Reviewers : P Winners` | **New Contract:** Deploy `FundoraEvents.sol` to manage multi-winner escrow and allocations natively. |
+| **Event Origin** | Only native onchain creation funded up-front. | **Dual Modality:** Native Arc Escrow Events vs. **External Directory Listings** (Devpost, DoraHacks, X). | Clear visual tags ("Verified Escrow" vs "External Listing") and external redirect buttons for external events. |
+| **Submission Process** | One builder locks the grant up-front; submits sequential evidence over time. | Many participants submit diverse entries (repos, live demos, X posts, memes, videos, designs) before a deadline. | Rich submission portal supporting multimedia links, GitHub URLs, embeds, and collaborator credits. |
+| **Judging Model** | Binary quorum voting (`approve` vs `reject`) on work completion. | Multi-reviewer scoring on weighted rubrics (1–10 on Innovation, Polish, Arc Integration). | Split-pane Reviewer Workspace with submission viewer and rubric sliders. |
+| **Winner Selection** | Automatic upon milestone quorum reaching `requiredApprovals`. | **Hybrid Deliberation:** Aggregated reviewer rankings inform the organizer, who assigns final prize allocations. | Dedicated Organizer Judging Console with leaderboard and prize settlement sliders. |
+| **Prize Allocation** | Single address pulls milestone payouts. | Multiple winners pull designated prize tiers (1st, 2nd, 3rd, track bounties). | Single submitter address claims onchain; co-contributors are credited in UI showcase. |
+
+---
+
+## 3. Information Architecture (IA)
+
+Fundora is structured into a **Public Event Directory** and **Three Role-Gated Workspaces**:
+
+```mermaid
+graph TD
+    App[Fundora Platform]
+    App --> PublicDir[1. Public Event Directory]
+    App --> OrgWorkspace[2. Organizer Workspace]
+    App --> PartWorkspace[3. Participant Workspace]
+    App --> RevWorkspace[4. Reviewer Workspace]
+
+    PublicDir --> EventCards[Filterable Event Grid: Hackathons vs Contests vs External]
+    PublicDir --> EventDetail[Event Detail Page: Overview, Tracks, Timeline, Prizes, Rules]
+    PublicDir --> Showcase[Public Project / Entry Gallery]
+
+    OrgWorkspace --> CreateEvent[Event Builder: Native Escrow vs External Link]
+    OrgWorkspace --> ManageEvent[Event Console: Submissions, Reviewer Invites, Judging Dashboard]
+    OrgWorkspace --> WinnerPicker[Winner Finalization & Prize Allocation]
+
+    PartWorkspace --> MyEntries[Submission Tracker: Draft, Submitted, In Review, Awarded]
+    PartWorkspace --> SubmitFlow[Multi-Step Entry Flow: Media, Links, Team]
+    PartWorkspace --> RewardVault[Claim Rewards: Aggregated Claimable USDC]
+
+    RevWorkspace --> ReviewQueue[Assigned Submissions Queue]
+    RevWorkspace --> Scorecard[Judging Scorecard: Rubric Sliders, Private Notes, Verdict]
+    RevWorkspace --> Deliberation[Scores Overview & Tally]
+```
+
+### 3.1. Public Event Directory (`/` and `/events`)
+* **Header Navigation:** Brand Mark, "Explore Events", "My Entries" (Participant), "Judging" (Reviewer), "Organizer Console", Network Toggle (Arc Mainnet/Testnet), Wallet / Passkey Connect.
+* **Directory Controls:**
+  * **Category Tabs:** All | Hackathons | Creative & Social Contests | External Listed
+  * **Status Pills:** All | Active Submissions | In Judging | Completed | Upcoming
+  * **Sorting:** Total Prize Pool (USDC) | Submission Deadline (Urgency) | Recently Added
+* **Event Detail Screen (`/events/:id`):**
+  * **Hero Area:** Event banner, title, host badge, total USDC prize pool, live countdown timer, primary CTA ("Submit Entry" or "View on External Site").
+  * **Tab Navigation:**
+    1. **Overview & Prompt:** Theme, background, submission rules, eligibility.
+    2. **Tracks & Prizes:** Breakdown of 1st/2nd/3rd places, track bounties, and USDC prize amounts.
+    3. **Judging Rubric:** Weighted criteria (e.g., Arc utility 40%, Technical execution 30%, Design 30%).
+    4. **Submissions Showcase:** Public gallery of entered projects (searchable/filterable).
+    5. **Winners (Post-Event):** Celebratory podium and winner showcase cards.
+
+### 3.2. Organizer Workspace (`/organizer`)
+* **Event Hub:** Dashboard summarizing hosted events, total USDC escrowed, total submissions, and judging progress %.
+* **Create/List Event Wizard (`/organizer/create`):**
+  * Step 1: Origin (Native Arc Escrow vs External Listing).
+  * Step 2: Event Details (Title, Description, Banner, Category, Tags).
+  * Step 3: Schedule (Registration, Submission Deadline, Judging Window, Winner Announcement).
+  * Step 4: Prize Structure (Tiers, Bounties, Total USDC Pool).
+  * Step 5: Judging Rubric & Reviewer Invites (Criteria weights, Reviewer wallet addresses).
+  * Step 6: Onchain Escrow Funding (USDC Approval + Deposit transaction for Native events).
+* **Organizer Event Operations Console (`/organizer/events/:id`):**
+  * **Submissions Tab:** Filter, flag/disqualify spam, view individual entries.
+  * **Judging Deliberation:** Real-time leaderboard of average reviewer scores, judge completion rates, outlier detection.
+  * **Winner Allocation & Settlement:** Drag-and-drop or dropdown to map winning entries to prize tiers, review final USDC allocation, and execute onchain settlement.
+
+### 3.3. Participant Workspace (`/participant`)
+* **"My Entries" Hub:** Centralized tracker for all user submissions with state badges (`Draft`, `Submitted`, `In Review`, `Won`, `Not Selected`).
+* **Universal Submission Flow (`/events/:id/submit`):**
+  * Adaptive fields: GitHub Repo, Live Demo URL, X/Twitter Post Link, Video/Demo Embed, or Image Attachments.
+  * Collaborator credits (display names/handles).
+  * Preview card before final submission.
+* **Earnings & Claims Vault (`/participant/rewards`):**
+  * Bigint-accurate total claimable USDC balance.
+  * Breakdown per event won with "Claim Reward" buttons (supports gasless passkey execution).
+  * Historical claim receipts with Arc block explorer links.
+
+### 3.4. Reviewer Workspace (`/reviewer`)
+* **Assigned Queue:** List of submissions assigned to the connected reviewer's address. Progress tracker ("16 of 25 evaluated").
+* **Interactive Scorecard Screen:**
+  * **Left Side (60%):** Interactive entry viewer (embedded GitHub readme, live preview, video, or social post embed).
+  * **Right Side (40%):** Rubric sliders (1–10 for each criterion), total calculated score, qualitative judge notes, and "Save & Next" shortcut.
+
+---
+
+## 4. End-to-End User Flow Mapping
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Organizer
+    actor Participant
+    actor Reviewer
+    participant Contract as FundoraEvents Contract (Arc)
+    participant UI as Fundora Frontend
+
+    %% 1. Create & Fund
+    Note over Organizer,Contract: Flow 1: Create & Fund Event
+    Organizer->>UI: Configure event details, dates, rubric, and prize tiers
+    alt Native Onchain Event
+        Organizer->>Contract: approve(usdc, totalPrizePool)
+        Organizer->>Contract: fundEvent(eventId, totalPrizePool)
+        Contract-->>UI: EventFunded (Verified Escrow badge unlocked)
+    else External Listing
+        Organizer->>UI: Save listing with external target URL
+    end
+
+    %% 2. Submit Entry
+    Note over Participant,UI: Flow 2: Entry Submission
+    Participant->>UI: Select Event -> Fill submission form (links, repo, media)
+    Participant->>UI: Submit entry (metadata stored on decentralized storage / event indexer)
+    UI-->>Participant: Submission receipt & shareable link
+
+    %% 3. Judging
+    Note over Reviewer,Organizer: Flow 3: Review & Deliberation
+    Reviewer->>UI: Open assigned queue -> Score entry on weighted rubric
+    Reviewer->>UI: Submit review scores (cached & tallied)
+    UI-->>Organizer: Live score leaderboard updated
+
+    %% 4. Winner Finalization
+    Note over Organizer,Contract: Flow 4: Winner Selection & Settlement
+    Organizer->>UI: Review leaderboard & select final winners per prize tier
+    Organizer->>Contract: finalizeWinners(eventId, winnerAddresses[], prizeAmounts[])
+    Contract-->>Contract: pendingWithdrawals[winner] += prizeAmount
+
+    %% 5. Reward Claim
+    Note over Participant,Contract: Flow 5: Reward Claim
+    Participant->>UI: Open Earnings Vault -> "You won $2,500 USDC!"
+    Participant->>Contract: claimPayment() (Direct or Gasless Passkey)
+    Contract->>Participant: Transfer USDC to winner's wallet
+```
+
+---
+
+## 5. Screen Inventory, States & Trust Disclosures
+
+Guided by the design system ([DESIGN_SYSTEM.md](file:///c:/GrantFlow/docs/design/DESIGN_SYSTEM.md)) and the UX state principles from `UX guide (3).txt`:
+
+### 5.1. Four Mandatory Screen States
+Every screen must provide deliberate, non-jarring treatments for all four states:
+
+| State | Design System Treatment | UX Rule Applied |
+| :--- | :--- | :--- |
+| **Loading** | Shimmer skeleton cards matching exact dimensions of event/entry components. | Never show a blank white container. Avoid flash spinners for reads <1s. For blockchain transactions >2s, show dynamic step indicators ("Step 1/2: Approving USDC..."). |
+| **Success** | Dwell animation (1.5s) on primary action; subtle celebratory feedback; onchain tx link to Arc Explorer. | Remove user uncertainty immediately. For wins/claims, display celebratory confirmation with clear next steps. |
+| **Error** | Three-tier error placement: Inline field errors for form issues; Centered Modals for blocking issues (Wrong Network, Insufficient USDC); Toasts for non-critical failures. | Never dump raw contract revert codes. Explain: What happened, why it happened, and the exact next step. |
+| **Empty** | Meaningful explanation + clear, prominent forward CTA. | No blank dashboards. Provide "Create Your First Event", "Explore Active Hackathons", or "Inbox Zero: All entries reviewed" celebrations. |
+
+### 5.2. Trust, Safety & Privacy Disclosures
+* **Pull-Payment Rationale:** Inline tooltip on claim buttons explaining: *"For your security, rewards are held in escrow on Arc and claimed directly by your wallet, eliminating risks of third-party transfer failures."*
+* **Verified Escrow vs. External Listing:**
+  * **Verified Native Badge (Teal):** *"Arc Verified Escrow: $15,000 USDC locked in smart contract."*
+  * **External Listing Badge (Slate):** *"External Event: Hosted on [Platform]. Applications and prizes are governed by the host organization."*
+* **Submission Visibility:** Clear toggle and banner during submission indicating whether project details are publicly visible immediately or hidden until the submission window closes.
+
+---
+
+## 6. Resolved Product Decisions (Design Interview Summary)
+
+During the interactive design interview, the following core branches of the product tree were resolved:
+
+1. **Smart Contract Architecture:**
+   * **Decision:** Deploy a dedicated `FundoraEvents.sol` contract supporting multi-winner prize allocations, track bounties, and individual pull-claims for winners.
+2. **External Event Model:**
+   * **Decision:** Dual-mode directory. Native events feature full onchain escrow, submissions, and judging on Fundora; external events are informational listings with an "External Event" badge and outbound links to the host platform.
+3. **Team Submissions & Payout Splits:**
+   * **Decision:** Single submitter address claims the prize reward onchain; team members and collaborators are credited visually in the project showcase. Teams desiring programmatic splits can use a multisig or payment splitter address (e.g. 0xSplits).
+4. **Judging Rules & Authority:**
+   * **Decision:** Hybrid deliberation. Reviewers score submissions using criteria rubrics (1–10 per criterion) generating a ranked leaderboard, while the organizer retains final authority to confirm winners and assign prize tiers.
+5. **Reviewer Access & Governance:**
+   * **Decision:** Per-event reviewer invitations. Organizers assign specific reviewer wallet addresses per event; reviewers have access scoped strictly to evaluate submissions for the events they are invited to.
+Key Summary of Approved Architecture & Decisions
+Pull-Payment Pattern Confirmed:
+Aligns with the core architecture of 
+
+Fundora.sol
+ and 
+
+PRD.md
+. Rewards are not pushed automatically; winners pull-claim their allocated prizes onchain (with optional gasless passkey execution).
+Dedicated Contract (FundoraEvents.sol):
+A clean multi-winner escrow and payout contract that avoids shoehorning multi-team hackathons into the single-builder microgrant model.
+Dual-Modality Event Directory:
+Clear visual distinction between native Arc-escrowed events (with verified prize badges) and external event listings (with outbound platform links).
+Deliberative Hybrid Judging:
+Reviewers evaluate entries on weighted criteria rubrics (1–10), and the organizer uses the resulting leaderboard to finalize and confirm prize allocations.
+Team Submissions & Scoped Reviewer Access:
+One wallet address claims onchain rewards per winning entry (collaborators credited in UI metadata); reviewers are invited per-event with access scoped to assigned submissions.
+State Rigor (Loading, Success, Error, Empty):
+Every screen adheres to the four mandatory states: shimmer skeletons (no flashing spinners), explicit error tiers (inline, modal, toast), and actionable empty states.
+Ready for Next Phase
+As requested, no application code or design files were modified. Whenever you are ready to begin implementation, we can proceed in logical phases:
+
+Phase 1: Smart contract design & test suite (FundoraEvents.sol in Foundry).
+Phase 2: Public Event Directory & Detail views with native vs. external badges.
+Phase 3: Participant submission & Organizer event creation wizards.
+Phase 4: Reviewer scorecard interface & Organizer settlement console.
