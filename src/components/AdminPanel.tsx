@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
+import { TransitionPanel } from './ui/transition-panel'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi'
 import { isAddress, parseUnits, formatUnits } from 'viem'
 import { Loader2, Plus, UserCheck, UserMinus, Sliders, Ban, AlertTriangle, AlertCircle, CheckCircle2, ExternalLink, ShieldOff, ShieldCheck } from 'lucide-react'
@@ -28,7 +29,7 @@ function parseUsdcAmount(raw: string): bigint | null {
   }
 }
 
-type Tab = 'create' | 'reviewers' | 'settings' | 'cancel'
+type Tab = 'create' | 'reviewers' | 'settings' | 'manage'
 
 export function AdminPanel({ onGrantCreated }: Props) {
   const { chainId, address } = useAccount()
@@ -38,8 +39,9 @@ export function AdminPanel({ onGrantCreated }: Props) {
   const { data: requiredApprovals, refetch: refetchRA } = useRequiredApprovals()
   const { data: isPaused, refetch: refetchPaused } = usePaused()
   const { data: adminProfile } = useAdminProfile(address)
-  const { isPlatformAdmin } = useUnifiedIsAdmin()
+  const { isPlatformAdmin: _isPlatformAdmin } = useUnifiedIsAdmin()
   const [tab, setTab] = useState<Tab>('create')
+  const shouldReduce = useReducedMotion()
   const isWrongChain = chainId !== activeChainId
 
   const withChain = useCallback((action: () => void) => {
@@ -272,12 +274,13 @@ export function AdminPanel({ onGrantCreated }: Props) {
     '--tw-ring-color': 'var(--focus)',
   } as React.CSSProperties
 
-  const tabs = [
-    { id: 'create' as const, icon: Plus, label: 'New Grant' },
-    { id: 'reviewers' as const, icon: UserCheck, label: 'Reviewers' },
-    { id: 'settings' as const, icon: Sliders, label: 'Settings' },
-    { id: 'cancel' as const, icon: Ban, label: 'Cancel Grant' },
+  const tabs: { id: Tab; icon: typeof Plus; label: string }[] = [
+    { id: 'create',    icon: Plus,      label: 'New Grant'  },
+    { id: 'reviewers', icon: UserCheck, label: 'Reviewers'  },
+    { id: 'settings',  icon: Sliders,   label: 'Settings'   },
+    { id: 'manage',    icon: Ban,       label: 'Manage'     },
   ]
+  const tabIndex = tabs.findIndex(t => t.id === tab)
 
   return (
     <div
@@ -317,7 +320,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
                 }}
               >
                 <ShieldCheck size={12} />
-                @{(adminProfile as any).arcHouseUsername || (adminProfile as any)[0]}
+                @{(adminProfile as Record<string, unknown>)['arcHouseUsername'] as string}
               </span>
             )}
           </div>
@@ -332,7 +335,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
               onClick={() => setTab(id)}
               className="relative flex items-center gap-1.5 px-3 pb-3 pt-1 text-sm font-medium transition-colors shrink-0 btn-focus"
               style={{
-                color: tab === id ? (id === 'cancel' ? 'var(--coral)' : 'var(--ink)') : 'var(--muted)',
+                color: tab === id ? 'var(--ink)' : 'var(--muted)',
                 border: 'none', background: 'transparent',
               }}
             >
@@ -342,8 +345,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
                 <motion.span
                   layoutId="admin-tab-indicator"
                   className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
-                  style={{ background: id === 'cancel' ? 'var(--coral)' : 'var(--brand)' }}
-                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  style={{ background: 'var(--brand)' }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                 />
               )}
             </button>
@@ -351,16 +354,22 @@ export function AdminPanel({ onGrantCreated }: Props) {
         </div>
       </div>{/* end tab header */}
 
-      <div className="p-5 space-y-4">
-
+      <TransitionPanel
+        activeIndex={tabIndex}
+        custom={tabIndex}
+        className="p-5"
+        transition={shouldReduce
+          ? { duration: 0.15 }
+          : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }
+        }
+      >
         {/* ── Create grant ── */}
-        {tab === 'create' && (
-          <div
-            role="tabpanel"
-            id="tabpanel-create"
-            aria-labelledby="tab-create"
-            className="space-y-3"
-          >
+        <div
+          role="tabpanel"
+          id="tabpanel-create"
+          aria-labelledby="tab-create"
+          className="space-y-3"
+        >
             {/* Title */}
             <div className="space-y-1">
               <input
@@ -496,11 +505,9 @@ export function AdminPanel({ onGrantCreated }: Props) {
               </p>
             )}
           </div>
-        )}
 
         {/* ── Reviewers ── */}
-        {tab === 'reviewers' && (
-          <div role="tabpanel" id="tabpanel-reviewers" aria-labelledby="tab-reviewers" className="space-y-5">
+        <div role="tabpanel" id="tabpanel-reviewers" aria-labelledby="tab-reviewers" className="space-y-5">
             {/* Add */}
             <div className="space-y-2">
               <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>
@@ -577,11 +584,9 @@ export function AdminPanel({ onGrantCreated }: Props) {
               </button>
             </div>
           </div>
-        )}
 
         {/* ── Settings ── */}
-        {tab === 'settings' && (
-          <div role="tabpanel" id="tabpanel-settings" aria-labelledby="tab-settings" className="space-y-3">
+        <div role="tabpanel" id="tabpanel-settings" aria-labelledby="tab-settings" className="space-y-3">
             <div className="text-sm" style={{ color: 'var(--muted)' }}>
               Current required approvals:{' '}
               <strong style={{ color: 'var(--ink)' }}>{requiredApprovals?.toString() ?? '…'}</strong>
@@ -663,64 +668,18 @@ export function AdminPanel({ onGrantCreated }: Props) {
                 </button>
               )}
             </div>
-            {/* Reassign Builder */}
-            <div
-              className="rounded-xl border p-4 space-y-3 mt-2"
-              style={{ background: 'var(--surface-muted)', borderColor: 'var(--border)' }}
-            >
-              <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>
-                Reassign Builder
-              </div>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                Replaces the assigned builder on a grant (e.g. if the original builder abandons work).
-              </p>
-              <div className="space-y-2">
-                <input
-                  value={reassignGrantId}
-                  onChange={e => setReassignGrantId(e.target.value)}
-                  placeholder="Grant ID (e.g. 1)"
-                  inputMode="numeric"
-                  className={`${inputCls} tabular-nums`}
-                  style={inputStyle}
-                  aria-label="Grant ID to reassign builder"
-                />
-                <input
-                  value={reassignBuilderAddr}
-                  onChange={e => setReassignBuilderAddr(e.target.value)}
-                  placeholder="New builder 0x… address"
-                  className={`${inputCls} mono`}
-                  style={{
-                    ...inputStyle,
-                    borderColor: reassignBuilderAddr && !reassignBuilderValid ? 'var(--danger)' : 'var(--border)',
-                  }}
-                  aria-label="New builder address"
-                />
-                {reassignBuilderAddr && !reassignBuilderValid && (
-                  <p className="text-xs flex items-center gap-1" style={{ color: 'var(--danger)' }}>
-                    <AlertCircle size={11} /> Not a valid 0x address
-                  </p>
-                )}
-                <button
-                  onClick={handleReassign}
-                  disabled={reassignPending || reassignConfirming || !reassignGrantId || !reassignBuilderAddr || isWrongChain}
-                  title={isWrongChain ? 'Switch network first' : undefined}
-                  className="w-full h-10 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-50 btn-focus"
-                  style={{ background: 'var(--brand)' }}
-                >
-                  {(reassignPending || reassignConfirming) ? <Loader2 size={13} className="animate-spin" /> : <UserCheck size={13} aria-hidden="true" />}
-                  {reassignPending ? 'Confirm in wallet…' : reassignConfirming ? 'Reassigning…' : 'Reassign Builder'}
-                </button>
-              </div>
-            </div>
           </div>
-        )}
 
-        {/* ── Cancel grant ── */}
-        {tab === 'cancel' && (
-          <div role="tabpanel" id="tabpanel-cancel" aria-labelledby="tab-cancel" className="space-y-3">
+        {/* ── Manage tab (Cancel grants + Reassign builder + Claim refund) ── */}
+        <div role="tabpanel" id="tabpanel-manage" aria-labelledby="tab-manage" className="space-y-4">
+
+          {/* Cancel grants section */}
+          <div className="space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>
+              Cancel Grants
+            </div>
             <p className="text-sm" style={{ color: 'var(--muted)' }}>
               Cancel an Open or Active grant. Unreleased USDC is refunded to the funder.
-              Completed and already-cancelled grants cannot be cancelled.
             </p>
 
             {cancellableGrants.length === 0 ? (
@@ -728,22 +687,16 @@ export function AdminPanel({ onGrantCreated }: Props) {
                 className="rounded-xl border p-6 text-center space-y-1"
                 style={{ borderColor: 'var(--border)', background: 'var(--surface-muted)' }}
               >
-                <p className="text-sm font-medium" style={{ color: 'var(--ink)' }}>
-                  No cancellable grants
-                </p>
-                <p className="text-xs" style={{ color: 'var(--subtle)' }}>
-                  All grants are either completed or already cancelled.
-                </p>
+                <p className="text-sm font-medium" style={{ color: 'var(--ink)' }}>No cancellable grants</p>
+                <p className="text-xs" style={{ color: 'var(--subtle)' }}>All grants are completed or already cancelled.</p>
               </div>
             ) : (
               cancellableGrants.map(g => {
-                const gTotalAmt    = BigInt(g.totalAmount)
-                const gReleasedAmt = BigInt(g.releasedAmount)
+                const gTotalAmt      = BigInt(g.totalAmount)
+                const gReleasedAmt   = BigInt(g.releasedAmount)
                 const gRefundableAmt = gTotalAmt - gReleasedAmt
-                const gTotalStr    = formatUnits(gTotalAmt, 6)
-                const gReleasedStr = formatUnits(gReleasedAmt, 6)
                 const gRefundableStr = formatUnits(gRefundableAmt, 6)
-                const isThisOne = cancelGrantId === g.id
+                const isThisOne      = cancelGrantId === g.id
                 const confirmingThis = confirmCancelId === g.id
 
                 return (
@@ -752,18 +705,16 @@ export function AdminPanel({ onGrantCreated }: Props) {
                     className="rounded-xl border overflow-hidden"
                     style={{
                       borderColor: confirmingThis ? '#fecaca' : 'var(--border)',
-                      background: confirmingThis ? '#fef2f2' : 'var(--surface-muted)',
+                      background:  confirmingThis ? '#fef2f2' : 'var(--surface-muted)',
                     }}
                   >
                     <div className="p-4 flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium text-sm truncate" style={{ color: 'var(--ink)' }}>
-                          {g.title}
-                        </div>
-                        <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-                          ${gTotalStr} total · ${gReleasedStr} released ·{' '}
-                          <strong style={{ color: gRefundableAmt > 0n ? 'var(--spring)' : 'var(--subtle)' }}>
-                            ${gRefundableStr} refundable
+                        <div className="font-medium text-sm truncate" style={{ color: 'var(--ink)' }}>{g.title}</div>
+                        <div className="text-xs mt-0.5 tabular-nums" style={{ color: 'var(--muted)' }}>
+                          {formatUnits(BigInt(g.totalAmount), 6)} USDC total ·{' '}
+                          <strong style={{ color: gRefundableAmt > 0n ? 'var(--teal)' : 'var(--subtle)' }}>
+                            {gRefundableStr} refundable
                           </strong>
                         </div>
                       </div>
@@ -771,8 +722,8 @@ export function AdminPanel({ onGrantCreated }: Props) {
                         <button
                           onClick={() => setConfirmCancelId(g.id)}
                           disabled={(cancelPending || cancelConfirming) && isThisOne}
-                          className="px-3 h-8 rounded-lg text-xs font-semibold flex items-center gap-1 disabled:opacity-60 shrink-0 border"
-                          style={{ color: 'var(--danger)', borderColor: '#fecaca', background: '#fef2f2' }}
+                          className="px-3 h-8 rounded-lg text-xs font-semibold flex items-center gap-1 disabled:opacity-60 shrink-0 border btn-focus"
+                          style={{ color: 'var(--coral)', borderColor: 'var(--coral-border)', background: 'var(--coral-light)' }}
                           aria-label={`Cancel grant: ${g.title}`}
                         >
                           <Ban size={11} />
@@ -781,43 +732,32 @@ export function AdminPanel({ onGrantCreated }: Props) {
                       )}
                     </div>
 
-                    {/* M10: inline confirm panel — replaces window.confirm */}
                     {confirmingThis && (
-                      <div
-                        className="px-4 pb-4 space-y-3 border-t"
-                        style={{ borderColor: '#fecaca' }}
-                      >
+                      <div className="px-4 pb-4 space-y-3 border-t" style={{ borderColor: '#fecaca' }}>
                         <div className="pt-3 flex items-start gap-2 text-xs" style={{ color: '#7f1d1d' }}>
                           <AlertTriangle size={13} className="shrink-0 mt-0.5" />
                           <span>
                             This will permanently cancel the grant and refund{' '}
-                            <strong>${gRefundableStr} USDC</strong> to the funder.
-                            This cannot be undone.
+                            <strong className="tabular-nums">{gRefundableStr} USDC</strong> to the funder. This cannot be undone.
                           </span>
                         </div>
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleCancelGrant(g.id)}
-                            disabled={(cancelPending || cancelConfirming) && isThisOne || isWrongChain}
-                            className="flex-1 h-8 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-1 disabled:opacity-60"
-                            style={{ background: 'var(--danger)' }}
+                            disabled={((cancelPending || cancelConfirming) && isThisOne) || isWrongChain}
+                            className="flex-1 h-8 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-1 disabled:opacity-60 btn-focus"
+                            style={{ background: 'var(--coral)' }}
                           >
                             {(cancelPending || cancelConfirming) && isThisOne
                               ? <Loader2 size={11} className="animate-spin" />
                               : <Ban size={11} />}
-                            {(cancelPending || cancelConfirming) && isThisOne
-                              ? 'Cancelling…'
-                              : 'Yes, Cancel Grant'}
+                            {(cancelPending || cancelConfirming) && isThisOne ? 'Cancelling…' : 'Yes, Cancel Grant'}
                           </button>
                           <button
                             onClick={() => setConfirmCancelId(null)}
                             disabled={(cancelPending || cancelConfirming) && isThisOne}
-                            className="flex-1 h-8 rounded-lg text-xs font-medium border disabled:opacity-50"
-                            style={{
-                              color: 'var(--ink)',
-                              borderColor: '#fecaca',
-                              background: 'var(--surface-strong)',
-                            }}
+                            className="flex-1 h-8 rounded-lg text-xs font-medium border disabled:opacity-50 btn-focus"
+                            style={{ color: 'var(--ink)', borderColor: '#fecaca', background: 'var(--surface-strong)' }}
                           >
                             Keep Grant
                           </button>
@@ -828,16 +768,66 @@ export function AdminPanel({ onGrantCreated }: Props) {
                 )
               })
             )}
+          </div>
 
-            {/* ── Claim funder refund ── */}
-            {hasFunderRefund && (
+          <div className="border-t" style={{ borderColor: 'var(--border)' }} />
+
+          {/* Reassign Builder section */}
+          <div className="space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>
+              Reassign Builder
+            </div>
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>
+              Replaces the assigned builder on a grant if the original abandons their work.
+            </p>
+            <input
+              value={reassignGrantId}
+              onChange={e => setReassignGrantId(e.target.value)}
+              placeholder="Grant ID (e.g. 1)"
+              inputMode="numeric"
+              className={`${inputCls} tabular-nums`}
+              style={inputStyle}
+              aria-label="Grant ID to reassign builder"
+            />
+            <input
+              value={reassignBuilderAddr}
+              onChange={e => setReassignBuilderAddr(e.target.value)}
+              placeholder="New builder 0x… address"
+              className={`${inputCls} mono`}
+              style={{
+                ...inputStyle,
+                borderColor: reassignBuilderAddr && !reassignBuilderValid ? 'var(--danger)' : 'var(--border)',
+              }}
+              aria-label="New builder address"
+            />
+            {reassignBuilderAddr && !reassignBuilderValid && (
+              <p className="text-xs flex items-center gap-1" style={{ color: 'var(--danger)' }}>
+                <AlertCircle size={11} /> Not a valid 0x address
+              </p>
+            )}
+            <button
+              onClick={handleReassign}
+              disabled={reassignPending || reassignConfirming || !reassignGrantId || !reassignBuilderAddr || isWrongChain}
+              title={isWrongChain ? 'Switch network first' : undefined}
+              className="w-full h-10 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-50 btn-focus"
+              style={{ background: 'var(--brand)' }}
+            >
+              {(reassignPending || reassignConfirming) ? <Loader2 size={13} className="animate-spin" /> : <UserCheck size={13} aria-hidden="true" />}
+              {reassignPending ? 'Confirm in wallet…' : reassignConfirming ? 'Reassigning…' : 'Reassign Builder'}
+            </button>
+          </div>
+
+          {/* Claim funder refund — shown when balance > 0 */}
+          {hasFunderRefund && (
+            <>
+              <div className="border-t" style={{ borderColor: 'var(--border)' }} />
               <div
                 className="rounded-xl border p-4 flex items-center justify-between gap-3"
-                style={{ background: 'var(--spring-light)', borderColor: '#a7f3d0' }}
+                style={{ background: 'var(--teal-light)', borderColor: 'var(--teal-border)' }}
               >
                 <div>
-                  <div className="text-sm font-semibold" style={{ color: 'var(--spring)' }}>
-                    ${formatUnits(pendingFunderRefund, 6)} USDC refund ready
+                  <div className="text-sm font-semibold tabular-nums" style={{ color: 'var(--teal)' }}>
+                    {formatUnits(pendingFunderRefund, 6)} USDC refund ready
                   </div>
                   <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
                     From cancelled grant — claim to your wallet
@@ -848,7 +838,7 @@ export function AdminPanel({ onGrantCreated }: Props) {
                   disabled={claimRefundPending || claimRefundConfirming || isWrongChain}
                   title={isWrongChain ? 'Switch network first' : undefined}
                   className="px-4 h-9 rounded-lg text-sm font-semibold text-white flex items-center gap-1.5 disabled:opacity-60 shrink-0 btn-focus"
-                  style={{ background: 'var(--spring)' }}
+                  style={{ background: 'var(--teal)' }}
                 >
                   {(claimRefundPending || claimRefundConfirming)
                     ? <Loader2 size={12} className="animate-spin" />
@@ -856,22 +846,24 @@ export function AdminPanel({ onGrantCreated }: Props) {
                   {claimRefundPending ? 'Confirm…' : claimRefundConfirming ? 'Claiming…' : 'Claim Refund'}
                 </button>
               </div>
-            )}
-            {claimRefundHash && (
-              <a
-                href={buildTxExplorerUrl(activeChainId, claimRefundHash)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-xs btn-focus rounded"
-                style={{ color: 'var(--accent)' }}
-              >
-                <ExternalLink size={10} aria-hidden="true" />
-                {!claimRefundConfirming && !claimRefundPending ? 'Refund confirmed — view on explorer' : 'View pending refund claim'}
-              </a>
-            )}
-          </div>
-        )}
-      </div>
+              {claimRefundHash && (
+                <a
+                  href={buildTxExplorerUrl(activeChainId, claimRefundHash)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs btn-focus rounded"
+                  style={{ color: 'var(--brand)' }}
+                >
+                  <ExternalLink size={10} aria-hidden="true" />
+                  {!claimRefundConfirming && !claimRefundPending ? 'Refund confirmed — view on explorer' : 'View pending refund claim'}
+                </a>
+              )}
+            </>
+          )}
+        </div>
+
+      </TransitionPanel>
+
     </div>
   )
 }
