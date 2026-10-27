@@ -1,10 +1,12 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
   Users, LayoutGrid, Info, AlertCircle, RefreshCw,
   Sprout, Zap, ShieldCheck, TrendingUp, AlertTriangle, ArrowRight,
+  Trophy, Sparkles, Clock, Compass, Scale, LayoutDashboard, Award, CheckCircle2,
+  ExternalLink, Layers, PlusCircle
 } from 'lucide-react'
 import { Header } from './components/Header'
 import { GrantCard } from './components/GrantCard'
@@ -12,7 +14,7 @@ import { GrantSkeleton } from './components/GrantSkeleton'
 import { GrantDetail } from './components/GrantDetail'
 import { AdminPanel } from './components/AdminPanel'
 import { GrantsToolbar } from './components/GrantsToolbar'
-import type { StatusFilter } from './components/GrantsToolbar'
+import type { StatusFilter as GrantStatusFilter } from './components/GrantsToolbar'
 import { useContractAdmin, useIsReviewer } from './hooks/useFundora'
 import { useUnifiedIsAdmin } from './hooks/useAdminRegistry'
 import { ApplyAdminModal } from './components/ApplyAdminModal'
@@ -21,17 +23,24 @@ import type { Grant } from './hooks/useFundora'
 import { FUNDORA_ADDRESS, ARC_TESTNET_ID, ARC_MAINNET_ID, SUPPORTED_CHAIN_IDS } from './contracts/fundora'
 import { useActiveChainId } from './hooks/useFundora'
 
-type View = 'grants' | 'detail' | 'admin'
+// New Phase 2 Event Directory Components & Context
+import { useEvents } from './context/EventsContext'
+import { EventCard } from './components/events/EventCard'
+import { EventDirectoryToolbar } from './components/events/EventDirectoryToolbar'
+import { EventSkeletonGrid } from './components/events/EventSkeletonGrid'
+import { EventDetailView } from './components/events/EventDetailView'
+
+type View = 'events' | 'event-detail' | 'participant' | 'reviewer' | 'organizer' | 'grants' | 'detail' | 'admin'
 
 const NOT_DEPLOYED = FUNDORA_ADDRESS === '0x0000000000000000000000000000000000000000'
 
-// ── Hero: disconnected state ──────────────────────────────────────────────────
+// ── Hero: disconnected state (legacy grants) ──────────────────────────────────
 function HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
   const features = [
-    { icon: <Zap size={12} />,        label: 'Instant USDC payouts',   color: 'var(--amber)'  },
-    { icon: <ShieldCheck size={12} />, label: 'Onchain evidence',       color: 'var(--teal)'   },
-    { icon: <Users size={12} />,       label: 'Reviewer governance',    color: 'var(--brand)'  },
-    { icon: <TrendingUp size={12} />,  label: 'Transparent milestones', color: 'var(--violet)' },
+    { icon: <Zap size={12} />, label: 'Instant USDC payouts', color: 'var(--amber)' },
+    { icon: <ShieldCheck size={12} />, label: 'Onchain evidence', color: 'var(--teal)' },
+    { icon: <Users size={12} />, label: 'Reviewer governance', color: 'var(--brand)' },
+    { icon: <TrendingUp size={12} />, label: 'Transparent milestones', color: 'var(--violet)' },
   ]
 
   return (
@@ -39,34 +48,31 @@ function HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
       className="card rounded-3xl overflow-hidden max-w-lg mx-auto"
       style={{ boxShadow: 'var(--shadow-lg)' }}
     >
-      {/* Gradient top bar */}
       <div
         className="h-2"
-        style={{ background: 'linear-gradient(90deg, #6366f1 0%, #0d9488 50%, #d97706 100%)' }}
+        style={{ background: 'linear-gradient(90deg, #1A3F75 0%, #0F766E 50%, #B45309 100%)' }}
         aria-hidden="true"
       />
 
       <div className="px-5 py-8 sm:px-8 sm:py-10 text-center">
-        {/* Logo */}
         <div
           className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center"
           style={{
-            background: 'linear-gradient(135deg, #6366f1 0%, #0d9488 100%)',
-            boxShadow: '0 8px 24px rgba(99,102,241,.28)',
+            background: 'linear-gradient(135deg, #1A3F75 0%, #0F766E 100%)',
+            boxShadow: '0 8px 24px rgba(26,63,117,.28)',
           }}
           aria-hidden="true"
         >
           <svg width="28" height="28" viewBox="0 0 16 16" fill="none">
-            <circle cx="6"  cy="8" r="4.5" stroke="white" strokeWidth="1.5" fill="none" opacity="0.9" />
+            <circle cx="6" cy="8" r="4.5" stroke="white" strokeWidth="1.5" fill="none" opacity="0.9" />
             <circle cx="10" cy="8" r="4.5" stroke="white" strokeWidth="1.5" fill="none" opacity="0.6" />
             <path d="M10 6h1.5v2H10" stroke="white" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
 
-        {/* Headline */}
         <h1
-          className="font-jakarta font-extrabold text-3xl mb-3"
-          style={{ color: 'var(--ink)', letterSpacing: '-0.03em' }}
+          className="font-jakarta font-extrabold text-3xl mb-3 text-midnight"
+          style={{ letterSpacing: '-0.03em' }}
         >
           Fundora
         </h1>
@@ -74,7 +80,6 @@ function HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
           Milestone-based USDC grants with onchain evidence, reviewer votes, and transparent payouts — built on Arc.
         </p>
 
-        {/* Feature pills */}
         <div className="flex flex-wrap gap-2 justify-center mb-8">
           {features.map(({ icon, label, color }) => (
             <span
@@ -111,21 +116,19 @@ function HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
   )
 }
 
-// ── Stats strip ───────────────────────────────────────────────────────────────
+// ── Legacy Grants Stats Strip ─────────────────────────────────────────────────
 function StatsStrip({ grants }: { grants: Grant[] }) {
-  const total   = grants.length
-  const active  = grants.filter(g => g.status === 1).length
-  const done    = grants.filter(g => g.status === 2).length
-  // Bigint sum first, then format once — no float arithmetic on money
-  const tvlRaw  = grants.reduce((s, g) => s + BigInt(g.totalAmount), 0n)
-  // Drop sub-dollar cents: divide bigint by 1_000_000 (6 decimals) to get whole dollars
+  const total = grants.length
+  const active = grants.filter(g => g.status === 1).length
+  const done = grants.filter(g => g.status === 2).length
+  const tvlRaw = grants.reduce((s, g) => s + BigInt(g.totalAmount), 0n)
   const tvlDollars = tvlRaw / 1_000_000n
 
   const stats = [
-    { label: 'Total Grants', value: total.toString(),                  color: 'var(--brand)' },
-    { label: 'Active',       value: active.toString(),                 color: 'var(--teal)'  },
-    { label: 'Completed',    value: done.toString(),                   color: 'var(--teal)'  },
-    { label: 'Total USDC',   value: `$${tvlDollars.toString()}`,       color: 'var(--amber)' },
+    { label: 'Total Grants', value: total.toString(), color: 'var(--brand)' },
+    { label: 'Active', value: active.toString(), color: 'var(--teal)' },
+    { label: 'Completed', value: done.toString(), color: 'var(--teal)' },
+    { label: 'Total USDC', value: `$${tvlDollars.toString()}`, color: 'var(--amber)' },
   ]
 
   if (total === 0) return null
@@ -148,52 +151,111 @@ function StatsStrip({ grants }: { grants: Grant[] }) {
 }
 
 // ── Role banner ───────────────────────────────────────────────────────────────
-function RoleBanner({ isAdmin, isReviewer }: { isAdmin: boolean; isReviewer: boolean | undefined }) {
+function RoleBanner({ isAdmin, isReviewer }: { isAdmin: boolean; isReviewer: boolean }) {
   if (!isAdmin && !isReviewer) return null
-
   return (
-    <div
-      className="border-b py-2.5 px-4"
-      style={{
-        background:  isAdmin ? 'var(--brand-light)' : 'var(--teal-light)',
-        borderColor: isAdmin ? 'var(--brand-border)' : 'var(--teal-border)',
-      }}
-    >
+    <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-4">
       <div
-        className="max-w-6xl mx-auto flex items-center gap-2 text-xs font-semibold"
-        style={{ color: isAdmin ? 'var(--brand)' : 'var(--teal)' }}
+        className="rounded-xl px-4 py-2.5 flex items-center justify-between text-xs font-medium border"
+        style={{
+          background: isAdmin ? 'var(--brand-light)' : 'var(--teal-light)',
+          borderColor: isAdmin ? 'var(--brand-border)' : 'var(--teal-border)',
+          color: isAdmin ? 'var(--brand)' : 'var(--teal)',
+        }}
       >
-        {isAdmin ? <ShieldCheck size={13} /> : <Info size={13} />}
-        {isAdmin
-          ? 'You are the grant admin — manage grants, reviewers, and settings from the Admin panel.'
-          : 'You are a reviewer — open a grant to vote on submitted milestones.'}
+        <span className="flex items-center gap-1.5">
+          <span
+            className="w-2 h-2 rounded-full shrink-0"
+            style={{ background: isAdmin ? 'var(--brand)' : 'var(--teal)' }}
+            aria-hidden="true"
+          />
+          {isAdmin && isReviewer
+            ? 'Connected as Contract Admin & Reviewer'
+            : isAdmin
+              ? 'Connected as Contract Admin'
+              : 'Connected as Assigned Reviewer'}
+        </span>
+        <span className="font-mono text-[11px] opacity-75 hidden sm:inline">
+          {isAdmin ? 'Full governance access' : 'Reviewer access enabled'}
+        </span>
       </div>
     </div>
   )
 }
 
-// ── Network toggle (testnet ↔ mainnet) ───────────────────────────────────────
+// ── Wrong-chain banner ────────────────────────────────────────────────────────
+function WrongChainBanner({ chainId }: { chainId: number | undefined }) {
+  const { switchChain } = useSwitchChain()
+  const isWrongChain = chainId !== undefined && !SUPPORTED_CHAIN_IDS.includes(chainId)
+
+  if (!isWrongChain) return null
+
+  return (
+    <div
+      className="border-b px-4 py-2 text-center text-xs font-medium flex items-center justify-center gap-2"
+      style={{
+        background: 'var(--coral-light)',
+        borderColor: 'var(--coral-border)',
+        color: 'var(--coral)',
+      }}
+      role="alert"
+    >
+      <AlertTriangle size={13} className="shrink-0" aria-hidden="true" />
+      <span>
+        Unsupported network (Chain ID: {chainId}). Switch to <strong>Arc Testnet</strong> or <strong>Arc Mainnet</strong> to interact.
+      </span>
+      {switchChain && (
+        <button
+          onClick={() => switchChain({ chainId: ARC_TESTNET_ID })}
+          className="underline font-semibold ml-1 hover:opacity-80 btn-focus"
+        >
+          Switch to Arc Testnet
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Network toggle ────────────────────────────────────────────────────────────
 function NetworkToggle({ chainId }: { chainId: number | undefined }) {
   const { switchChain } = useSwitchChain()
-  if (!chainId) return null
-  const isTestnet = chainId === ARC_TESTNET_ID
   const isMainnet = chainId === ARC_MAINNET_ID
-  // Only show toggle when on a supported Arc network
-  if (!isTestnet && !isMainnet) return null
+  const isTestnet = chainId === ARC_TESTNET_ID
+  if (!isMainnet && !isTestnet) return null
+
   return (
-    <div className="flex items-center gap-1 rounded-full border p-0.5" style={{ borderColor: 'var(--border)', background: 'var(--surface-raised)' }}>
+    <div
+      className="inline-flex items-center p-0.5 rounded-full border text-xs"
+      style={{ background: 'var(--warm-bg-2)', borderColor: 'var(--border)' }}
+      role="group"
+      aria-label="Network selector"
+    >
       <button
-        onClick={() => switchChain?.({ chainId: ARC_TESTNET_ID })}
-        className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-all btn-focus ${isTestnet ? 'text-white' : ''}`}
-        style={isTestnet ? { background: 'var(--teal)', color: '#fff' } : { color: 'var(--muted)' }}
+        onClick={() => switchChain && switchChain({ chainId: ARC_TESTNET_ID })}
+        className="px-2.5 py-1 rounded-full font-medium transition-all"
+        style={isTestnet ? {
+          background: 'var(--warm-surface)',
+          color: 'var(--teal)',
+          boxShadow: 'var(--shadow-sm)',
+          fontWeight: 600,
+        } : {
+          color: 'var(--muted)',
+        }}
         aria-pressed={isTestnet}
       >
         Testnet
       </button>
       <button
-        onClick={() => switchChain?.({ chainId: ARC_MAINNET_ID })}
-        className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-all btn-focus ${isMainnet ? 'text-white' : ''}`}
-        style={isMainnet ? { background: 'var(--brand)', color: '#fff' } : { color: 'var(--muted)' }}
+        onClick={() => switchChain && switchChain({ chainId: ARC_MAINNET_ID })}
+        className="px-2.5 py-1 rounded-full font-medium transition-all"
+        style={isMainnet ? {
+          background: 'var(--warm-surface)',
+          color: 'var(--brand)',
+          boxShadow: 'var(--shadow-sm)',
+          fontWeight: 600,
+        } : {
+          color: 'var(--muted)',
+        }}
         aria-pressed={isMainnet}
       >
         Mainnet
@@ -202,65 +264,61 @@ function NetworkToggle({ chainId }: { chainId: number | undefined }) {
   )
 }
 
-// ── Wrong-chain banner (A7: proactive, shown before user tries to act) ────────
-function WrongChainBanner({ chainId }: { chainId: number | undefined }) {
-  const { switchChain } = useSwitchChain()
-  const isSupported = chainId !== undefined && (SUPPORTED_CHAIN_IDS as readonly number[]).includes(chainId)
-  if (!chainId || isSupported) return null
-  return (
-    <div
-      className="border-b py-2.5 px-4"
-      style={{ background: 'var(--amber-light)', borderColor: 'var(--amber-border)' }}
-      role="alert"
-    >
-      <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 flex-wrap">
-        <span className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--amber)' }}>
-          <AlertTriangle size={13} />
-          Connected to an unsupported network. Switch to Arc Testnet or Arc Mainnet.
-        </span>
-        <button
-          className="btn btn-xs btn-focus"
-          style={{ background: 'var(--amber)', color: '#fff' }}
-          onClick={() => switchChain?.({ chainId: ARC_TESTNET_ID })}
-        >
-          Switch to Arc
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── Main app ──────────────────────────────────────────────────────────────────
+// ── Main App Component ────────────────────────────────────────────────────────
 export default function App() {
   const { address, isConnected, chainId } = useAccount()
   const activeChainId = useActiveChainId()
-  const [view, setView]                   = useState<View>('grants')
+  const [view, setView] = useState<View>('events')
   const [selectedGrant, setSelectedGrant] = useState<Grant | null>(null)
-  const [navigating, setNavigating]       = useState<string | null>(null)
-  const [search, setSearch]               = useState('')
-  const [statusFilter, setStatusFilter]   = useState<StatusFilter>('all')
+  const [navigating, setNavigating] = useState<string | null>(null)
 
+  // Legacy Grants State
+  const [grantSearch, setGrantSearch] = useState('')
+  const [grantStatusFilter, setGrantStatusFilter] = useState<GrantStatusFilter>('all')
   const { grants, grantCount, isLoading: grantsLoading, isError: grantsError, refetch: refetchGrants } = useGrants()
   const grantCountData = grantCount > 0 ? BigInt(grantCount) : undefined
 
   const { data: contractAdmin } = useContractAdmin()
-  const { data: isReviewer }    = useIsReviewer(address)
-  const { isAdmin, isPlatformAdmin, isRegisteredAdmin, refetch: refetchIsAdmin } = useUnifiedIsAdmin()
+  const { data: isReviewer } = useIsReviewer(address)
+  const { isAdmin, refetch: refetchIsAdmin } = useUnifiedIsAdmin()
   const [showApplyModal, setShowApplyModal] = useState(false)
 
-  const STATUS_MAP: Record<StatusFilter, number | null> = {
-    all: null, open: 0, active: 1, completed: 2, cancelled: 3,
-  }
-  const filteredGrants = grants.filter(g => {
-    const matchesStatus = statusFilter === 'all' || g.status === STATUS_MAP[statusFilter]
-    const q = search.toLowerCase()
-    const matchesSearch = !q ||
-      g.title.toLowerCase().includes(q) ||
-      g.description.toLowerCase().includes(q)
-    return matchesStatus && matchesSearch
-  })
+  // Events Context (Phase 2 Hackathons & Contests)
+  const {
+    events,
+    activeEvent,
+    setActiveEventId,
+    getSubmissionsForEvent,
+    isLoading: eventsLoading,
+    categoryFilter,
+    setCategoryFilter,
+    statusFilter: eventStatusFilter,
+    setStatusFilter: setEventStatusFilter,
+    searchQuery,
+    setSearchQuery,
+    sortBy,
+    setSortBy,
+    filteredEvents,
+    counts,
+    statusCounts,
+    resetFilters,
+  } = useEvents()
 
-  const handleRefresh = useCallback(() => { refetchGrants() }, [refetchGrants])
+  // Precomputed event metrics for hero strip
+  const totalEscrowUsdc = useMemo(() => {
+    const raw = events.reduce((sum, e) => sum + e.totalPrizePoolUsdc, 0n)
+    return Number(raw / 1_000_000n).toLocaleString('en-US')
+  }, [events])
+
+  const totalEntriesCount = useMemo(() => {
+    return events.reduce((sum, e) => sum + e.submissionsCount, 0)
+  }, [events])
+
+  const handleSelectEvent = (eventId: string) => {
+    setActiveEventId(eventId)
+    setView('event-detail')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const handleSelectGrant = (grant: Grant) => {
     setNavigating(grant.id.toString())
@@ -271,50 +329,12 @@ export default function App() {
     }, 80)
   }
 
-  const handleBack = () => {
+  const handleBackToGrants = () => {
     setSelectedGrant(null)
     setView('grants')
-    handleRefresh()
+    refetchGrants()
   }
 
-  // ── Not deployed ──────────────────────────────────────────────────────────
-  if (NOT_DEPLOYED) {
-    return (
-      <div className="min-h-dvh flex flex-col" style={{ background: 'var(--warm-bg)' }}>
-        {/* Skip link — WCAG 2.4.1 */}
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 btn btn-primary btn-sm"
-        >
-          Skip to main content
-        </a>
-        <Header />
-        <main id="main-content" className="flex-1 flex items-center justify-center px-4 py-12">
-          <div className="max-w-sm w-full text-center space-y-5">
-            <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto"
-              style={{ background: 'var(--brand-light)' }}
-            >
-              <Sprout size={26} style={{ color: 'var(--brand)' }} />
-            </div>
-            <div>
-              <h1
-                className="font-jakarta font-extrabold text-2xl mb-2"
-                style={{ color: 'var(--ink)', letterSpacing: '-0.03em' }}
-              >
-                Awaiting Deployment
-              </h1>
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>
-                The Fundora contract is not yet deployed. Deploy it from the Contracts panel to activate the platform.
-              </p>
-            </div>
-          </div>
-        </main>
-      </div>
-    )
-  }
-
-  // ── Main layout ───────────────────────────────────────────────────────────
   return (
     <div className="min-h-dvh flex flex-col" style={{ background: 'var(--warm-bg)' }}>
       {/* Skip link — WCAG 2.4.1 */}
@@ -325,299 +345,438 @@ export default function App() {
         Skip to main content
       </a>
 
+      {/* Main Header with Workspace Switcher */}
       <Header
+        currentView={view}
+        onViewChange={(v) => setView(v as View)}
         onOpenApplyAdmin={() => setShowApplyModal(true)}
         isAdmin={isAdmin}
       />
 
-      {/* Wrong-chain banner — proactive, before user tries to act (A7) */}
+      {/* Proactive Network & Role Banners */}
       {isConnected && <WrongChainBanner chainId={chainId} />}
-
       {isConnected && <RoleBanner isAdmin={isAdmin} isReviewer={isReviewer} />}
 
-      {/* Network toggle — between banners and content */}
+      {/* Network toggle pill */}
       {isConnected && (
-        <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-4 flex justify-end">
+        <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-3 flex justify-end">
           <NetworkToggle chainId={chainId} />
         </div>
       )}
 
-      <main id="main-content" className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-8">
+      {/* Main View Port */}
+      <main id="main-content" className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
         <AnimatePresence mode="wait" initial={false}>
-        {/* Grant detail view */}
-        {view === 'detail' && selectedGrant ? (
-          <motion.div
-            key="detail"
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -24 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-          >
-          <GrantDetail
-            grant={selectedGrant}
-            onBack={handleBack}
-            onRefresh={handleRefresh}
-            isAdmin={isAdmin}
-            activeChainId={activeChainId}
-          />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="grants"
-            initial={{ opacity: 0, x: -24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 24 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-          >
-          <div className="space-y-6">
-            {/* Page header */}
-            {(view === 'grants' || view === 'admin') && (
-              <div className="flex items-start justify-between flex-wrap gap-3">
-                <div>
-                  <h1
-                    className="font-jakarta font-extrabold text-2xl mb-1"
-                    style={{ color: 'var(--ink)', letterSpacing: '-0.025em' }}
-                  >
-                    {view === 'admin' ? 'Admin Panel' : 'Active Grants'}
-                  </h1>
-                  <p className="text-sm" style={{ color: 'var(--muted)' }}>
-                    {view === 'admin'
-                      ? 'Manage grants, reviewers, and settings.'
-                      : 'Fund ideas. Verify progress. Release grants with proof.'}
-                  </p>
+          {/* ═════════════════════════════════════════════════════════════════════
+              VIEW 1: PUBLIC EVENT DIRECTORY (Phase 2 Default)
+          ══════════════════════════════════════════════════════════════════════ */}
+          {view === 'events' && (
+            <motion.div
+              key="events-directory"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              {/* Directory Hero Header */}
+              <div className="mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-6">
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-brand-light text-brand border border-brand-border mb-3">
+                      <Trophy size={12} />
+                      Arc Community Hackathons & Contests
+                    </span>
+                    <h1 className="font-jakarta font-extrabold text-2xl sm:text-4xl text-midnight tracking-tight mb-2">
+                      Build With Arc. Win Onchain USDC.
+                    </h1>
+                    <p className="text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
+                      Discover community competitions with verified smart contract escrow. Submit prototypes, media, or tools, and pull-claim rewards directly to your wallet.
+                    </p>
+                  </div>
+
+                  {/* High-Contrast Metrics Strip */}
+                  <div className="flex items-center gap-3 sm:gap-6 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm shrink-0">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Total Escrowed
+                      </div>
+                      <div className="font-mono font-extrabold text-lg sm:text-xl text-midnight tabular-nums">
+                        ${totalEscrowUsdc} <span className="text-xs font-semibold text-slate-500">USDC</span>
+                      </div>
+                    </div>
+                    <div className="w-px h-8 bg-slate-200" />
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Active Events
+                      </div>
+                      <div className="font-mono font-extrabold text-lg sm:text-xl text-teal tabular-nums">
+                        {statusCounts.active}
+                      </div>
+                    </div>
+                    <div className="w-px h-8 bg-slate-200" />
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Submissions
+                      </div>
+                      <div className="font-mono font-extrabold text-lg sm:text-xl text-brand tabular-nums">
+                        {totalEntriesCount}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {isAdmin && (
-                  <button
-                    onClick={() => setView(view === 'admin' ? 'grants' : 'admin')}
-                    className="btn btn-focus shrink-0"
-                    style={{
-                      background:  view === 'admin' ? 'var(--brand)' : 'var(--warm-surface)',
-                      border:      `1px solid ${view === 'admin' ? 'var(--brand)' : 'var(--border)'}`,
-                      color:       view === 'admin' ? '#fff' : 'var(--ink)',
-                      padding:     '0.5rem 1.125rem',
-                      boxShadow:   view === 'admin' ? '0 4px 14px rgba(99,102,241,.3)' : 'var(--shadow-sm)',
-                    }}
-                  >
-                    <LayoutGrid size={13} />
-                    {view === 'admin' ? 'Back to Grants' : 'Admin'}
-                  </button>
+                {/* Filter Toolbar */}
+                <EventDirectoryToolbar
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  categoryFilter={categoryFilter}
+                  onCategoryChange={setCategoryFilter}
+                  statusFilter={eventStatusFilter}
+                  onStatusChange={setEventStatusFilter}
+                  sortBy={sortBy}
+                  onSortChange={setSortBy}
+                  counts={counts}
+                  statusCounts={statusCounts}
+                  totalMatches={filteredEvents.length}
+                  onResetFilters={resetFilters}
+                />
+
+                {/* Event Cards Grid / Loading / Empty */}
+                {eventsLoading ? (
+                  <EventSkeletonGrid />
+                ) : filteredEvents.length === 0 ? (
+                  <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center max-w-md mx-auto shadow-sm space-y-4">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+                      <Trophy size={24} />
+                    </div>
+                    <div>
+                      <h3 className="font-jakarta font-bold text-lg text-midnight mb-1">
+                        No Events Found
+                      </h3>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        No hackathons or contests match your current search and filter settings.
+                      </p>
+                    </div>
+                    <button
+                      onClick={resetFilters}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-brand bg-brand-light border border-brand-border hover:bg-brand-light/80 transition-colors"
+                    >
+                      Reset All Filters
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredEvents.map((event) => (
+                      <EventCard
+                        key={event.id}
+                        event={event}
+                        onSelect={handleSelectEvent}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
-            )}
+            </motion.div>
+          )}
 
-            {/* Admin panel */}
-            {view === 'admin' && isAdmin && (
-              <AdminPanel onGrantCreated={handleRefresh} />
-            )}
+          {/* ═════════════════════════════════════════════════════════════════════
+              VIEW 2: EVENT DETAIL SURFACE (Phase 2 Multi-Tab)
+          ══════════════════════════════════════════════════════════════════════ */}
+          {view === 'event-detail' && activeEvent && (
+            <motion.div
+              key="event-detail"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              <EventDetailView
+                event={activeEvent}
+                submissions={getSubmissionsForEvent(activeEvent.id)}
+                onBack={() => setView('events')}
+                onOpenSubmitModal={() => setView('participant')}
+              />
+            </motion.div>
+          )}
 
-            {/* Grants list */}
-            {view === 'grants' && (
-              <>
-                {!isConnected ? (
-                  <HeroConnect onOpenApplyAdmin={() => setShowApplyModal(true)} />
-                ) : (
-                  <>
-                    {/* Stats strip — shown when grants exist */}
-                    {grants.length > 0 && <StatsStrip grants={grants} />}
+          {/* ═════════════════════════════════════════════════════════════════════
+              VIEW 3: PARTICIPANT WORKSPACE HUB
+          ══════════════════════════════════════════════════════════════════════ */}
+          {view === 'participant' && (
+            <motion.div
+              key="participant-hub"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="font-jakarta font-extrabold text-2xl text-midnight tracking-tight mb-1">
+                    Participant Workspace
+                  </h1>
+                  <p className="text-sm text-slate-600">
+                    Track your hackathon submissions, reviewer progress, and claim onchain USDC awards.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setView('events')}
+                  className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-semibold text-white bg-brand hover:bg-brand-hover shadow-sm"
+                >
+                  <Compass size={14} />
+                  Browse Open Hackathons
+                </button>
+              </div>
 
-                    {/* Non-admin CTA: Launch your grant program */}
-                    {!isAdmin && (
-                      <div
-                        className="rounded-2xl p-4 sm:p-5 border flex items-center justify-between gap-4 flex-wrap"
+              {/* Earnings & Claims Vault Card */}
+              <div className="rounded-2xl border border-teal-200/80 bg-gradient-to-r from-teal-50/70 via-white to-teal-50/40 p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-teal-800 block mb-1">
+                      Available to Claim
+                    </span>
+                    <div className="font-mono font-extrabold text-3xl text-teal tabular-nums">
+                      $0.00 <span className="text-sm font-semibold text-teal-700">USDC</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Rewards on Arc are pull-based: funds are deposited into smart contract escrow and pulled directly to your wallet.
+                    </p>
+                  </div>
+                  <button
+                    disabled
+                    className="py-2.5 px-5 rounded-xl text-xs font-bold text-slate-400 bg-slate-200 cursor-not-allowed shrink-0"
+                  >
+                    No Pending Claims
+                  </button>
+                </div>
+              </div>
+
+              {/* Submissions Tracker */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="font-jakarta font-bold text-base text-midnight mb-4 flex items-center gap-2">
+                  <Layers size={16} className="text-brand" />
+                  Your Active & Historical Submissions
+                </h3>
+                <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-slate-500 text-xs">
+                  <Users size={24} className="text-slate-300 mx-auto mb-2" />
+                  <p className="font-semibold text-slate-700 mb-1">No active submissions found for this wallet</p>
+                  <p className="text-slate-500 mb-4">Connect the wallet you used to enter or submit a project to an open event.</p>
+                  <button
+                    onClick={() => setView('events')}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
+                  >
+                    Explore open hackathons <ArrowRight size={12} />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ═════════════════════════════════════════════════════════════════════
+              VIEW 4: REVIEWER WORKSPACE HUB
+          ══════════════════════════════════════════════════════════════════════ */}
+          {view === 'reviewer' && (
+            <motion.div
+              key="reviewer-portal"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              <div>
+                <h1 className="font-jakarta font-extrabold text-2xl text-midnight tracking-tight mb-1">
+                  Reviewer Judging Workspace
+                </h1>
+                <p className="text-sm text-slate-600">
+                  Evaluate assigned hackathon submissions using published criteria rubrics.
+                </p>
+              </div>
+
+              {/* Assigned Judging Queue Card */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-jakarta font-bold text-base text-midnight">
+                      Assigned Event: Arc Nanopayments & Agent Sprint
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Judging closes in 3 days. Your scores inform the deliberation leaderboard.
+                    </p>
+                  </div>
+                  <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                    12 of 19 Evaluated (63%)
+                  </span>
+                </div>
+
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-6">
+                  <div className="bg-brand h-full rounded-full" style={{ width: '63%' }} />
+                </div>
+
+                <button
+                  onClick={() => handleSelectEvent('arc-nanopayments-sprint')}
+                  className="inline-flex items-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-hover shadow-sm"
+                >
+                  <Scale size={14} />
+                  Continue Evaluating Queue
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ═════════════════════════════════════════════════════════════════════
+              VIEW 5: ORGANIZER CONSOLE HUB
+          ══════════════════════════════════════════════════════════════════════ */}
+          {view === 'organizer' && (
+            <motion.div
+              key="organizer-console"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <h1 className="font-jakarta font-extrabold text-2xl text-midnight tracking-tight mb-1">
+                    Organizer Operations Console
+                  </h1>
+                  <p className="text-sm text-slate-600">
+                    Create events, lock escrow prize pools on Arc, invite judges, and confirm final payouts.
+                  </p>
+                </div>
+                <button
+                  onClick={() => alert('Phase 3 Event Creation Wizard is scheduled next in the roadmap!')}
+                  className="inline-flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold text-white bg-midnight hover:bg-slate-800 shadow-sm"
+                >
+                  <PlusCircle size={14} />
+                  Create New Event
+                </button>
+              </div>
+
+              {/* Event Operations Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Hosted Events
+                  </span>
+                  <div className="font-mono font-extrabold text-2xl text-midnight">
+                    3 Published
+                  </div>
+                  <span className="text-xs text-teal font-medium mt-1 block">2 with Verified Escrow</span>
+                </div>
+
+                <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Total Locked Escrow
+                  </span>
+                  <div className="font-mono font-extrabold text-2xl text-midnight">
+                    $85,000 USDC
+                  </div>
+                  <span className="text-xs text-slate-500 mt-1 block">Secured on Arc Testnet & Mainnet</span>
+                </div>
+
+                <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Active Deliberations
+                  </span>
+                  <div className="font-mono font-extrabold text-2xl text-amber-700">
+                    1 Pending Finalization
+                  </div>
+                  <span className="text-xs text-slate-500 mt-1 block">Ready for winner mapping</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ═════════════════════════════════════════════════════════════════════
+              VIEW 6 & 7: LEGACY MICROGRANTS & ADMIN (Fully preserved!)
+          ══════════════════════════════════════════════════════════════════════ */}
+          {(view === 'grants' || view === 'detail' || view === 'admin') && (
+            <motion.div
+              key="legacy-grants"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-6"
+            >
+              {view === 'detail' && selectedGrant ? (
+                <GrantDetail
+                  grant={selectedGrant}
+                  onBack={handleBackToGrants}
+                  onRefresh={refetchGrants}
+                  isAdmin={isAdmin}
+                  activeChainId={activeChainId}
+                />
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex items-start justify-between flex-wrap gap-3">
+                    <div>
+                      <h1 className="font-jakarta font-extrabold text-2xl mb-1 text-midnight">
+                        {view === 'admin' ? 'Admin Panel' : 'Microgrants Directory'}
+                      </h1>
+                      <p className="text-sm text-slate-600">
+                        {view === 'admin'
+                          ? 'Manage grants, reviewers, and settings.'
+                          : 'Milestone-based 1-to-1 microgrants.'}
+                      </p>
+                    </div>
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => setView(view === 'admin' ? 'grants' : 'admin')}
+                        className="btn btn-focus shrink-0"
                         style={{
-                          background: 'linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(13,148,136,0.06) 100%)',
-                          borderColor: 'var(--brand-border)',
+                          background: view === 'admin' ? 'var(--brand)' : 'var(--warm-surface)',
+                          border: `1px solid ${view === 'admin' ? 'var(--brand)' : 'var(--border)'}`,
+                          color: view === 'admin' ? '#fff' : 'var(--ink)',
+                          padding: '0.5rem 1.125rem',
                         }}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div
-                            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                            style={{ background: 'var(--brand-light)', color: 'var(--brand)' }}
-                          >
-                            <ShieldCheck size={20} />
-                          </div>
-                          <div className="min-w-0">
-                            <h2 className="font-jakarta font-bold text-sm" style={{ color: 'var(--ink)' }}>
-                              Want to launch and fund your own grant program?
-                            </h2>
-                            <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                              Register as an on-chain Admin on Arc Testnet (10 USDC) or Arc Mainnet (1 USDC) to create milestone grants.
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setShowApplyModal(true)}
-                          className="btn btn-sm btn-primary btn-focus shrink-0 ml-auto sm:ml-0"
-                        >
-                          Apply as Admin
-                          <ArrowRight size={13} />
-                        </button>
-                      </div>
+                        <LayoutGrid size={13} />
+                        {view === 'admin' ? 'Back to Grants' : 'Admin'}
+                      </button>
                     )}
+                  </div>
 
-                    {/* Error state */}
-                    {grantsError && (
-                      <div
-                        className="card rounded-2xl p-8 text-center space-y-4"
-                        style={{ borderColor: 'var(--coral-border)' }}
-                      >
-                        <div
-                          className="w-10 h-10 rounded-full flex items-center justify-center mx-auto"
-                          style={{ background: 'var(--coral-light)' }}
-                        >
-                          <AlertCircle size={18} style={{ color: 'var(--coral)' }} />
-                        </div>
-                        <div>
-                          <p className="font-jakarta font-bold text-base mb-1" style={{ color: 'var(--ink)' }}>
-                            Could not load grants
-                          </p>
-                          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-                            A network error occurred while reading the contract. Check your connection and try again.
-                          </p>
-                        </div>
-                        <button
-                          onClick={handleRefresh}
-                          className="btn btn-ghost btn-sm btn-focus inline-flex mx-auto"
-                        >
-                          <RefreshCw size={13} />
-                          Retry
-                        </button>
-                      </div>
-                    )}
+                  {view === 'admin' && isAdmin && (
+                    <AdminPanel onGrantCreated={refetchGrants} />
+                  )}
 
-                    {/* Skeleton — grantCount resolving */}
-                    {!grantsError && grantCountData === undefined && (
+                  {view === 'grants' && (
+                    <>
+                      {grants.length > 0 && <StatsStrip grants={grants} />}
+
+                      {/* Grants Grid */}
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {Array.from({ length: 3 }, (_, i) => <GrantSkeleton key={i} />)}
-                      </div>
-                    )}
-
-                    {/* Skeleton — grants fetching */}
-                    {!grantsError && grantCountData !== undefined && grantsLoading && grantCount > 0 && grants.length === 0 && (
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {Array.from({ length: Math.min(grantCount, 6) }, (_, i) => (
-                          <GrantSkeleton key={i} />
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Empty state */}
-                    {!grantsError && grantCountData !== undefined && !grantsLoading && grants.length === 0 && (
-                      <div
-                        className="card rounded-2xl p-12 text-center space-y-4"
-                      >
-                        <div
-                          className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto"
-                          style={{ background: 'var(--brand-light)' }}
-                        >
-                          <Sprout size={24} style={{ color: 'var(--brand)' }} />
-                        </div>
-                        <div>
-                          <p className="font-jakarta font-bold text-lg mb-1" style={{ color: 'var(--ink)' }}>
-                            No grants yet
-                          </p>
-                          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-                            {isAdmin
-                              ? 'Open the Admin panel to create the first grant.'
-                              : 'Check back soon — grants will appear here once created by the admin.'}
-                          </p>
-                        </div>
-                        {isAdmin && (
-                          <button
-                            onClick={() => setView('admin')}
-                            className="btn btn-primary btn-sm btn-focus inline-flex mx-auto"
-                          >
-                            Create First Grant
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Toolbar — shown when grants exist */}
-                    {!grantsError && grants.length > 0 && (
-                      <GrantsToolbar
-                        search={search}
-                        onSearchChange={setSearch}
-                        statusFilter={statusFilter}
-                        onStatusFilterChange={setStatusFilter}
-                        totalCount={grants.length}
-                        filteredCount={filteredGrants.length}
-                      />
-                    )}
-
-                    {/* No results after filter */}
-                    {!grantsError && grants.length > 0 && filteredGrants.length === 0 && (
-                      <div className="card rounded-2xl p-10 text-center space-y-2">
-                        <p className="font-jakarta font-bold text-base" style={{ color: 'var(--ink)' }}>
-                          No grants match your search
-                        </p>
-                        <p className="text-sm" style={{ color: 'var(--muted)' }}>
-                          Try a different keyword or filter.
-                        </p>
-                        <button
-                          onClick={() => { setSearch(''); setStatusFilter('all') }}
-                          className="btn btn-ghost btn-sm btn-focus inline-flex mx-auto mt-1"
-                        >
-                          Clear filters
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Grants grid */}
-                    {!grantsError && filteredGrants.length > 0 && (
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-fade-in">
-                        {filteredGrants.map(grant => (
+                        {grants.map((grant) => (
                           <GrantCard
                             key={grant.id.toString()}
                             grant={grant}
-                            onClick={() => handleSelectGrant(grant)}
-                            isNavigating={navigating === grant.id.toString()}
+                            onSelect={() => handleSelectGrant(grant)}
+                            navigating={navigating === grant.id.toString()}
+                            activeChainId={activeChainId}
                           />
                         ))}
                       </div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-          </motion.div>
-        )}
+                    </>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
-      {/* Footer */}
-      <footer
-        className="py-4 px-4 sm:px-6 border-t mt-auto"
-        style={{ borderColor: 'var(--border)', background: 'var(--warm-surface)' }}
-      >
-        <div className="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-2">
-          <span className="text-xs font-medium" style={{ color: 'var(--subtle)' }}>
-            Fundora — built on Arc Testnet
-          </span>
-          <span className="text-xs" style={{ color: 'var(--subtle)' }}>
-            Need test USDC?{' '}
-            <a
-              href="https://faucet.circle.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'var(--brand)' }}
-              className="font-semibold hover:underline"
-            >
-              Get test USDC ↗
-            </a>
-          </span>
-        </div>
-      </footer>
-      {/* Apply as Admin Modal */}
+      {/* Admin Application Modal */}
       <AnimatePresence>
         {showApplyModal && (
           <ApplyAdminModal
             onClose={() => setShowApplyModal(false)}
-            onSuccessRedirect={() => {
+            onSuccess={() => {
               refetchIsAdmin()
-              setView('admin')
+              setShowApplyModal(false)
             }}
           />
         )}

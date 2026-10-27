@@ -1,68 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── Fundora design tokens ─────────────────────────────────────────────── */
+/* ── Fundora Fintech Design Tokens (Stripe / Linear / Notion aesthetic) ── */
 :root {
-  /* Brand — indigo-600 (WCAG AA verified 5.5:1 on white) */
-  --brand:        #4F46E5;
-  --brand-hover:  #4338CA;
-  --brand-light:  #EEF2FF;
-  --brand-border: #C7D2FE;
+  /* Brand — Fundora Blue (#1A3F75) & Midnight (#00002A) */
+  --brand:        #1A3F75;
+  --brand-hover:  #122D54;
+  --brand-light:  #EBF2F7;
+  --brand-border: #A7C6D8;
 
-  /* Backgrounds */
-  --warm-bg:      #fffbf5;
-  --warm-bg-2:    #fdf8f0;
+  /* Palette Hierarchy from fundora-color-palette.png */
+  --midnight:     #00002A;
+  --slate:        #4F7897;
+  --mist:         #A7C6D8;
+  --pale-blue:    #D1E2EC;
 
-  /* Surfaces (canonical names used by design system) */
+  /* Backgrounds & Canvas */
+  --warm-bg:      #F7F8F6;
+  --warm-bg-2:    #EFF3F6;
+
+  /* Surfaces */
   --surface:         #ffffff;
-  --surface-raised:  #FAFAF8;
-  --surface-overlay: #fdf8f0;
-  --surface-muted:   #fdf8f0;
+  --surface-raised:  #F9FAFB;
+  --surface-overlay: #ffffff;
+  --surface-muted:   #EFF3F6;
   --surface-strong:  #ffffff;
-  --warm-surface:    #ffffff; /* alias — kept for backward compat */
+  --warm-surface:    #ffffff; /* alias for backward compat */
 
-  /* Semantic colours — all WCAG AA verified on their light backgrounds */
-  --teal:         #0F766E; /* teal-700 — 5.2:1 on teal-light */
+  /* Semantic colours — WCAG 2.2 AA verified */
+  --teal:         #0F766E; /* Verified Escrow */
   --teal-hover:   #0D5F58;
   --teal-light:   #F0FDFA;
   --teal-border:  #99F6E4;
 
-  --amber:        #B45309; /* amber-700 — 4.7:1 on amber-light */
+  --amber:        #B45309; /* In Judging / Pending */
   --amber-light:  #FFFBEB;
   --amber-border: #FDE68A;
 
-  --coral:        #BE123C; /* rose-700 — 5.1:1 on coral-light */
+  --coral:        #BE123C; /* Cancelled / Destructive */
   --coral-light:  #FFF1F2;
   --coral-border: #FECDD3;
 
-  --violet:       #6D28D9; /* violet-700 */
+  --violet:       #6D28D9;
   --violet-light: #F5F3FF;
   --violet-border:#DDD6FE;
 
-  /* Text */
-  --ink:    #18181B;
-  --ink-2:  #44403c;
-  --muted:  #71717A;
-  --subtle: #A1A1AA;
+  /* Text & Ink */
+  --ink:    #00002A; /* Midnight primary ink */
+  --ink-2:  #1E293B;
+  --muted:  #4F7897; /* Slate blue */
+  --subtle: #64748B;
 
   /* Borders */
-  --border:        #E8E6E3;
-  --border-strong: #D5D3D0;
+  --border:        #E2E8F0;
+  --border-strong: #A7C6D8;
 
   /* Shadows */
-  --shadow-sm:    0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-  --shadow-md:    0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04);
-  --shadow-lg:    0 12px 32px rgba(0,0,0,.10), 0 4px 8px rgba(0,0,0,.05);
-  --shadow-brand: 0 0 0 3px rgba(79,70,229,.20);
+  --shadow-sm:    0 1px 3px rgba(0,0,42,.05), 0 1px 2px rgba(0,0,42,.03);
+  --shadow-md:    0 4px 12px rgba(0,0,42,.07), 0 2px 4px rgba(0,0,42,.04);
+  --shadow-lg:    0 12px 32px rgba(0,0,42,.09), 0 4px 8px rgba(0,0,42,.04);
+  --shadow-brand: 0 0 0 3px rgba(26,63,117,.22);
 
-  /* Semantic aliases — used across components */
-  --accent:  #4F46E5; /* = --brand */
-  --danger:  #BE123C; /* = --coral */
-  --success: #0F766E; /* = --teal */
+  /* Semantic aliases */
+  --accent:  #1A3F75;
+  --danger:  #BE123C;
+  --success: #0F766E;
 
   /* Focus */
-  --focus: #6366f1;
+  --focus: #1A3F75;
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────────── */
@@ -74,8 +82,8 @@ body {
   min-height: 100dvh;
   background-color: var(--warm-bg);
   background-image:
-    radial-gradient(ellipse 80% 40% at 50% -10%, rgba(99,102,241,.08) 0%, transparent 70%),
-    radial-gradient(ellipse 60% 30% at 90% 80%, rgba(13,148,136,.06) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 40% at 50% -10%, rgba(26,63,117,.05) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 30% at 90% 80%, rgba(15,118,110,.04) 0%, transparent 60%);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }

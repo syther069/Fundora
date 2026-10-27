@@ -22,6 +22,7 @@ import { Toaster } from 'sonner'
 import { config } from './config'
 import App from './App'
 import { GrantsProvider } from './context/GrantsContext'
+import { EventsProvider } from './context/EventsContext'
 import { PasskeyProvider } from './context/PasskeyContext'
 import './index.css'
 
@@ -78,9 +79,11 @@ createRoot(document.getElementById('root')!).render(
         <ConnectKitProvider>
           {/* PasskeyProvider: passkey / MSCA session state (Arc Testnet) */}
           <PasskeyProvider>
-            {/* 3.3 — GrantsProvider wraps the whole app so any component can read grant state */}
+            {/* GrantsProvider for microgrants & EventsProvider for hackathons & contests */}
             <GrantsProvider>
-              <App />
+              <EventsProvider>
+                <App />
+              </EventsProvider>
             </GrantsProvider>
           </PasskeyProvider>
           <StudioWatermark />
