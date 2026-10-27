@@ -1,4 +1,5 @@
 // GrantFlow — warm filled status badges with Lucide icons (colour + icon, never colour alone)
+import { motion, useReducedMotion } from 'framer-motion'
 import type { LucideProps } from 'lucide-react'
 import { Circle, Zap, CheckCircle2, XCircle, Clock, Eye } from 'lucide-react'
 import type { ForwardRefExoticComponent, RefAttributes } from 'react'
@@ -48,15 +49,21 @@ export function StatusBadge({ type, status, className = '' }: Props) {
   const configs = type === 'grant' ? GRANT_CONFIGS : MILESTONE_CONFIGS
   const cfg = configs[status] ?? FALLBACK
   const { Icon } = cfg
+  const shouldReduce = useReducedMotion()
 
   return (
-    <span
+    // key={status} re-triggers the entrance animation on status change (MOTION_GUIDELINES §4.4)
+    <motion.span
+      key={status}
+      initial={{ scale: shouldReduce ? 1 : 0.92, opacity: 0.7 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
       className={`badge ${className}`}
-      style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}
+      style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
       aria-label={`Status: ${cfg.label}`}
     >
       <Icon size={10} aria-hidden={true} />
       {cfg.label}
-    </span>
+    </motion.span>
   )
 }

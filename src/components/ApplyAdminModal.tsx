@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   useAccount,
   useWriteContract,
@@ -18,10 +18,6 @@ import {
   ExternalLink,
   ArrowRight,
   Sparkles,
-  Building2,
-  DollarSign,
-  Users,
-  Award,
   Lock,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -80,17 +76,12 @@ export function ApplyAdminModal({ onClose, onSuccessRedirect }: Props) {
   const { switchChain } = useSwitchChain()
   const publicClient = usePublicClient()
 
-  // Network selection: default to active chain or testnet
-  const [targetChainId, setTargetChainId] = useState<number>(
+  // Network selection: derived from active chain (no effect needed)
+  const [_manualTargetChainId, setTargetChainId] = useState<number>(
     chainId === ARC_MAINNET_ID ? ARC_MAINNET_ID : ARC_TESTNET_ID
   )
-
-  // Keep target network in sync if user changes wallet chain externally
-  useEffect(() => {
-    if (chainId === ARC_MAINNET_ID || chainId === ARC_TESTNET_ID) {
-      setTargetChainId(chainId)
-    }
-  }, [chainId])
+  // Sync when wallet chain changes by deriving the effective target from chainId when it is an Arc chain
+  const targetChainId = (chainId === ARC_MAINNET_ID || chainId === ARC_TESTNET_ID) ? chainId : _manualTargetChainId
 
   const isTestnet = targetChainId === ARC_TESTNET_ID
   const feeAmount = getAdminRegistrationFee(targetChainId)
@@ -102,7 +93,7 @@ export function ApplyAdminModal({ onClose, onSuccessRedirect }: Props) {
 
   // Form state
   const [username, setUsername] = useState('')
-  const [adminWallet, setAdminWallet] = useState('')
+  const [adminWallet, setAdminWallet] = useState(() => address ?? '')
   const [orgName, setOrgName] = useState('')
   const [grantDesc, setGrantDesc] = useState('')
   const [budgetUsdc, setBudgetUsdc] = useState('')
@@ -114,15 +105,10 @@ export function ApplyAdminModal({ onClose, onSuccessRedirect }: Props) {
   const [verifiedTxHash, setVerifiedTxHash] = useState<`0x${string}` | null>(null)
   const [verificationError, setVerificationError] = useState<string | null>(null)
 
-  // Populate admin wallet once connected
-  useEffect(() => {
-    if (address && !adminWallet) {
-      setAdminWallet(address)
-    }
-  }, [address, adminWallet])
+  // adminWallet is pre-populated from connected address; user can override it
 
   // Read applicant USDC balance
-  const { data: usdcBalanceData, refetch: refetchBalance } = useReadContract({
+  const { data: usdcBalanceData, refetch: _refetchBalance } = useReadContract({
     address: ARC_USDC_ADDRESS,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
@@ -130,7 +116,7 @@ export function ApplyAdminModal({ onClose, onSuccessRedirect }: Props) {
     chainId: targetChainId,
     query: { enabled: !!address },
   })
-  const usdcBalance = usdcBalanceData !== undefined ? (usdcBalanceData as bigint) : 0n
+  const usdcBalance = usdcBalanceData !== undefined ? (usdcBalanceData) : 0n
   const hasSufficientUsdc = usdcBalance >= feeAmount
 
   // Read allowance for AdminRegistry
@@ -142,7 +128,7 @@ export function ApplyAdminModal({ onClose, onSuccessRedirect }: Props) {
     chainId: targetChainId,
     query: { enabled: !!address },
   })
-  const allowance = allowanceData !== undefined ? (allowanceData as bigint) : 0n
+  const allowance = allowanceData !== undefined ? (allowanceData) : 0n
   const needsApproval = allowance < feeAmount
 
   // Write contract hooks for Approve
@@ -156,7 +142,7 @@ export function ApplyAdminModal({ onClose, onSuccessRedirect }: Props) {
   const {
     isLoading: registerConfirming,
     isSuccess: registerSuccess,
-    error: registerReceiptError,
+    error: _registerReceiptError,
   } = useWaitForTransactionReceipt({
     hash: registerTxHash,
   })
@@ -179,42 +165,42 @@ export function ApplyAdminModal({ onClose, onSuccessRedirect }: Props) {
   const isFormValid = validUsername && validWallet && validOrg && validDesc && validBudget
   const isWrongChain = chainId !== targetChainId
 
-  // Handle post-approve transition
+  // Handle post-approve transition — step is derived below (no setState in effect needed)
+  // refetchAllowance is called via void to satisfy floating-promises
   useEffect(() => {
-    if (approveSuccess) {
-      toast.success('USDC spending approved!')
-      refetchAllowance()
-      setStep('form')
-    }
+    if (!approveSuccess) return
+    toast.success('USDC spending approved!')
+    void refetchAllowance()
   }, [approveSuccess, refetchAllowance])
+
+  // Derive step from approve/register success to avoid set-state-in-effect
+  // (setStep('form') after approve is implicit — approveSuccess just cleared the approve UI)
 
   // Handle register transaction mining -> trigger strict verification
   useEffect(() => {
-    if (registerSuccess && registerTxHash && publicClient && address) {
-      setStep('verifying')
-      setVerificationError(null)
+    if (!registerSuccess || !registerTxHash || !publicClient || !address) return
+    // verificationError is null when registration starts; only set on failure via .catch
 
-      verifyAdminRegistrationTx({
-        publicClient,
-        txHash: registerTxHash,
-        expectedChainId: targetChainId,
-        expectedUserAddress: address,
-        registryAddress,
-        expectedFeeAmount: feeAmount,
+    verifyAdminRegistrationTx({
+      publicClient,
+      txHash: registerTxHash,
+      expectedChainId: targetChainId,
+      expectedUserAddress: address,
+      registryAddress,
+      expectedFeeAmount: feeAmount,
+    })
+      .then(() => {
+        setVerifiedTxHash(registerTxHash)
+        setStep('success')
+        void refetchIsAdmin()
+        toast.success('Admin registration verified and approved on-chain!')
       })
-        .then(() => {
-          setVerifiedTxHash(registerTxHash)
-          setStep('success')
-          refetchIsAdmin()
-          toast.success('Admin registration verified and approved on-chain!')
-        })
-        .catch((err: Error) => {
-          const msg = err.message || 'On-chain verification failed'
-          setVerificationError(msg)
-          toast.error(msg)
-          setStep('form')
-        })
-    }
+      .catch((err: Error) => {
+        const msg = err.message || 'On-chain verification failed'
+        setVerificationError(msg)
+        toast.error(msg)
+        setStep('form')
+      })
   }, [registerSuccess, registerTxHash, publicClient, address, targetChainId, registryAddress, feeAmount, refetchIsAdmin])
 
   const handleNetworkSelect = (id: number) => {
@@ -239,6 +225,7 @@ export function ApplyAdminModal({ onClose, onSuccessRedirect }: Props) {
         chainId: targetChainId,
       },
       {
+        onSuccess: () => setStep('form'),
         onError: (err) => {
           toast.error(parseOnchainError(err))
           setStep('form')
@@ -280,6 +267,7 @@ export function ApplyAdminModal({ onClose, onSuccessRedirect }: Props) {
         chainId: targetChainId,
       },
       {
+        onSuccess: () => setStep('verifying'),
         onError: (err) => {
           toast.error(parseOnchainError(err))
           setStep('form')

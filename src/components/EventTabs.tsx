@@ -1,5 +1,4 @@
 import { useRef } from 'react'
-import { motion } from 'framer-motion'
 
 export type TabId = 'overview' | 'prizes' | 'rubric' | 'submissions' | 'winners'
 

@@ -3,7 +3,7 @@ import {
   ADMIN_REGISTRY_ABI,
   getAdminRegistryAddress,
   getAdminRegistrationFee,
-  ARC_TESTNET_ID,
+
 } from '../contracts/fundora'
 import { useActiveChainId, useContractAdmin } from './useFundora'
 
@@ -75,7 +75,7 @@ export function useAdminRegistrationFee() {
     chainId,
   })
 
-  const fee = onchainFee !== undefined ? (onchainFee as bigint) : getAdminRegistrationFee(chainId)
+  const fee = onchainFee !== undefined ? (onchainFee) : getAdminRegistrationFee(chainId)
 
   return { fee, ...rest }
 }

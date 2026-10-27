@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { InView } from './ui/in-view'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useReadContract, usePublicClient } from 'wagmi'
 import { erc20Abi, formatUnits } from 'viem'
 import {
@@ -106,6 +107,9 @@ const STATUS_BAND: Record<number, string> = {
 }
 
 export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, activeChainId: propChainId }: Props) {
+  // Focus management: move focus to back button on mount (a11y checklist §2.1)
+  const backRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => { backRef.current?.focus() }, [])
   const { address, chainId } = useAccount()
   const { switchChain } = useSwitchChain()
   const activeChainId = propChainId ?? ARC_TESTNET_ID
@@ -198,17 +202,17 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
 
   // Automatically execute fundGrant once approve transaction is mined onchain
   useEffect(() => {
-    if (approveSuccess && awaitingFundingAfterApprove) {
-      setAwaitingFundingAfterApprove(false)
-      void refetchAllowance()
-      toast.info('USDC approved! Confirm funding in your wallet…')
-      withChain(() => {
-        fundWrite(
-          { address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'fundGrant', args: [grant.id] },
-          { onError: (e) => toast.error(parseOnchainError(e)) },
-        )
-      })
-    }
+    if (!approveSuccess || !awaitingFundingAfterApprove) return
+    void refetchAllowance()
+    toast.info('USDC approved! Confirm funding in your wallet…')
+    // Call fundWrite directly — chain was correct when approve was initiated so no switch needed
+    fundWrite(
+      { address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'fundGrant', args: [grant.id] },
+      {
+        onSuccess: () => setAwaitingFundingAfterApprove(false),
+        onError: (e) => { setAwaitingFundingAfterApprove(false); toast.error(parseOnchainError(e)) },
+      },
+    )
   }, [approveSuccess, awaitingFundingAfterApprove]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -404,8 +408,9 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
   return (
     <>
     <div className="max-w-2xl mx-auto space-y-5">
-      {/* Back link */}
+      {/* Back link — receives focus on mount for keyboard navigation (a11y §2.1) */}
       <button
+        ref={backRef}
         onClick={onBack}
         className="flex items-center gap-1.5 text-sm font-semibold transition-colors hover:opacity-70 btn-focus rounded-lg px-1"
         style={{ color: 'var(--muted)' }}
@@ -787,6 +792,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
               <div
                 className="rounded-xl border p-4 space-y-3"
                 style={{ borderColor: 'var(--coral-border)', background: 'var(--coral-light)' }}
+                onKeyDown={e => { if (e.key === 'Escape') setConfirmCancel(false) }}
               >
                 <div className="flex items-start gap-2 text-sm" style={{ color: '#7f1d1d' }}>
                   <AlertTriangle size={15} className="shrink-0 mt-0.5" />
@@ -960,21 +966,22 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
           </div>
         )}
 
-        {/* Milestone cards */}
+        {/* Milestone cards — InView scroll-triggered entrance (MOTION_GUIDELINES §4.7) */}
         {!milestonesError && milestones.map((ms, i) => (
-          <MilestoneCard
-            key={i}
-            milestone={ms}
-            index={i}
-            grant={grant}
-            isBuilder={isBuilder}
-            isReviewer={!!isReviewer}
-            requiredApprovals={Number(requiredApprovals ?? 1n)}
-            isWrongChain={isWrongChain}
-            activeChainId={activeChainId}
-            onRefreshMilestones={() => void refetchMilestones()}
-            onRefresh={onRefresh}
-          />
+          <InView key={i} once>
+            <MilestoneCard
+              milestone={ms}
+              index={i}
+              grant={grant}
+              isBuilder={isBuilder}
+              isReviewer={!!isReviewer}
+              requiredApprovals={Number(requiredApprovals ?? 1n)}
+              isWrongChain={isWrongChain}
+              activeChainId={activeChainId}
+              onRefreshMilestones={() => void refetchMilestones()}
+              onRefresh={onRefresh}
+            />
+          </InView>
         ))}
       </div>
     </div>
@@ -1046,13 +1053,15 @@ function MilestoneCard({
     readEvidenceFromCache(activeChainId, grant.id, index)
   )
   const [evidenceTxHash, setEvidenceTxHash] = useState<`0x${string}` | undefined>(submitHash)
-  const [evidenceLoading, setEvidenceLoading] = useState(false)
+  // Initialize loading=true when evidence hash exists but URI not yet resolved — avoids setState inside effect
+  const [evidenceLoading, setEvidenceLoading] = useState(
+    () => hasEvidence(milestone.evidenceHash) && !readEvidenceFromCache(activeChainId, grant.id, index)
+  )
 
   // Fix 2: Query MilestoneSubmitted event log onchain when evidence is submitted
   useEffect(() => {
     if (!hasEvidence(milestone.evidenceHash) || evidenceUri || !publicClient) return
     let cancelled = false
-    setEvidenceLoading(true)
 
     publicClient.getLogs({
       address: FUNDORA_ADDRESS,

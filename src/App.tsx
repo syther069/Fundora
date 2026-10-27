@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatedGroup } from './components/ui/animated-group'
+import { TextEffect } from './components/ui/text-effect'
 import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
@@ -27,6 +29,7 @@ const NOT_DEPLOYED = FUNDORA_ADDRESS === '0x000000000000000000000000000000000000
 
 // ── Hero: disconnected state ──────────────────────────────────────────────────
 function HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
+  const shouldReduce = useReducedMotion()
   const features = [
     { icon: <Zap size={12} />,        label: 'Instant USDC payouts',   color: 'var(--amber)'  },
     { icon: <ShieldCheck size={12} />, label: 'Onchain evidence',       color: 'var(--teal)'   },
@@ -63,13 +66,16 @@ function HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
           </svg>
         </div>
 
-        {/* Headline */}
-        <h1
+        {/* Headline — TextEffect per-word fade-in-blur (MOTION_GUIDELINES §4 hero spec) */}
+        <TextEffect
+          as="h1"
+          per="word"
+          preset={shouldReduce ? 'fade' : 'fade-in-blur'}
           className="font-jakarta font-extrabold text-3xl mb-3"
           style={{ color: 'var(--ink)', letterSpacing: '-0.03em' }}
         >
           Fundora
-        </h1>
+        </TextEffect>
         <p className="text-base leading-relaxed max-w-sm mx-auto mb-6" style={{ color: 'var(--muted)' }}>
           Milestone-based USDC grants with onchain evidence, reviewer votes, and transparent payouts — built on Arc.
         </p>
@@ -243,9 +249,9 @@ export default function App() {
   const { grants, grantCount, isLoading: grantsLoading, isError: grantsError, refetch: refetchGrants } = useGrants()
   const grantCountData = grantCount > 0 ? BigInt(grantCount) : undefined
 
-  const { data: contractAdmin } = useContractAdmin()
+  const { data: _contractAdmin } = useContractAdmin()
   const { data: isReviewer }    = useIsReviewer(address)
-  const { isAdmin, isPlatformAdmin, isRegisteredAdmin, refetch: refetchIsAdmin } = useUnifiedIsAdmin()
+  const { isAdmin, isPlatformAdmin: _isPlatformAdmin, isRegisteredAdmin: _isRegisteredAdmin, refetch: refetchIsAdmin } = useUnifiedIsAdmin()
   const [showApplyModal, setShowApplyModal] = useState(false)
 
   const STATUS_MAP: Record<StatusFilter, number | null> = {
@@ -564,9 +570,21 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* Grants grid */}
+                    {/* Grants grid — AnimatedGroup stagger entrance (MOTION_GUIDELINES §4.1) */}
                     {!grantsError && filteredGrants.length > 0 && (
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-fade-in">
+                      <AnimatedGroup
+                        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                        variants={{
+                          container: {
+                            hidden: {},
+                            visible: { transition: { staggerChildren: 0.06 } },
+                          },
+                          item: {
+                            hidden: { opacity: 0, y: 12 },
+                            visible: { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] } },
+                          },
+                        }}
+                      >
                         {filteredGrants.map(grant => (
                           <GrantCard
                             key={grant.id.toString()}
@@ -575,7 +593,7 @@ export default function App() {
                             isNavigating={navigating === grant.id.toString()}
                           />
                         ))}
-                      </div>
+                      </AnimatedGroup>
                     )}
                   </>
                 )}
@@ -616,7 +634,7 @@ export default function App() {
           <ApplyAdminModal
             onClose={() => setShowApplyModal(false)}
             onSuccessRedirect={() => {
-              refetchIsAdmin()
+              void refetchIsAdmin()
               setView('admin')
             }}
           />
