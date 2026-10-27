@@ -16,14 +16,24 @@ Fundora is a full-stack onchain microgrants platform. Grant admins create milest
 
 | Contract | Version | Network | Address |
 |----------|---------|---------|---------|
-| Fundora | v4 (current) | Arc Testnet | `0xef34036dda3960a1cd57b1368329bfcf29700259` |
+| FundoraEvents | v1 (current) | Arc Testnet | `0xc9c7033f4736f8b6e213ea7617596c3fd7bb154a` |
+| AdminRegistry | v1 (current) | Arc Testnet | `0x9bf7d4681410f7db14490cc67d517e3621d73fe6` |
+| Fundora | v4 (current — legacy grants) | Arc Testnet | `0xef34036dda3960a1cd57b1368329bfcf29700259` |
 | Fundora | v3 (superseded) | Arc Testnet | `0x433cc087e4daf08f7875c9621c7a3efd950ef016` |
 | Fundora | v2 (superseded — wrong USDC) | Arc Testnet | `0x956b9d4b1c4a5f8ec2f647bb3b0999d98c46b388` |
 | Fundora | v1 (superseded) | Arc Testnet | `0x090e040f2a56676d3f91c773ea8a42106435f920` |
 | Fundora | v1 (current) | Arc Mainnet | `0x371b4b6894882082e706cd84b781bf749472a602` |
 
-v4 (testnet) Constructor args: `_usdc=0x3600000000000000000000000000000000000000, _initialAdmin=0x5B12Ce46C7194aD57d143bC22847224047b1Ef42, _requiredApprovals=1`
-v4 (testnet) Tx hash: `0x448a0a8ad34372769102d87a6c9379665b1adb37d675685350baf09da718496c`
+FundoraEvents v1 Constructor args: `_usdc=0x3600000000000000000000000000000000000000, _initialAdmin=0x5B12Ce46C7194aD57d143bC22847224047b1Ef42, _adminRegistry=0x9bf7d4681410f7db14490cc67d517e3621d73fe6`
+FundoraEvents v1 Tx hash: `0x8aa192ed8fafa8bccc9e8d4978869572d4af414ed090c1fb611c207837d4ba0d`
+Explorer: https://explorer.testnet.arc.io/address/0xc9c7033f4736f8b6e213ea7617596c3fd7bb154a
+
+AdminRegistry v1 Constructor args: `_usdc=0x3600000000000000000000000000000000000000, _initialTreasury=0x5B12Ce46C7194aD57d143bC22847224047b1Ef42, _registrationFee=0`
+AdminRegistry v1 Tx hash: `0x26721d44cb9e891814da7a8c997479685bc7772a6bf7e7193d67cb7c8f38691d`
+Explorer: https://explorer.testnet.arc.io/address/0x9bf7d4681410f7db14490cc67d517e3621d73fe6
+
+Fundora v4 (testnet) Constructor args: `_usdc=0x3600000000000000000000000000000000000000, _initialAdmin=0x5B12Ce46C7194aD57d143bC22847224047b1Ef42, _requiredApprovals=1`
+Fundora v4 (testnet) Tx hash: `0x448a0a8ad34372769102d87a6c9379665b1adb37d675685350baf09da718496c`
 
 Explorer (testnet v4): https://explorer.testnet.arc.io/address/0xef34036dda3960a1cd57b1368329bfcf29700259
 
