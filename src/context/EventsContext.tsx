@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useMemo, type ReactNode } from 'react'
 import type { Event, Submission, CategoryFilter, StatusFilter, SortOption } from '../types/events'
+export type { CategoryFilter, StatusFilter, SortOption } from '../types/events'
 import { MOCK_EVENTS, MOCK_SUBMISSIONS } from '../data/mockEvents'
 
 interface EventsContextValue {
@@ -191,3 +192,6 @@ export function useEvents() {
   }
   return context
 }
+
+/** Alias kept for backward-compatibility with Phase 1 components */
+export const useEventsContext = useEvents

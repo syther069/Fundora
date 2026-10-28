@@ -50,14 +50,40 @@ export function useSubmission(eventId: bigint | undefined, submissionId: bigint 
   })
 }
 
+/**
+ * Two-step read: first look up the submissionId for this wallet+event, then
+ * fetch the full submission if one exists.
+ * Replaces the defunct `getSubmissionByAddress` (which does not exist onchain).
+ */
 export function useSubmissionByAddress(eventId: bigint | undefined, submitter: Address | undefined) {
-  return useReadContract({
+  const idResult = useReadContract({
     address: FUNDORA_EVENTS_ADDRESS,
     abi: FUNDORA_EVENTS_ABI,
-    functionName: 'getSubmissionByAddress',
+    functionName: 'userSubmissionId',
     args: eventId !== undefined && submitter ? [eventId, submitter] : undefined,
     query: { enabled: !!eventId && !!submitter },
   })
+
+  const submissionId = idResult.data
+  const hasSubmission = submissionId !== undefined && submissionId > 0n
+
+  const submissionResult = useReadContract({
+    address: FUNDORA_EVENTS_ADDRESS,
+    abi: FUNDORA_EVENTS_ABI,
+    functionName: 'getSubmission',
+    args: eventId !== undefined && submissionId !== undefined && hasSubmission
+      ? [eventId, submissionId]
+      : undefined,
+    query: { enabled: hasSubmission },
+  })
+
+  return {
+    submissionId: hasSubmission ? submissionId : undefined,
+    data: submissionResult.data,
+    isLoading: idResult.isLoading || (hasSubmission ? submissionResult.isLoading : false),
+    error: idResult.error ?? submissionResult.error,
+    hasSubmission,
+  }
 }
 
 export function useSubmissionsBatch(eventId: bigint | undefined, offset: number, limit: number) {
@@ -110,6 +136,14 @@ export function useUserSubmissionId(eventId: bigint | undefined, address: Addres
   })
 }
 
+export function useEventsPaused() {
+  return useReadContract({
+    address: FUNDORA_EVENTS_ADDRESS,
+    abi: FUNDORA_EVENTS_ABI,
+    functionName: 'paused',
+  })
+}
+
 // ── Write hooks ───────────────────────────────────────────────────────────────
 
 function useContractWrite(functionName: string) {
@@ -120,7 +154,7 @@ function useContractWrite(functionName: string) {
       writeContract({
         address: FUNDORA_EVENTS_ADDRESS,
         abi: FUNDORA_EVENTS_ABI,
-        functionName: functionName,
+        functionName: functionName as never,
         args: args,
       }),
     hash,
@@ -179,15 +213,6 @@ export function useSubmitEntry() {
   }
 }
 
-export function useUpdateSubmission() {
-  const c = useContractWrite('updateSubmission')
-  return {
-    ...c,
-    updateSubmission: (eventId: bigint, metadataUri: string, submissionHash: `0x${string}`) =>
-      c.write([eventId, metadataUri, submissionHash]),
-  }
-}
-
 export function useClaimPrize() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const receipt = useWaitForTransactionReceipt({ hash })
@@ -227,6 +252,14 @@ export function useAddReviewer() {
   }
 }
 
+export function useRemoveReviewer() {
+  const c = useContractWrite('removeReviewer')
+  return {
+    ...c,
+    removeReviewer: (eventId: bigint, reviewer: Address) => c.write([eventId, reviewer]),
+  }
+}
+
 export function useCloseSubmissions() {
   const c = useContractWrite('closeSubmissions')
   return {
@@ -249,6 +282,23 @@ export function useCancelEvent() {
   return {
     ...c,
     cancelEvent: (eventId: bigint) => c.write([eventId]),
+  }
+}
+
+export function useSubmitReview() {
+  const c = useContractWrite('submitReview')
+  return {
+    ...c,
+    /**
+     * @param score 1–100 integer score
+     * @param notesHash keccak256 of the reviewer's notes text (bytes32)
+     */
+    submitReview: (
+      eventId: bigint,
+      submissionId: bigint,
+      score: number,
+      notesHash: `0x${string}`,
+    ) => c.write([eventId, submissionId, score, notesHash]),
   }
 }
 

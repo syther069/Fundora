@@ -1,10 +1,10 @@
-import { useState, useEffect, useId } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useMemo } from 'react'
+import { motion } from 'framer-motion'
 import { useAccount } from 'wagmi'
 import {
-  ArrowLeft, ArrowRight, Check, X, ShieldCheck, Github, Globe,
-  Video, Twitter, Plus, Trash2, Sparkles, AlertCircle, FileText,
-  Users, Layers, ExternalLink, HelpCircle
+  ArrowLeft, ArrowRight, X, ShieldCheck, Github, Globe,
+  Video, Twitter, Plus, Trash2, Sparkles,
+  ExternalLink, Loader2
 } from 'lucide-react'
 import type { Event, Submission, TeamMember } from '../../types/events'
 import {
@@ -16,12 +16,15 @@ import {
   type SubmissionPayload,
 } from '../../utils/metadataStorage'
 import { usePasskeyContext } from '../../context/PasskeyContext'
+import { useSubmitEntry } from '../../hooks/useFundoraEvents'
 
 interface ParticipantSubmitWizardProps {
   event: Event
   isOpen: boolean
   onClose: () => void
   onSuccess: (submission: Submission) => void
+  /** If set, the wallet already submitted — show existing receipt instead of wizard */
+  alreadySubmittedId?: bigint
 }
 
 type Step = 1 | 2 | 3 | 4
@@ -31,61 +34,59 @@ export function ParticipantSubmitWizard({
   isOpen,
   onClose,
   onSuccess,
+  alreadySubmittedId,
 }: ParticipantSubmitWizardProps) {
-  const { address, isConnected } = useAccount()
+  const { address } = useAccount()
   const { isPasskeyConnected, smartAccountAddress } = usePasskeyContext()
   const activeAddress = isPasskeyConnected ? smartAccountAddress : address
 
+  // Onchain submit hook
+  const {
+    submitEntry,
+    isPending: isWalletPrompt,
+    isConfirming,
+    isSuccess: isOnchainSuccess,
+    hash: txHash,
+    error: submitError,
+  } = useSubmitEntry()
+
+  const isExternal = event.modality === 'external_listing'
+
   const [step, setStep] = useState<Step>(1)
-  const [draftRestoredTime, setDraftRestoredTime] = useState<string | null>(null)
+
+  // Load draft once via lazy initialisers — avoids set-state-in-effect
+  const _initDraft = useMemo(() => loadSubmissionDraft(event.id), [event.id])
+
+  const [draftRestoredTime] = useState<string | null>(
+    () => _initDraft ? new Date(_initDraft.lastSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null
+  )
 
   // Form State
-  const [title, setTitle] = useState('')
-  const [tagline, setTagline] = useState('')
-  const [description, setDescription] = useState('')
-  const [trackId, setTrackId] = useState(event.tracks[0]?.id || '')
+  const [title, setTitle] = useState(() => _initDraft?.title ?? '')
+  const [tagline, setTagline] = useState(() => _initDraft?.tagline ?? '')
+  const [description, setDescription] = useState(() => _initDraft?.description ?? '')
+  const [trackId, setTrackId] = useState(() => _initDraft?.trackId ?? event.tracks[0]?.id ?? '')
 
   // Media / Links
-  const [repoUrl, setRepoUrl] = useState('')
-  const [demoUrl, setDemoUrl] = useState('')
-  const [videoUrl, setVideoUrl] = useState('')
-  const [socialPostUrl, setSocialPostUrl] = useState('')
+  const [repoUrl, setRepoUrl] = useState(() => _initDraft?.repoUrl ?? '')
+  const [demoUrl, setDemoUrl] = useState(() => _initDraft?.demoUrl ?? '')
+  const [videoUrl, setVideoUrl] = useState(() => _initDraft?.mediaUrls?.[0] ?? '')
+  const [socialPostUrl, setSocialPostUrl] = useState(() => _initDraft?.socialPostUrl ?? '')
   const [mediaUrlInput, setMediaUrlInput] = useState('')
-  const [mediaUrls, setMediaUrls] = useState<string[]>([])
+  const [mediaUrls, setMediaUrls] = useState<string[]>(() => _initDraft?.mediaUrls ?? [])
 
   // Team
-  const [submitterName, setSubmitterName] = useState('')
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [submitterName, setSubmitterName] = useState(() => _initDraft?.submitterName ?? '')
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => _initDraft?.teamMembers ?? [])
   const [newMemberName, setNewMemberName] = useState('')
   const [newMemberRole, setNewMemberRole] = useState('')
   const [newMemberHandle, setNewMemberHandle] = useState('')
 
   // Confirmation
   const [agreedToRules, setAgreedToRules] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const isHackathon = event.category === 'hackathon'
-
-  // Load draft on mount
-  useEffect(() => {
-    if (!isOpen) return
-    const draft = loadSubmissionDraft(event.id)
-    if (draft) {
-      setTitle(draft.title || '')
-      setTagline(draft.tagline || '')
-      setDescription(draft.description || '')
-      if (draft.trackId) setTrackId(draft.trackId)
-      setRepoUrl(draft.repoUrl || '')
-      setDemoUrl(draft.demoUrl || '')
-      setVideoUrl(draft.mediaUrls?.[0] || '')
-      setSocialPostUrl(draft.socialPostUrl || '')
-      setMediaUrls(draft.mediaUrls || [])
-      setSubmitterName(draft.submitterName || '')
-      setTeamMembers(draft.teamMembers || [])
-      setDraftRestoredTime(new Date(draft.lastSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-    }
-  }, [isOpen, event.id])
 
   // Autosave draft on change
   useEffect(() => {
@@ -124,7 +125,6 @@ export function ParticipantSubmitWizard({
     setMediaUrls([])
     setSubmitterName('')
     setTeamMembers([])
-    setDraftRestoredTime(null)
   }
 
   // Teammate management
@@ -196,61 +196,170 @@ export function ParticipantSubmitWizard({
     setStep((prev) => Math.max(1, prev - 1) as Step)
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!validateStep(4)) return
-    setIsSubmitting(true)
-
-    try {
-      const payload: SubmissionPayload = {
-        title,
-        tagline,
-        description,
-        trackId,
-        demoUrl: demoUrl.trim() || undefined,
-        repoUrl: repoUrl.trim() || undefined,
-        socialPostUrl: socialPostUrl.trim() || undefined,
-        mediaUrls: mediaUrls.length > 0 ? mediaUrls : videoUrl ? [videoUrl] : [],
-        teamMembers,
-        submitterAddress: activeAddress || '0x0000000000000000000000000000000000000000',
-        submitterName,
-      }
-
-      // Generate deterministic submission hash and metadata URI
-      const submissionHash = generateSubmissionHash(payload)
-      const metadataUri = formatMetadataUri(payload)
-
-      // Simulate onchain confirmation delay (1.2s labor illusion)
-      await new Promise((resolve) => setTimeout(resolve, 1200))
-
-      const newSubmission: Submission = {
-        id: `sub_${Date.now().toString().slice(-6)}`,
-        eventId: event.id,
-        trackId,
-        title,
-        tagline,
-        description,
-        submitterAddress: activeAddress || '',
-        submitterName,
-        teamMembers,
-        demoUrl: demoUrl.trim() || undefined,
-        repoUrl: repoUrl.trim() || undefined,
-        socialPostUrl: socialPostUrl.trim() || undefined,
-        mediaUrls: payload.mediaUrls,
-        submittedAt: Math.floor(Date.now() / 1000),
-      }
-
-      // Clear draft on success
-      clearSubmissionDraft(event.id)
-      setIsSubmitting(false)
-      onSuccess(newSubmission)
-    } catch (err) {
-      console.error(err)
-      setIsSubmitting(false)
-      setErrors({ submit: 'Failed to submit entry. Please try again.' })
+    if (!activeAddress) {
+      setErrors({ wallet: 'Please connect your wallet to submit.' })
+      return
     }
+    if (isExternal) {
+      setErrors({ submit: 'External events do not accept Fundora submissions. Please apply on the external platform.' })
+      return
+    }
+
+    const payload: SubmissionPayload = {
+      title,
+      tagline,
+      description,
+      trackId,
+      demoUrl: demoUrl.trim() || undefined,
+      repoUrl: repoUrl.trim() || undefined,
+      socialPostUrl: socialPostUrl.trim() || undefined,
+      mediaUrls: mediaUrls.length > 0 ? mediaUrls : videoUrl ? [videoUrl] : [],
+      teamMembers,
+      submitterAddress: activeAddress,
+      submitterName,
+    }
+
+    const submissionHash = generateSubmissionHash(payload)
+    const metadataUri = formatMetadataUri(payload)
+
+    // eventId is a numeric string in the frontend Event type
+    const eventIdBig = BigInt(event.id.replace(/\D/g, '') || '0')
+
+    submitEntry(eventIdBig, metadataUri, submissionHash)
   }
 
+  // React to onchain success: clear draft and call onSuccess
+  useEffect(() => {
+    if (!isOnchainSuccess) return
+    clearSubmissionDraft(event.id)
+    const newSubmission: Submission = {
+      id: txHash ? `0x${txHash.slice(2, 8)}` : `sub_${Date.now().toString().slice(-6)}`,
+      eventId: event.id,
+      trackId,
+      title,
+      tagline,
+      description,
+      submitterAddress: activeAddress || '',
+      submitterName,
+      teamMembers,
+      demoUrl: demoUrl.trim() || undefined,
+      repoUrl: repoUrl.trim() || undefined,
+      socialPostUrl: socialPostUrl.trim() || undefined,
+      mediaUrls: mediaUrls.length > 0 ? mediaUrls : videoUrl ? [videoUrl] : [],
+      submittedAt: Math.floor(Date.now() / 1000),
+      claimTxHash: txHash,
+    }
+    onSuccess(newSubmission)
+  }, [isOnchainSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isSubmitting = isWalletPrompt || isConfirming
+
   if (!isOpen) return null
+
+  // Guard: already submitted
+  if (alreadySubmittedId && alreadySubmittedId > 0n) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-midnight/70 backdrop-blur-md"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="already-submitted-title"
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-md rounded-3xl bg-white border border-teal-200 shadow-2xl p-7 relative overflow-hidden"
+        >
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-teal" />
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100"
+            aria-label="Close"
+          >
+            <X size={16} />
+          </button>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-11 h-11 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center shrink-0">
+              <ShieldCheck size={22} className="text-teal" />
+            </div>
+            <div>
+              <h2 id="already-submitted-title" className="font-jakarta font-extrabold text-lg text-midnight">
+                Already Submitted
+              </h2>
+              <p className="text-xs text-slate-500">One entry per wallet per event</p>
+            </div>
+          </div>
+          <p className="text-sm text-slate-700 leading-relaxed mb-5">
+            Your wallet has already submitted an entry to <strong>{event.title}</strong>. Only one submission per wallet is permitted.
+          </p>
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3.5 text-xs font-mono text-slate-600 mb-5">
+            <span className="text-[10px] uppercase tracking-wider text-slate-400 block mb-1">Onchain Submission ID</span>
+            <span className="font-bold text-midnight">#{alreadySubmittedId.toString()}</span>
+          </div>
+          <p className="text-[11px] text-slate-500 mb-5">
+            Editing or resubmitting is not supported in the current contract version.
+          </p>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl text-xs font-bold text-white bg-midnight hover:bg-slate-800 transition-colors"
+          >
+            Close
+          </button>
+        </motion.div>
+      </div>
+    )
+  }
+
+  // Guard: external listing events
+  if (isExternal) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-midnight/70 backdrop-blur-md"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="external-event-title"
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-md rounded-3xl bg-white border border-slate-200 shadow-2xl p-7 relative"
+        >
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100"
+            aria-label="Close"
+          >
+            <X size={16} />
+          </button>
+          <h2 id="external-event-title" className="font-jakarta font-extrabold text-lg text-midnight mb-3">
+            External Platform Event
+          </h2>
+          <p className="text-sm text-slate-700 leading-relaxed mb-5">
+            <strong>{event.title}</strong> is hosted on <strong>{event.externalPlatformName || 'an external platform'}</strong>. Submissions are managed there, not through Fundora.
+          </p>
+          <a
+            href={event.externalUrl || '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-white bg-midnight hover:bg-slate-800 transition-colors mb-3"
+          >
+            Apply on {event.externalPlatformName || 'External Platform'}
+            <ExternalLink size={13} />
+          </a>
+          <button
+            onClick={onClose}
+            className="w-full py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-midnight"
+          >
+            Cancel
+          </button>
+        </motion.div>
+      </div>
+    )
+  }
 
   const selectedTrack = event.tracks.find((t) => t.id === trackId) || event.tracks[0]
 
@@ -764,24 +873,39 @@ export function ParticipantSubmitWizard({
               <ArrowRight size={13} />
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-2 py-2.5 px-6 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-hover disabled:opacity-50 transition-colors shadow-sm"
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Recording on Arc...
-                </>
-              ) : (
-                <>
-                  <Sparkles size={14} />
-                  Confirm & Submit Entry
-                </>
+            <div className="flex flex-col items-end gap-1.5">
+              {submitError && (
+                <span className="text-[11px] text-coral font-medium text-right">
+                  {(submitError as Error).message?.split('\n')[0]?.slice(0, 100) || 'Transaction failed. Please try again.'}
+                </span>
               )}
-            </button>
+              {errors.submit && (
+                <span className="text-[11px] text-coral font-medium text-right">{errors.submit}</span>
+              )}
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-2 py-2.5 px-6 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-hover disabled:opacity-50 transition-colors shadow-sm"
+              >
+                {isWalletPrompt ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Confirm in Wallet…
+                  </>
+                ) : isConfirming ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Confirming on Arc…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={14} />
+                    Confirm &amp; Submit Entry
+                  </>
+                )}
+              </button>
+            </div>
           )}
         </div>
       </motion.div>

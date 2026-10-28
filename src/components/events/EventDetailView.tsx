@@ -1,11 +1,15 @@
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
+import { useAccount } from 'wagmi'
 import {
   ArrowLeft, ShieldCheck, ExternalLink, Clock, Users,
   Trophy, Sparkles, CheckCircle2, Copy, Check, FileText,
-  Scale, Layers, Award, Github, Globe, Share2, HelpCircle
+  Scale, Layers, Award, Github, Globe, HelpCircle, CheckCheck
 } from 'lucide-react'
 import type { Event, Submission } from '../../types/events'
+import { ParticipantSubmitWizard } from './ParticipantSubmitWizard'
+import { SubmissionReceiptModal } from './SubmissionReceiptModal'
+import { useUserSubmissionId } from '../../hooks/useFundoraEvents'
 
 interface EventDetailProps {
   event: Event
@@ -16,6 +20,9 @@ interface EventDetailProps {
 
 type TabType = 'overview' | 'tracks' | 'rubric' | 'showcase' | 'winners'
 
+// Module-level timestamp — avoids impure Date.now() during render
+const MODULE_NOW_SECS = Math.floor(Date.now() / 1000)
+
 function formatUsdc(amount: bigint): string {
   const dollars = amount / 1_000_000n
   return Number(dollars).toLocaleString('en-US')
@@ -24,6 +31,34 @@ function formatUsdc(amount: bigint): string {
 export function EventDetailView({ event, submissions, onBack, onOpenSubmitModal }: EventDetailProps) {
   const [activeTab, setActiveTab] = useState<TabType>(event.status === 'completed' ? 'winners' : 'overview')
   const [copiedAddr, setCopiedAddr] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
+  const [lastSubmission, setLastSubmission] = useState<Submission | null>(null)
+  const [receiptOpen, setReceiptOpen] = useState(false)
+
+  const { address } = useAccount()
+  const isNativeEvent = event.modality === 'native_escrow'
+
+  // Check if connected wallet already submitted to this event
+  const eventIdBig = (() => {
+    try { return BigInt(event.id.replace(/\D/g, '') || '0') } catch { return 0n }
+  })()
+  const { data: existingSubId } = useUserSubmissionId(
+    isNativeEvent && eventIdBig > 0n ? eventIdBig : undefined,
+    address ?? undefined,
+  )
+  const alreadySubmittedId = existingSubId
+
+  const handleOpenSubmit = () => {
+    setWizardOpen(true)
+    // Also call prop callback for view switching if provided
+    onOpenSubmitModal?.()
+  }
+
+  const handleWizardSuccess = (sub: Submission) => {
+    setLastSubmission(sub)
+    setWizardOpen(false)
+    setReceiptOpen(true)
+  }
 
   const isExternal = event.modality === 'external_listing'
   const isNative = event.modality === 'native_escrow'
@@ -38,7 +73,7 @@ export function EventDetailView({ event, submissions, onBack, onOpenSubmitModal 
   }
 
   // Countdown calculations
-  const now = Math.floor(Date.now() / 1000)
+  const now = MODULE_NOW_SECS
   const diff = Math.max(0, event.submissionDeadline - now)
   const days = Math.floor(diff / 86400)
   const hours = Math.floor((diff % 86400) / 3600)
@@ -242,9 +277,17 @@ export function EventDetailView({ event, submissions, onBack, onOpenSubmitModal 
                 >
                   Submissions Closed (In Review)
                 </button>
+              ) : alreadySubmittedId && alreadySubmittedId > 0n ? (
+                <button
+                  onClick={handleOpenSubmit}
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-teal bg-teal-50 border border-teal-200 hover:bg-teal-100 transition-all shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                >
+                  <CheckCheck size={14} />
+                  View My Submission
+                </button>
               ) : (
                 <button
-                  onClick={onOpenSubmitModal}
+                  onClick={handleOpenSubmit}
                   className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-hover transition-all shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
                   <Sparkles size={14} />
@@ -688,6 +731,34 @@ export function EventDetailView({ event, submissions, onBack, onOpenSubmitModal 
           </div>
         )}
       </div>
+
+      {/* ── Submission Wizard Modal ── */}
+      <AnimatePresence>
+        {wizardOpen && (
+          <ParticipantSubmitWizard
+            event={event}
+            isOpen={wizardOpen}
+            onClose={() => setWizardOpen(false)}
+            onSuccess={handleWizardSuccess}
+            alreadySubmittedId={alreadySubmittedId}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Submission Receipt Modal ── */}
+      <AnimatePresence>
+        {receiptOpen && lastSubmission && (
+          <SubmissionReceiptModal
+            submission={lastSubmission}
+            eventTitle={event.title}
+            onClose={() => setReceiptOpen(false)}
+            onViewShowcase={() => {
+              setReceiptOpen(false)
+              setActiveTab('showcase')
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

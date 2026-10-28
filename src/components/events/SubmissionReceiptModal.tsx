@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { CheckCircle2, Copy, Check, ExternalLink, ArrowRight, Twitter, X } from 'lucide-react'
+import { CheckCircle2, Copy, Check, ArrowRight, Twitter, X } from 'lucide-react'
 import type { Submission } from '../../types/events'
 
 interface SubmissionReceiptModalProps {

@@ -1,20 +1,15 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
-  Users, LayoutGrid, Info, AlertCircle, RefreshCw,
-  Sprout, Zap, ShieldCheck, TrendingUp, AlertTriangle, ArrowRight,
-  Trophy, Sparkles, Clock, Compass, Scale, LayoutDashboard, Award, CheckCircle2,
-  ExternalLink, Layers, PlusCircle
+  Users, Zap, ShieldCheck, TrendingUp, AlertTriangle, ArrowRight,
+  Trophy, Compass, Scale, Layers, PlusCircle, LayoutGrid
 } from 'lucide-react'
 import { Header } from './components/Header'
 import { GrantCard } from './components/GrantCard'
-import { GrantSkeleton } from './components/GrantSkeleton'
 import { GrantDetail } from './components/GrantDetail'
 import { AdminPanel } from './components/AdminPanel'
-import { GrantsToolbar } from './components/GrantsToolbar'
-import type { StatusFilter as GrantStatusFilter } from './components/GrantsToolbar'
 import { useContractAdmin, useIsReviewer } from './hooks/useFundora'
 import { useUnifiedIsAdmin } from './hooks/useAdminRegistry'
 import { ApplyAdminModal } from './components/ApplyAdminModal'
@@ -30,12 +25,18 @@ import { EventDirectoryToolbar } from './components/events/EventDirectoryToolbar
 import { EventSkeletonGrid } from './components/events/EventSkeletonGrid'
 import { EventDetailView } from './components/events/EventDetailView'
 
+// Phase 3 imports
+import { OrganizerCreateWizard } from './components/events/OrganizerCreateWizard'
+import { usePendingPrizeWithdrawals, useClaimPrize, usePendingOrganizerRefunds, useClaimOrganizerRefund } from './hooks/useFundoraEvents'
+import { formatUnits } from 'viem'
+
 type View = 'events' | 'event-detail' | 'participant' | 'reviewer' | 'organizer' | 'grants' | 'detail' | 'admin'
 
-const NOT_DEPLOYED = FUNDORA_ADDRESS === '0x0000000000000000000000000000000000000000'
+const _NOT_DEPLOYED = FUNDORA_ADDRESS === '0x0000000000000000000000000000000000000000'
 
 // ── Hero: disconnected state (legacy grants) ──────────────────────────────────
-function HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
   const features = [
     { icon: <Zap size={12} />, label: 'Instant USDC payouts', color: 'var(--amber)' },
     { icon: <ShieldCheck size={12} />, label: 'Onchain evidence', color: 'var(--teal)' },
@@ -186,7 +187,7 @@ function RoleBanner({ isAdmin, isReviewer }: { isAdmin: boolean; isReviewer: boo
 // ── Wrong-chain banner ────────────────────────────────────────────────────────
 function WrongChainBanner({ chainId }: { chainId: number | undefined }) {
   const { switchChain } = useSwitchChain()
-  const isWrongChain = chainId !== undefined && !SUPPORTED_CHAIN_IDS.includes(chainId)
+  const isWrongChain = chainId !== undefined && !SUPPORTED_CHAIN_IDS.includes(chainId as 5042 | 5042002)
 
   if (!isWrongChain) return null
 
@@ -273,12 +274,12 @@ export default function App() {
   const [navigating, setNavigating] = useState<string | null>(null)
 
   // Legacy Grants State
-  const [grantSearch, setGrantSearch] = useState('')
-  const [grantStatusFilter, setGrantStatusFilter] = useState<GrantStatusFilter>('all')
-  const { grants, grantCount, isLoading: grantsLoading, isError: grantsError, refetch: refetchGrants } = useGrants()
-  const grantCountData = grantCount > 0 ? BigInt(grantCount) : undefined
+  // Grant search/filter state (reserved for toolbar wiring in a future phase)
+  const [_grantSearch, _setGrantSearch] = useState('')
+  const [_grantStatusFilter, _setGrantStatusFilter] = useState<'all' | 'active' | 'pending' | 'completed' | 'cancelled'>('all')
+  const { grants, refetch: refetchGrants } = useGrants()
 
-  const { data: contractAdmin } = useContractAdmin()
+  const { data: _contractAdmin } = useContractAdmin()
   const { data: isReviewer } = useIsReviewer(address)
   const { isAdmin, refetch: refetchIsAdmin } = useUnifiedIsAdmin()
   const [showApplyModal, setShowApplyModal] = useState(false)
@@ -335,6 +336,35 @@ export default function App() {
     refetchGrants()
   }
 
+  // ── Phase 3: Organizer Create Wizard ──────────────────────────────────────
+  const [organizerWizardOpen, setOrganizerWizardOpen] = useState(false)
+
+  // ── Phase 3: Real onchain data for participant hub ────────────────────────
+  const { data: pendingPrize } = usePendingPrizeWithdrawals(address ?? undefined)
+  const {
+    claimPrize,
+    isPending: claimPrizeWallet,
+    isConfirming: claimPrizeConfirming,
+    isSuccess: claimPrizeSuccess,
+    error: claimPrizeError,
+  } = useClaimPrize()
+
+  // ── Phase 3: Real onchain data for organizer hub ──────────────────────────
+  const { data: pendingRefund } = usePendingOrganizerRefunds(address ?? undefined)
+  const {
+    claimOrganizerRefund,
+    isPending: claimRefundWallet,
+    isConfirming: claimRefundConfirming,
+    isSuccess: claimRefundSuccess,
+    error: claimRefundError,
+  } = useClaimOrganizerRefund()
+
+  const pendingPrizeBig = (pendingPrize) ?? 0n
+  const pendingRefundBig = (pendingRefund) ?? 0n
+
+  const formatUsdcAmount = (raw: bigint) =>
+    Number(formatUnits(raw, 6)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
   return (
     <div className="min-h-dvh flex flex-col" style={{ background: 'var(--warm-bg)' }}>
       {/* Skip link — WCAG 2.4.1 */}
@@ -355,7 +385,7 @@ export default function App() {
 
       {/* Proactive Network & Role Banners */}
       {isConnected && <WrongChainBanner chainId={chainId} />}
-      {isConnected && <RoleBanner isAdmin={isAdmin} isReviewer={isReviewer} />}
+      {isConnected && <RoleBanner isAdmin={!!isAdmin} isReviewer={!!isReviewer} />}
 
       {/* Network toggle pill */}
       {isConnected && (
@@ -537,18 +567,37 @@ export default function App() {
                       Available to Claim
                     </span>
                     <div className="font-mono font-extrabold text-3xl text-teal tabular-nums">
-                      $0.00 <span className="text-sm font-semibold text-teal-700">USDC</span>
+                      ${formatUsdcAmount(pendingPrizeBig)}{' '}
+                      <span className="text-sm font-semibold text-teal-700">USDC</span>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
                       Rewards on Arc are pull-based: funds are deposited into smart contract escrow and pulled directly to your wallet.
                     </p>
+                    {claimPrizeSuccess && (
+                      <p className="text-xs text-teal font-semibold mt-1">Prize claimed successfully!</p>
+                    )}
+                    {claimPrizeError && (
+                      <p className="text-xs text-coral font-medium mt-1">
+                        {(claimPrizeError as Error).message?.slice(0, 80) || 'Claim failed.'}
+                      </p>
+                    )}
                   </div>
-                  <button
-                    disabled
-                    className="py-2.5 px-5 rounded-xl text-xs font-bold text-slate-400 bg-slate-200 cursor-not-allowed shrink-0"
-                  >
-                    No Pending Claims
-                  </button>
+                  {pendingPrizeBig > 0n ? (
+                    <button
+                      onClick={() => claimPrize()}
+                      disabled={claimPrizeWallet || claimPrizeConfirming}
+                      className="py-2.5 px-5 rounded-xl text-xs font-bold text-white bg-teal hover:opacity-90 disabled:opacity-60 shrink-0 transition-all shadow-sm"
+                    >
+                      {claimPrizeWallet ? 'Confirm in Wallet…' : claimPrizeConfirming ? 'Confirming…' : `Claim $${formatUsdcAmount(pendingPrizeBig)} USDC`}
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="py-2.5 px-5 rounded-xl text-xs font-bold text-slate-400 bg-slate-200 cursor-not-allowed shrink-0"
+                    >
+                      No Pending Claims
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -647,7 +696,7 @@ export default function App() {
                   </p>
                 </div>
                 <button
-                  onClick={() => alert('Phase 3 Event Creation Wizard is scheduled next in the roadmap!')}
+                  onClick={() => setOrganizerWizardOpen(true)}
                   className="inline-flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold text-white bg-midnight hover:bg-slate-800 shadow-sm"
                 >
                   <PlusCircle size={14} />
@@ -662,29 +711,58 @@ export default function App() {
                     Hosted Events
                   </span>
                   <div className="font-mono font-extrabold text-2xl text-midnight">
-                    3 Published
+                    {events.filter(e => e.hostAddress === address).length} Published
                   </div>
-                  <span className="text-xs text-teal font-medium mt-1 block">2 with Verified Escrow</span>
+                  <span className="text-xs text-teal font-medium mt-1 block">
+                    {events.filter(e => e.hostAddress === address && e.modality === 'native_escrow').length} with Verified Escrow
+                  </span>
                 </div>
 
                 <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
                     Total Locked Escrow
                   </span>
-                  <div className="font-mono font-extrabold text-2xl text-midnight">
-                    $85,000 USDC
+                  <div className="font-mono font-extrabold text-2xl text-midnight tabular-nums">
+                    ${formatUsdcAmount(
+                      events
+                        .filter(e => e.hostAddress === address && e.modality === 'native_escrow')
+                        .reduce((s, e) => s + e.totalPrizePoolUsdc, 0n)
+                    )} USDC
                   </div>
-                  <span className="text-xs text-slate-500 mt-1 block">Secured on Arc Testnet & Mainnet</span>
+                  <span className="text-xs text-slate-500 mt-1 block">Secured in pull-escrow on Arc</span>
                 </div>
 
+                {/* Refund / Reclaim Card */}
                 <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                    Active Deliberations
+                    Reclaimable Escrow
                   </span>
-                  <div className="font-mono font-extrabold text-2xl text-amber-700">
-                    1 Pending Finalization
+                  <div className="font-mono font-extrabold text-2xl tabular-nums" style={{ color: pendingRefundBig > 0n ? 'var(--teal)' : 'var(--ink)' }}>
+                    ${formatUsdcAmount(pendingRefundBig)} USDC
                   </div>
-                  <span className="text-xs text-slate-500 mt-1 block">Ready for winner mapping</span>
+                  {pendingRefundBig > 0n ? (
+                    <>
+                      <span className="text-xs text-slate-500 mt-1 block">From cancelled or finalized events</span>
+                      {claimRefundSuccess ? (
+                        <p className="text-xs text-teal font-semibold mt-2">Refund claimed!</p>
+                      ) : (
+                        <button
+                          onClick={() => claimOrganizerRefund()}
+                          disabled={claimRefundWallet || claimRefundConfirming}
+                          className="mt-2 inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold text-white bg-teal hover:opacity-90 disabled:opacity-60 transition-all"
+                        >
+                          {claimRefundWallet ? 'Confirm…' : claimRefundConfirming ? 'Confirming…' : 'Claim Refund'}
+                        </button>
+                      )}
+                      {claimRefundError && (
+                        <p className="text-xs text-coral font-medium mt-1">
+                          {(claimRefundError as Error).message?.slice(0, 60) || 'Claim failed.'}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-xs text-slate-400 mt-1 block">No pending organizer refunds</span>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -754,9 +832,8 @@ export default function App() {
                           <GrantCard
                             key={grant.id.toString()}
                             grant={grant}
-                            onSelect={() => handleSelectGrant(grant)}
-                            navigating={navigating === grant.id.toString()}
-                            activeChainId={activeChainId}
+                            onClick={() => handleSelectGrant(grant)}
+                            isNavigating={navigating === grant.id.toString()}
                           />
                         ))}
                       </div>
@@ -774,9 +851,21 @@ export default function App() {
         {showApplyModal && (
           <ApplyAdminModal
             onClose={() => setShowApplyModal(false)}
-            onSuccess={() => {
+            onSuccessRedirect={() => {
               refetchIsAdmin()
               setShowApplyModal(false)
+            }}
+          />
+        )}
+
+        {/* Phase 3 — Organizer Create Wizard */}
+        {organizerWizardOpen && (
+          <OrganizerCreateWizard
+            isOpen={organizerWizardOpen}
+            onClose={() => setOrganizerWizardOpen(false)}
+            onSuccess={(_eventId, _txHash) => {
+              setOrganizerWizardOpen(false)
+              setView('events')
             }}
           />
         )}

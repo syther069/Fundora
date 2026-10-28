@@ -41,7 +41,7 @@ function getCountdownLabel(deadlineSec: number, status: string): { label: string
 
 export const EventCard = memo(function EventCard({ event, onSelect }: EventCardProps) {
   const { label: countdown, isUrgent } = getCountdownLabel(event.submissionDeadline, event.status)
-  const isExternal = event.modality === 'external_listing'
+  const _isExternal = event.modality === 'external_listing'
   const isNative = event.modality === 'native_escrow'
   const isCompleted = event.status === 'completed'
   const isJudging = event.status === 'judging'

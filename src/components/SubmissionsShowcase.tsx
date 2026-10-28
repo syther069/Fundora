@@ -15,7 +15,7 @@ export function SubmissionsShowcase({ event: ev }: SubmissionsShowcaseProps) {
   const [search, setSearch] = useState('')
   const { data, isLoading, isError } = useSubmissionsBatch(ev.id, 0, 50)
 
-  const submissions = (data ?? []) as {
+  const submissions = ([...(data ?? [])] as unknown) as {
     id: bigint
     submitter: `0x${string}`
     metadataUri: string

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ShieldCheck, ExternalLink, Trophy, Twitter, ArrowRight, X } from 'lucide-react'
+import { ShieldCheck, Twitter, ArrowRight, X } from 'lucide-react'
 import type { Event } from '../../types/events'
 
 interface EventPublishedModalProps {

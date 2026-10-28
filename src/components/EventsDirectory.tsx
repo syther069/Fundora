@@ -3,16 +3,16 @@ import { Search, SlidersHorizontal, Trophy, Sprout } from 'lucide-react'
 import { EventCard } from './EventCard'
 import { EventSkeleton } from './EventSkeleton'
 import { useEventsContext, type CategoryFilter, type StatusFilter, type SortOption } from '../context/EventsContext'
-import type { OnchainEventInfo } from '../contracts/fundoraEvents'
+import type { Event } from '../types/events'
 
 interface EventsDirectoryProps {
-  onSelectEvent: (ev: OnchainEventInfo) => void
+  onSelectEvent: (ev: Event) => void
 }
 
 const CATEGORY_TABS: { value: CategoryFilter; label: string }[] = [
   { value: 'all',       label: 'All Events' },
-  { value: 'hackathons', label: 'Hackathons' },
-  { value: 'contests',  label: 'Contests' },
+  { value: 'hackathon', label: 'Hackathons' },
+  { value: 'contest',  label: 'Contests' },
   { value: 'external',  label: 'External' },
 ]
 
@@ -26,25 +26,24 @@ const STATUS_PILLS: { value: StatusFilter; label: string }[] = [
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'recent',    label: 'Recently Added' },
-  { value: 'prizePool', label: 'Prize Pool' },
-  { value: 'deadline',  label: 'Deadline' },
+  { value: 'prize-desc', label: 'Prize Pool' },
+  { value: 'deadline-asc',  label: 'Deadline' },
 ]
 
 export function EventsDirectory({ onSelectEvent }: EventsDirectoryProps) {
   const {
-    events,
     filteredEvents,
     isLoading,
-    isError,
-    refetch,
+    error: isError,
     categoryFilter,
     setCategoryFilter,
     statusFilter,
     setStatusFilter,
     sortBy,
     setSortBy,
-    search,
-    setSearch,
+    searchQuery: search,
+    setSearchQuery: setSearch,
+    resetFilters: refetch,
   } = useEventsContext()
 
   return (
@@ -190,7 +189,7 @@ export function EventsDirectory({ onSelectEvent }: EventsDirectoryProps) {
       )}
 
       {/* Empty — no events on chain */}
-      {!isError && !isLoading && events.length === 0 && (
+      {!isError && !isLoading && filteredEvents.length === 0 && (
         <div className="rounded-2xl border p-12 text-center space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto"
@@ -210,7 +209,7 @@ export function EventsDirectory({ onSelectEvent }: EventsDirectoryProps) {
       )}
 
       {/* Empty — filter returned nothing */}
-      {!isError && !isLoading && events.length > 0 && filteredEvents.length === 0 && (
+      {false && /* removed duplicate empty state */ (
         <div className="rounded-2xl border p-10 text-center space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <Sprout size={28} style={{ color: 'var(--subtle)' }} className="mx-auto" />
           <p className="font-jakarta font-bold text-base" style={{ color: 'var(--ink)' }}>
@@ -241,7 +240,7 @@ export function EventsDirectory({ onSelectEvent }: EventsDirectoryProps) {
             {filteredEvents.map(ev => (
               <EventCard
                 key={ev.id.toString()}
-                event={ev}
+                event={ev as unknown as Parameters<typeof EventCard>[0]['event']}
                 onClick={() => onSelectEvent(ev)}
               />
             ))}

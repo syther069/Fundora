@@ -89,7 +89,7 @@ export async function verifyAdminRegistrationTx({
         if (
           decoded.eventName === 'Transfer' &&
           (decoded.args.from as string).toLowerCase() === expectedUserAddress.toLowerCase() &&
-          (decoded.args.value as bigint) >= expectedFeeAmount
+          (decoded.args.value) >= expectedFeeAmount
         ) {
           validTransferFound = true
         }
