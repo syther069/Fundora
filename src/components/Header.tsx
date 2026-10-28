@@ -57,7 +57,7 @@ function ChainBadge() {
         style={{ background: isMainnet ? 'var(--brand)' : 'var(--teal)' }}
         aria-hidden="true"
       />
-      {isMainnet ? 'Arc Mainnet' : 'Arc Testnet'}
+      {isMainnet ? 'Arc Mainnet' : 'Demo'}
     </span>
   )
 }
