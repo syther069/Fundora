@@ -387,6 +387,7 @@ export default function App() {
         onViewChange={(v) => setView(v as View)}
         onOpenApplyAdmin={() => setShowApplyModal(true)}
         isAdmin={isAdmin}
+        isReviewer={!!isReviewer}
       />
 
       {/* Proactive Network & Role Banners */}
