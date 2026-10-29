@@ -24,6 +24,7 @@ import App from './App'
 import { GrantsProvider } from './context/GrantsContext'
 import { EventsProvider } from './context/EventsContext'
 import { PasskeyProvider } from './context/PasskeyContext'
+import { ModeProvider } from './context/ModeContext'
 import './index.css'
 
 // 3.2 — staleTime set globally; data survives component unmounts
@@ -79,12 +80,15 @@ createRoot(document.getElementById('root')!).render(
         <ConnectKitProvider>
           {/* PasskeyProvider: passkey / MSCA session state (Arc Testnet) */}
           <PasskeyProvider>
-            {/* GrantsProvider for microgrants & EventsProvider for hackathons & contests */}
-            <GrantsProvider>
-              <EventsProvider>
-                <App />
-              </EventsProvider>
-            </GrantsProvider>
+            {/* ModeProvider: Demo/Live toggle — must wrap EventsProvider */}
+            <ModeProvider>
+              {/* GrantsProvider for microgrants & EventsProvider for hackathons & contests */}
+              <GrantsProvider>
+                <EventsProvider>
+                  <App />
+                </EventsProvider>
+              </GrantsProvider>
+            </ModeProvider>
           </PasskeyProvider>
           <StudioWatermark />
           <Toaster position="top-center" />

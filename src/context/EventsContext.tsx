@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useMemo, type ReactNode } from 're
 import type { Event, Submission, CategoryFilter, StatusFilter, SortOption } from '../types/events'
 export type { CategoryFilter, StatusFilter, SortOption } from '../types/events'
 import { MOCK_EVENTS, MOCK_SUBMISSIONS } from '../data/mockEvents'
+import { useMode } from './ModeContext'
+import { useLiveEvents } from '../hooks/useLiveEvents'
 
 interface EventsContextValue {
   events: Event[]
@@ -14,6 +16,8 @@ interface EventsContextValue {
   addEvent: (event: Event) => void
   isLoading: boolean
   error: string | null
+  isLiveMode: boolean
+  refetchLive: () => void
   categoryFilter: CategoryFilter
   setCategoryFilter: (cat: CategoryFilter) => void
   statusFilter: StatusFilter
@@ -42,26 +46,37 @@ interface EventsContextValue {
 const EventsContext = createContext<EventsContextValue | null>(null)
 
 export function EventsProvider({ children }: { children: ReactNode }) {
-  const [events, setEvents] = useState<Event[]>(MOCK_EVENTS)
+  const { isLive } = useMode()
+
+  // Live mode: read from onchain; Demo mode: use mock data
+  const {
+    events: liveEvents,
+    isLoading: liveLoading,
+    isError: liveIsError,
+    error: liveError,
+    refetch: refetchLive,
+  } = useLiveEvents()
+
+  const [mockEvents, setMockEvents] = useState<Event[]>(MOCK_EVENTS)
+  const events = isLive ? liveEvents : mockEvents
+
   const [submissions, setSubmissions] = useState<Record<string, Submission[]>>(MOCK_SUBMISSIONS)
   const [activeEventId, setActiveEventId] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('prize-desc')
-  const [isLoading] = useState(false)
-  const [error] = useState<string | null>(null)
+
+  const isLoading = isLive ? liveLoading : false
+  const error = isLive ? (liveIsError ? (liveError ?? 'Failed to load live events') : null) : null
 
   const addSubmission = (newSub: Submission) => {
+    if (isLive) return // live mode is read-only
     setSubmissions((prev) => {
       const existing = prev[newSub.eventId] || []
-      return {
-        ...prev,
-        [newSub.eventId]: [newSub, ...existing],
-      }
+      return { ...prev, [newSub.eventId]: [newSub, ...existing] }
     })
-    // Also increment event's submissionCount
-    setEvents((prev) =>
+    setMockEvents((prev) =>
       prev.map((e) =>
         e.id === newSub.eventId ? { ...e, submissionsCount: e.submissionsCount + 1 } : e
       )
@@ -69,7 +84,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   }
 
   const addEvent = (newEvent: Event) => {
-    setEvents((prev) => [newEvent, ...prev])
+    if (isLive) return // live mode is read-only
+    setMockEvents((prev) => [newEvent, ...prev])
   }
 
   const activeEvent = useMemo(() => {
@@ -166,6 +182,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         addEvent,
         isLoading,
         error,
+        isLiveMode: isLive,
+        refetchLive,
         categoryFilter,
         setCategoryFilter,
         statusFilter,

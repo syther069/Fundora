@@ -30,6 +30,9 @@ import { OrganizerCreateWizard } from './components/events/OrganizerCreateWizard
 import { usePendingPrizeWithdrawals, useClaimPrize, usePendingOrganizerRefunds, useClaimOrganizerRefund } from './hooks/useFundoraEvents'
 import { formatUnits } from 'viem'
 
+// Phase 4 imports
+import { useMode } from './context/ModeContext'
+
 type View = 'events' | 'event-detail' | 'participant' | 'reviewer' | 'organizer' | 'grants' | 'detail' | 'admin'
 
 const _NOT_DEPLOYED = FUNDORA_ADDRESS === '0x0000000000000000000000000000000000000000'
@@ -284,6 +287,9 @@ export default function App() {
   const { isAdmin, refetch: refetchIsAdmin } = useUnifiedIsAdmin()
   const [showApplyModal, setShowApplyModal] = useState(false)
 
+  // Phase 4 — Demo / Live mode
+  const { isLive } = useMode()
+
   // Events Context (Phase 2 Hackathons & Contests)
   const {
     events,
@@ -410,11 +416,19 @@ export default function App() {
             >
               {/* Directory Hero Header */}
               <div className="mb-8">
+                {/* Live mode banner */}
+                {isLive && (
+                  <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border mb-4 text-xs font-medium"
+                    style={{ background: 'var(--brand-light)', borderColor: 'var(--brand-border)', color: 'var(--brand)' }}>
+                    <span className="w-2 h-2 rounded-full bg-brand animate-pulse shrink-0" />
+                    <span>You are viewing <strong>live mainnet events</strong> from the Arc blockchain. Connect your wallet on Arc Mainnet to submit or create events.</span>
+                  </div>
+                )}
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-6">
                   <div>
                     <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-brand-light text-brand border border-brand-border mb-3">
                       <Trophy size={12} />
-                      Arc Community Hackathons & Contests
+                      {isLive ? 'Live Mainnet Events' : 'Arc Community Hackathons & Contests'}
                     </span>
                     <h1 className="font-jakarta font-extrabold text-2xl sm:text-4xl text-midnight tracking-tight mb-2">
                       Build With Arc. Win Onchain USDC.
@@ -479,20 +493,33 @@ export default function App() {
                     <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
                       <Trophy size={24} />
                     </div>
-                    <div>
-                      <h3 className="font-jakarta font-bold text-lg text-midnight mb-1">
-                        No Events Found
-                      </h3>
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        No hackathons or contests match your current search and filter settings.
-                      </p>
-                    </div>
-                    <button
-                      onClick={resetFilters}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-brand bg-brand-light border border-brand-border hover:bg-brand-light/80 transition-colors"
-                    >
-                      Reset All Filters
-                    </button>
+                    {isLive ? (
+                      <div>
+                        <h3 className="font-jakarta font-bold text-lg text-midnight mb-1">
+                          No Live Events Yet
+                        </h3>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          No events have been published to the Arc Mainnet contract yet. Switch to <strong>Demo</strong> to explore mock events, or be the first to create a live event.
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <h3 className="font-jakarta font-bold text-lg text-midnight mb-1">
+                          No Events Found
+                        </h3>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          No hackathons or contests match your current search and filter settings.
+                        </p>
+                      </div>
+                    )}
+                    {!isLive && (
+                      <button
+                        onClick={resetFilters}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-brand bg-brand-light border border-brand-border hover:bg-brand-light/80 transition-colors"
+                      >
+                        Reset All Filters
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -695,13 +722,20 @@ export default function App() {
                     Create events, lock escrow prize pools on Arc, invite judges, and confirm final payouts.
                   </p>
                 </div>
-                <button
-                  onClick={() => setOrganizerWizardOpen(true)}
-                  className="inline-flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold text-white bg-midnight hover:bg-slate-800 shadow-sm"
-                >
-                  <PlusCircle size={14} />
-                  Create New Event
-                </button>
+                {isLive ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-brand-border bg-brand-light text-brand">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
+                    Connect on Arc Mainnet to create events
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setOrganizerWizardOpen(true)}
+                    className="inline-flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold text-white bg-midnight hover:bg-slate-800 shadow-sm"
+                  >
+                    <PlusCircle size={14} />
+                    Create New Event
+                  </button>
+                )}
               </div>
 
               {/* Event Operations Grid */}

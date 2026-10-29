@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
-import { Fingerprint, ShieldCheck, Compass, Users, Scale, LayoutDashboard, Archive } from 'lucide-react'
-import { AnimatePresence } from 'framer-motion'
+import { Fingerprint, ShieldCheck, Compass, Users, Scale, LayoutDashboard, Archive, FlaskConical, Radio } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/fundora'
 import { usePasskeyContext } from '../context/PasskeyContext'
 import { PasskeyAuthModal } from './PasskeyAuthModal'
+import { useMode } from '../context/ModeContext'
 
 interface HeaderProps {
   onOpenApplyAdmin?: () => void
@@ -34,8 +35,11 @@ function LogoMark() {
 
 function ChainBadge() {
   const { chainId } = useAccount()
+  const { isLive } = useMode()
   const isMainnet = chainId === ARC_MAINNET_ID
   const isTestnet = chainId === ARC_TESTNET_ID
+  // In live mode the chain badge is replaced by the ModeSwitcher live indicator
+  if (isLive) return null
   // Show nothing for unsupported chains — WrongChainBanner handles that
   if (chainId && !isMainnet && !isTestnet) return null
 
@@ -57,8 +61,66 @@ function ChainBadge() {
         style={{ background: isMainnet ? 'var(--brand)' : 'var(--teal)' }}
         aria-hidden="true"
       />
-      {isMainnet ? 'Arc Mainnet' : 'Demo'}
+      Demo
     </span>
+  )
+}
+
+function ModeSwitcher() {
+  const { mode, setMode } = useMode()
+
+  return (
+    <div
+      className="hidden md:inline-flex items-center rounded-full border p-0.5 gap-0.5"
+      style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+      role="group"
+      aria-label="Switch between Demo and Live mode"
+    >
+      <button
+        onClick={() => setMode('demo')}
+        className="relative flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-teal"
+        style={mode === 'demo' ? {
+          background: 'var(--teal-light)',
+          color: 'var(--teal)',
+        } : { color: 'var(--muted)' }}
+        aria-pressed={mode === 'demo'}
+      >
+        {mode === 'demo' && (
+          <motion.span
+            layoutId="mode-indicator"
+            className="absolute inset-0 rounded-full"
+            style={{ background: 'var(--teal-light)' }}
+            transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+          />
+        )}
+        <FlaskConical size={11} className="relative z-10" aria-hidden="true" />
+        <span className="relative z-10">Demo</span>
+      </button>
+
+      <button
+        onClick={() => setMode('live')}
+        className="relative flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        style={mode === 'live' ? {
+          background: 'var(--brand-light)',
+          color: 'var(--brand)',
+        } : { color: 'var(--muted)' }}
+        aria-pressed={mode === 'live'}
+      >
+        {mode === 'live' && (
+          <motion.span
+            layoutId="mode-indicator"
+            className="absolute inset-0 rounded-full"
+            style={{ background: 'var(--brand-light)' }}
+            transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+          />
+        )}
+        <Radio size={11} className="relative z-10" aria-hidden="true" />
+        <span className="relative z-10">Live</span>
+        {mode === 'live' && (
+          <span className="relative z-10 w-1.5 h-1.5 rounded-full bg-brand animate-pulse" aria-hidden="true" />
+        )}
+      </button>
+    </div>
   )
 }
 
@@ -107,6 +169,7 @@ export function Header({ onOpenApplyAdmin, isAdmin, currentView = 'events', onVi
                   Fundora
                 </span>
                 <ChainBadge />
+                <ModeSwitcher />
               </div>
             </button>
 
