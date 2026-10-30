@@ -64,7 +64,7 @@ We want real-world applications that solve genuine financial friction:
       {
         id: 'track-bounties',
         name: 'Open Innovation & Tooling',
-        description: 'Developer tooling, SDKs, block explorer utilities, or novel mobile passkey wallets.',
+        description: 'Developer tooling, SDKs, block explorer utilities, or novel mobile wallets.',
         prizePoolUsdc: 10_000_000_000n,
         prizeTiers: [
           { id: 'b1', place: 'Track Winner', amountUsdc: 6_000_000_000n },
@@ -73,11 +73,12 @@ We want real-world applications that solve genuine financial friction:
       },
     ],
     rubric: [
-      { id: 'r1', name: 'Arc & USDC Native Utility', description: 'Exploits Arc architecture (USDC as gas, sub-second finality, gasless passkeys).', weightPercentage: 35, maxScore: 10 },
+      { id: 'r1', name: 'Arc & USDC Native Utility', description: 'Exploits Arc architecture (USDC as gas, sub-second finality, programmable accounts).', weightPercentage: 35, maxScore: 10 },
       { id: 'r2', name: 'Technical Execution & Architecture', description: 'Clean contract patterns, pull-payment security, test coverage, and documentation.', weightPercentage: 25, maxScore: 10 },
       { id: 'r3', name: 'User Experience & Polish', description: 'Responsive, accessible, fast fintech interface adhering to universal UX state contracts.', weightPercentage: 25, maxScore: 10 },
       { id: 'r4', name: 'Business Viability & Impact', description: 'Clarity of the target user, immediate market potential, and ecosystem stickiness.', weightPercentage: 15, maxScore: 10 },
     ],
+    reviewers: ['0x5B12Ce46C7194aD57d143bC22847224047b1Ef42', '0xb5fd2471b99e9c7324309a43282a391e87585c5e'],
   },
 
   {
@@ -135,6 +136,7 @@ We want real-world applications that solve genuine financial friction:
       { id: 'cr2', name: 'Clarity of Arc Messaging', description: 'Accurate representation of Arc USDC gas or sub-second finality.', weightPercentage: 35, maxScore: 10 },
       { id: 'cr3', name: 'Social Virality & Reach', description: 'Engagement, impressions, and reception across X.', weightPercentage: 25, maxScore: 10 },
     ],
+    reviewers: ['0x5B12Ce46C7194aD57d143bC22847224047b1Ef42'],
   },
 
   {
@@ -181,6 +183,7 @@ Participants compete for $100,000 in total prizes across specialized agent track
       },
     ],
     rubric: [],
+    reviewers: ['0x5B12Ce46C7194aD57d143bC22847224047b1Ef42', '0xb5fd2471b99e9c7324309a43282a391e87585c5e'],
   },
 
   {
@@ -219,7 +222,7 @@ Participants compete for $100,000 in total prizes across specialized agent track
       {
         id: 'track-client-sdk',
         name: 'Client Payment Interceptor',
-        description: 'Fetch and Axios wrappers auto-handling 402 challenges via passkey accounts.',
+        description: 'Fetch and Axios wrappers auto-handling 402 challenges via smart accounts.',
         prizePoolUsdc: 10_000_000_000n,
         prizeTiers: [
           { id: 'cs1', place: 'Track Winner', amountUsdc: 10_000_000_000n },
@@ -231,6 +234,7 @@ Participants compete for $100,000 in total prizes across specialized agent track
       { id: 'j2', name: 'Code Craft & Type Safety', description: 'Zero unhandled rejections, robust TypeScript types.', weightPercentage: 35, maxScore: 10 },
       { id: 'j3', name: 'Documentation & Examples', description: 'Run-in-5-minutes docker setup and README clarity.', weightPercentage: 25, maxScore: 10 },
     ],
+    reviewers: ['0x5B12Ce46C7194aD57d143bC22847224047b1Ef42', '0xb5fd2471b99e9c7324309a43282a391e87585c5e'],
   },
 
   {
@@ -268,6 +272,7 @@ Participants compete for $100,000 in total prizes across specialized agent track
       },
     ],
     rubric: [],
+    reviewers: ['0x5B12Ce46C7194aD57d143bC22847224047b1Ef42', '0xb5fd2471b99e9c7324309a43282a391e87585c5e'],
   },
 ]
 
@@ -314,7 +319,7 @@ export const MOCK_SUBMISSIONS: Record<string, Submission[]> = {
       eventId: 'arc-stablecoin-hackathon',
       trackId: 'track-commerce',
       title: 'ArcPoint: Instant QR In-Person Merchant POS',
-      tagline: 'Sub-500ms in-store QR checkout with passkey authorization on Arc.',
+      tagline: 'Sub-500ms in-store QR checkout with biometric authorization on Arc.',
       description: 'Turns any iPad or Android tablet into a commercial point-of-sale terminal with zero merchant processing fees, streaming settlements immediately in USDC.',
       submitterAddress: '0x712aE7134988fB7216aC106d84B781bF749472a6',
       submitterName: 'Marcus Bell',
@@ -356,9 +361,9 @@ export const MOCK_SUBMISSIONS: Record<string, Submission[]> = {
       id: 'sub-genesis-2',
       eventId: 'arc-genesis-hackathon',
       trackId: 'track-genesis-main',
-      title: 'PulsePass: Gasless Passkey Event Ticketing',
+      title: 'PulsePass: Gasless Event Ticketing',
       tagline: 'Cryptographic NFT event tickets signed with FaceID and paid in USDC.',
-      description: 'Eliminates ticket scalping while delivering Web2-grade onboarding: users generate a passkey wallet in 3 seconds and enter concerts without paying gas.',
+      description: 'Eliminates ticket scalping while delivering Web2-grade onboarding: users generate a smart wallet in 3 seconds and enter concerts without paying gas.',
       submitterAddress: '0x42fC987216aC106d84B781bF749472a6901B8b2A',
       submitterName: 'Chloe Dubois',
       teamMembers: [

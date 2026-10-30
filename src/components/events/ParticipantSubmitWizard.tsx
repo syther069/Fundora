@@ -15,7 +15,8 @@ import {
   formatMetadataUri,
   type SubmissionPayload,
 } from '../../utils/metadataStorage'
-import { usePasskeyContext } from '../../context/PasskeyContext'
+import { useMode } from '../../context/ModeContext'
+import { useEvents } from '../../context/EventsContext'
 import { useSubmitEntry } from '../../hooks/useFundoraEvents'
 
 interface ParticipantSubmitWizardProps {
@@ -37,8 +38,9 @@ export function ParticipantSubmitWizard({
   alreadySubmittedId,
 }: ParticipantSubmitWizardProps) {
   const { address } = useAccount()
-  const { isPasskeyConnected, smartAccountAddress } = usePasskeyContext()
-  const activeAddress = isPasskeyConnected ? smartAccountAddress : address
+  const activeAddress = address
+  const { isLive } = useMode()
+  const { addSubmission } = useEvents()
 
   // Onchain submit hook
   const {
@@ -178,7 +180,7 @@ export function ParticipantSubmitWizard({
 
     if (currentStep === 4) {
       if (!agreedToRules) newErrors.agreedToRules = 'You must confirm that this is original work built for this event'
-      if (!activeAddress) newErrors.wallet = 'Please connect your wallet or sign in with a passkey to submit'
+      if (!activeAddress) newErrors.wallet = 'Please connect your wallet to submit'
     }
 
     setErrors(newErrors)
@@ -207,6 +209,29 @@ export function ParticipantSubmitWizard({
       return
     }
 
+    if (!isLive) {
+      const newSubmission: Submission = {
+        id: `sub_${Date.now().toString().slice(-6)}`,
+        eventId: event.id,
+        trackId,
+        title,
+        tagline,
+        description,
+        submitterAddress: activeAddress,
+        submitterName,
+        teamMembers,
+        demoUrl: demoUrl.trim() || undefined,
+        repoUrl: repoUrl.trim() || undefined,
+        socialPostUrl: socialPostUrl.trim() || undefined,
+        mediaUrls: mediaUrls.length > 0 ? mediaUrls : videoUrl ? [videoUrl] : [],
+        submittedAt: Math.floor(Date.now() / 1000),
+      }
+      addSubmission(newSubmission)
+      clearSubmissionDraft(event.id)
+      onSuccess(newSubmission)
+      return
+    }
+
     const payload: SubmissionPayload = {
       title,
       tagline,
@@ -226,6 +251,10 @@ export function ParticipantSubmitWizard({
 
     // eventId is a numeric string in the frontend Event type
     const eventIdBig = BigInt(event.id.replace(/\D/g, '') || '0')
+    if (eventIdBig <= 0n) {
+      setErrors({ submit: 'Invalid onchain event ID. Only verified live events can accept onchain entries.' })
+      return
+    }
 
     submitEntry(eventIdBig, metadataUri, submissionHash)
   }
@@ -251,6 +280,7 @@ export function ParticipantSubmitWizard({
       submittedAt: Math.floor(Date.now() / 1000),
       claimTxHash: txHash,
     }
+    addSubmission(newSubmission)
     onSuccess(newSubmission)
   }, [isOnchainSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -534,7 +564,7 @@ export function ParticipantSubmitWizard({
                     setDescription(e.target.value)
                     if (errors.description) setErrors({ ...errors, description: '' })
                   }}
-                  placeholder="Explain what your project does, how it leverages Arc's unique architecture (e.g. USDC gas, passkeys), and instructions for judges..."
+                  placeholder="Explain what your project does, how it leverages Arc's unique architecture (e.g. USDC gas, fast finality), and instructions for judges..."
                   className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-midnight placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand ${errors.description ? 'border-coral ring-1 ring-coral' : 'border-slate-200'
                     }`}
                 />

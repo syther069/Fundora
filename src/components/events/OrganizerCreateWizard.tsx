@@ -13,8 +13,8 @@ import {
   saveOrganizerSubmission,
   type EventCreatePayload,
 } from '../../utils/metadataStorage'
-import { useCreateEvent } from '../../hooks/useFundoraEvents'
-import { FUNDORA_EVENTS_ADDRESS } from '../../contracts/fundoraEvents'
+import type { Event } from '../../types/events'
+import { useCreateEvent, useActiveEventsAddress } from '../../hooks/useFundoraEvents'
 
 // USDC on Arc (native = ERC-20 on Arc)
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000' as const
@@ -53,7 +53,7 @@ const ERC20_APPROVE_ABI = [
 interface OrganizerCreateWizardProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess: (eventId: bigint, txHash: string) => void
+  onSuccess: (eventId: bigint, txHash: string, createdEvent?: Event) => void
   initialCategory?: 'hackathon' | 'contest'
 }
 
@@ -175,13 +175,14 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
     args: address ? [address] : undefined,
     query: { enabled: !!address && modality === 'native_escrow' },
   })
+  const eventsAddress = useActiveEventsAddress()
   const prizeTotal = totalPrizeUsdc(tracks)
   const { data: usdcAllowance, refetch: refetchAllowance } = useReadContract({
     address: USDC_ADDRESS,
     abi: ERC20_APPROVE_ABI,
     functionName: 'allowance',
-    args: address ? [address, FUNDORA_EVENTS_ADDRESS] : undefined,
-    query: { enabled: !!address && modality === 'native_escrow' },
+    args: address && eventsAddress ? [address, eventsAddress] : undefined,
+    query: { enabled: !!address && !!eventsAddress && modality === 'native_escrow' },
   })
 
   // ERC-20 approve
@@ -294,12 +295,12 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
 
   // ── Publish flow ─────────────────────────────────────────────────────────
   const handleApprove = () => {
-    if (!address) return
+    if (!address || !eventsAddress) return
     writeApprove({
       address: USDC_ADDRESS,
       abi: ERC20_APPROVE_ABI,
       functionName: 'approve',
-      args: [FUNDORA_EVENTS_ADDRESS, prizeTotal],
+      args: [eventsAddress, prizeTotal],
     })
   }
 
@@ -351,7 +352,50 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
       status: 'pending',
       submittedAt: Date.now(),
     })
-    if (createHash) onSuccess(1n, createHash)
+    if (createHash) {
+      const createdEv: Event = {
+        id: `event_${Date.now()}`,
+        title,
+        tagline: tagline || title,
+        description,
+        category,
+        modality,
+        status: 'active',
+        hostName: address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'Organizer',
+        hostAddress: address,
+        totalPrizePoolUsdc: prizeTotal,
+        contractAddress: modality === 'native_escrow' ? eventsAddress : undefined,
+        tags: tags.length > 0 ? tags : [category],
+        startDate: Math.floor(Date.now() / 1000),
+        submissionDeadline: parseDateInput(submissionDeadlineDate) || Math.floor(Date.now() / 1000) + 86400 * 14,
+        judgingDeadline: parseDateInput(judgingDeadlineDate) || Math.floor(Date.now() / 1000) + 86400 * 21,
+        tracks: tracks.map((t, idx) => ({
+          id: t.id || `track_${idx}`,
+          name: t.name,
+          description: t.description,
+          prizePoolUsdc: t.tiers.reduce((sum, tr) => {
+            try { return sum + parseUnits(tr.amountUsdc || '0', USDC_DECIMALS) } catch { return sum }
+          }, 0n),
+          prizeTiers: t.tiers.map((tr, pIdx) => ({
+            id: `tier_${idx}_${pIdx}`,
+            place: tr.place,
+            amountUsdc: (() => {
+              try { return parseUnits(tr.amountUsdc || '0', USDC_DECIMALS) } catch { return 0n }
+            })(),
+          })),
+        })),
+        rubric: rubric.map((r, rIdx) => ({
+          id: r.id || `rubric_${rIdx}`,
+          name: r.name,
+          description: r.description,
+          weightPercentage: Number(r.weightPercentage) || 0,
+          maxScore: 10,
+        })),
+        reviewers: reviewers.filter(Boolean),
+        submissionsCount: 0,
+      }
+      onSuccess(1n, createHash, createdEv)
+    }
   }, [isCreateDone, createHash, onSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isOpen) return null

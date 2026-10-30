@@ -49,9 +49,11 @@ export function EventDetailView({ event, submissions, onBack, onOpenSubmitModal 
   const alreadySubmittedId = existingSubId
 
   const handleOpenSubmit = () => {
-    setWizardOpen(true)
-    // Also call prop callback for view switching if provided
-    onOpenSubmitModal?.()
+    if (onOpenSubmitModal) {
+      onOpenSubmitModal()
+    } else {
+      setWizardOpen(true)
+    }
   }
 
   const handleWizardSuccess = (sub: Submission) => {
@@ -742,17 +744,19 @@ export function EventDetailView({ event, submissions, onBack, onOpenSubmitModal 
       </div>
 
       {/* ── Submission Wizard Modal ── */}
-      <AnimatePresence>
-        {wizardOpen && (
-          <ParticipantSubmitWizard
-            event={event}
-            isOpen={wizardOpen}
-            onClose={() => setWizardOpen(false)}
-            onSuccess={handleWizardSuccess}
-            alreadySubmittedId={alreadySubmittedId}
-          />
-        )}
-      </AnimatePresence>
+      {!onOpenSubmitModal && (
+        <AnimatePresence>
+          {wizardOpen && (
+            <ParticipantSubmitWizard
+              event={event}
+              isOpen={wizardOpen}
+              onClose={() => setWizardOpen(false)}
+              onSuccess={handleWizardSuccess}
+              alreadySubmittedId={alreadySubmittedId}
+            />
+          )}
+        </AnimatePresence>
+      )}
 
       {/* ── Submission Receipt Modal ── */}
       <AnimatePresence>

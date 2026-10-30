@@ -71,7 +71,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const error = isLive ? (liveIsError ? (liveError ?? 'Failed to load live events') : null) : null
 
   const addSubmission = (newSub: Submission) => {
-    if (isLive) return // live mode is read-only
+    if (isLive) {
+      refetchLive()
+      return
+    }
     setSubmissions((prev) => {
       const existing = prev[newSub.eventId] || []
       return { ...prev, [newSub.eventId]: [newSub, ...existing] }
@@ -84,7 +87,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   }
 
   const addEvent = (newEvent: Event) => {
-    if (isLive) return // live mode is read-only
+    if (isLive) {
+      refetchLive()
+      return
+    }
     setMockEvents((prev) => [newEvent, ...prev])
   }
 

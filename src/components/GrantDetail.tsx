@@ -5,7 +5,7 @@ import { erc20Abi, formatUnits } from 'viem'
 import {
   ArrowLeft, ExternalLink, Send, CheckCircle, XCircle,
   AlertCircle, Loader2, Ban, AlertTriangle, Info,
-  CalendarDays, CheckCircle2, Globe, Fingerprint, Zap,
+  CalendarDays, CheckCircle2, Globe,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { FUNDORA_ABI, ARC_TESTNET_ID, ARC_MAINNET_ID, getContractAddress } from '../contracts/fundora'
@@ -29,7 +29,6 @@ import type { Grant, Milestone } from '../hooks/useFundora'
 import { parseOnchainError } from '../utils/errors'
 import { CrossChainFundModal } from './CrossChainFundModal'
 import { getCCTPChain } from '../utils/cctpFunding'
-import { usePasskeyContext } from '../context/PasskeyContext'
 
 interface Props {
   grant: Grant
@@ -145,16 +144,6 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
 
   const isBuilder = address?.toLowerCase() === grant.builder?.toLowerCase()
 
-  // ── Passkey / gasless path ────────────────────────────────────────────────
-  const {
-    isPasskeyConnected,
-    executeGaslessAction,
-  } = usePasskeyContext()
-
-  // Gasless action state (apply, claim)
-  const [gaslessLoading, setGaslessLoading] = useState(false)
-  const [gaslessTxHash, setGaslessTxHash] = useState<`0x${string}` | undefined>()
-  const [gaslessError, setGaslessError] = useState<string | null>(null)
   const noBuilder = grant.builder === '0x0000000000000000000000000000000000000000'
   const isWrongChain = chainId !== activeChainId
 
@@ -254,25 +243,6 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
   }, [cancelSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleApply = () => {
-    if (isPasskeyConnected) {
-      setGaslessLoading(true)
-      setGaslessError(null)
-      setGaslessTxHash(undefined)
-      executeGaslessAction('applyForGrant', [grant.id])
-        .then((hash) => {
-          setGaslessTxHash(hash)
-          void refetchMilestones()
-          onRefresh()
-          toast.success('Applied! You are now the builder for this grant.')
-        })
-        .catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : 'Gasless transaction failed.'
-          setGaslessError(msg)
-          toast.error(msg)
-        })
-        .finally(() => setGaslessLoading(false))
-      return
-    }
     withChain(() => {
       applyWrite({
         address: FUNDORA_ADDRESS,
@@ -335,25 +305,6 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
   })
 
   const handleClaim = () => {
-    if (isPasskeyConnected) {
-      setGaslessLoading(true)
-      setGaslessError(null)
-      setGaslessTxHash(undefined)
-      executeGaslessAction('claimPayment', [])
-        .then((hash) => {
-          setGaslessTxHash(hash)
-          void refetchWithdrawal()
-          onRefresh()
-          toast.success('Payment claimed via gasless transaction!')
-        })
-        .catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : 'Gasless claim failed.'
-          setGaslessError(msg)
-          toast.error(msg)
-        })
-        .finally(() => setGaslessLoading(false))
-      return
-    }
     withChain(() => {
       claimWrite(
         { address: FUNDORA_ADDRESS, abi: FUNDORA_ABI, functionName: 'claimPayment' },
@@ -539,53 +490,6 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
           <div className="border-t pt-5" style={{ borderColor: 'var(--border)' }}>
             <div className="label-caps mb-3" style={{ color: 'var(--subtle)' }}>Actions</div>
 
-            {/* Gasless path indicator */}
-            {isPasskeyConnected && (
-              <div
-                className="rounded-xl px-3 py-2 flex items-center gap-2 text-xs font-medium mb-3"
-                style={{ background: 'var(--brand-light)', borderColor: 'var(--brand-border)', border: '1px solid var(--brand-border)', color: 'var(--brand)' }}
-              >
-                <Fingerprint size={12} aria-hidden="true" />
-                <span>Gasless mode — transactions are sponsored on Arc via Circle Gas Station</span>
-              </div>
-            )}
-
-            {/* Gasless tx status */}
-            {gaslessLoading && (
-              <div
-                className="rounded-xl px-3 py-2.5 flex items-center gap-2 text-sm mb-3"
-                style={{ background: 'var(--brand-light)', border: '1px solid var(--brand-border)', color: 'var(--brand)' }}
-                role="status"
-                aria-live="polite"
-              >
-                <Loader2 size={14} className="animate-spin shrink-0" aria-hidden="true" />
-                <span>Submitting gasless transaction on Arc…</span>
-              </div>
-            )}
-            {!gaslessLoading && gaslessTxHash && (
-              <a
-                href={buildTxExplorerUrl(ARC_TESTNET_ID, gaslessTxHash)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs mb-3 font-semibold"
-                style={{ color: 'var(--brand)' }}
-              >
-                <Zap size={11} aria-hidden="true" />
-                Gasless transaction confirmed — view on explorer
-                <ExternalLink size={10} aria-hidden="true" />
-              </a>
-            )}
-            {!gaslessLoading && gaslessError && (
-              <div
-                className="rounded-xl px-3 py-2.5 flex items-start gap-2 text-xs mb-3"
-                style={{ background: 'var(--rose-light)', border: '1px solid var(--rose-border)', color: 'var(--rose)' }}
-                role="alert"
-              >
-                <AlertCircle size={12} className="shrink-0 mt-0.5" aria-hidden="true" />
-                <span>{gaslessError}</span>
-              </div>
-            )}
-
             {/* Wrong-chain banner */}
             {isWrongChain && (
               <div
@@ -668,35 +572,20 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
               </div>
             )}
 
-            {/* Apply as builder — wagmi or gasless */}
+            {/* Apply as builder */}
             {grant.status === 1 && noBuilder && !isReviewer && !isAdmin && (
               <button
                 onClick={handleApply}
-                disabled={
-                  isPasskeyConnected
-                    ? gaslessLoading
-                    : (applyPending || applyConfirming || isWrongChain)
-                }
-                title={!isPasskeyConnected && isWrongChain ? 'Switch network first' : undefined}
+                disabled={applyPending || applyConfirming || isWrongChain}
+                title={isWrongChain ? 'Switch network first' : undefined}
                 className="w-full h-11 rounded-full text-sm font-bold text-white transition-all disabled:opacity-60 flex items-center justify-center gap-2 btn-focus mb-3"
                 style={{
                   background: 'var(--brand)',
                   boxShadow: '0 4px 14px rgba(99,102,241,0.30)',
                 }}
               >
-                {isPasskeyConnected ? (
-                  <>
-                    {gaslessLoading
-                      ? <Loader2 size={14} className="animate-spin" />
-                      : <Fingerprint size={14} aria-hidden="true" />}
-                    {gaslessLoading ? 'Submitting gasless tx…' : 'Apply as Builder (Gasless)'}
-                  </>
-                ) : (
-                  <>
-                    {(applyPending || applyConfirming) && <Loader2 size={14} className="animate-spin" />}
-                    {applyPending ? 'Confirm in wallet…' : applyConfirming ? 'Confirming…' : 'Apply as Builder'}
-                  </>
-                )}
+                {(applyPending || applyConfirming) && <Loader2 size={14} className="animate-spin" />}
+                {applyPending ? 'Confirm in wallet…' : applyConfirming ? 'Confirming…' : 'Apply as Builder'}
               </button>
             )}
 
@@ -720,7 +609,7 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
               </div>
             )}
 
-            {/* Pending USDC claim — wagmi or gasless */}
+            {/* Pending USDC claim */}
             {hasPendingWithdrawal && (
               <div
                 className="rounded-xl border p-4 flex items-center justify-between gap-3 mb-3"
@@ -736,26 +625,13 @@ export function GrantDetail({ grant: grantProp, onBack, onRefresh, isAdmin, acti
                 </div>
                 <button
                   onClick={handleClaim}
-                  disabled={
-                    isPasskeyConnected
-                      ? gaslessLoading
-                      : (claimPending || claimConfirming || isWrongChain)
-                  }
-                  title={!isPasskeyConnected && isWrongChain ? 'Switch network first' : undefined}
+                  disabled={claimPending || claimConfirming || isWrongChain}
+                  title={isWrongChain ? 'Switch network first' : undefined}
                   className="px-4 h-9 rounded-full text-sm font-bold text-white flex items-center gap-1.5 disabled:opacity-60 shrink-0 btn-focus"
                   style={{ background: 'var(--teal)', boxShadow: '0 2px 8px rgba(13,148,136,0.25)' }}
                 >
-                  {isPasskeyConnected ? (
-                    <>
-                      {gaslessLoading && <Loader2 size={12} className="animate-spin" />}
-                      {gaslessLoading ? 'Claiming…' : 'Claim USDC (Gasless)'}
-                    </>
-                  ) : (
-                    <>
-                      {(claimPending || claimConfirming) && <Loader2 size={12} className="animate-spin" />}
-                      {claimPending ? 'Confirm…' : claimConfirming ? 'Claiming…' : 'Claim USDC'}
-                    </>
-                  )}
+                  {(claimPending || claimConfirming) && <Loader2 size={12} className="animate-spin" />}
+                  {claimPending ? 'Confirm…' : claimConfirming ? 'Claiming…' : 'Claim USDC'}
                 </button>
               </div>
             )}
@@ -1033,7 +909,6 @@ function MilestoneCard({
 }: MilestoneCardProps) {
   const { address } = useAccount()
   const publicClient = usePublicClient({ chainId: activeChainId })
-  const { isPasskeyConnected, executeGaslessAction } = usePasskeyContext()
   const { data: approvalCount } = useApprovalCount(grant.id, index)
   const { data: hasVoted } = useReviewerVote(
     isReviewer ? grant.id : null,
@@ -1046,8 +921,6 @@ function MilestoneCard({
   const [evidenceInput, setEvidenceInput] = useState('')
   const [submitHash, setSubmitHash] = useState<`0x${string}` | undefined>()
   const [reviewHash, setReviewHash] = useState<`0x${string}` | undefined>()
-  const [gaslessSubmitLoading, setGaslessSubmitLoading] = useState(false)
-  const [gaslessSubmitError, setGaslessSubmitError] = useState<string | null>(null)
 
   const [evidenceUri, setEvidenceUri] = useState<string | null>(() =>
     readEvidenceFromCache(activeChainId, grant.id, index)
@@ -1120,7 +993,7 @@ function MilestoneCard({
   const canSubmit = isBuilder && grant.status === 1 && (milestone.status === 0 || milestone.status === 3)
   const canReview = isReviewer && milestone.status === 1 && !hasVoted
   const alreadyVoted = isReviewer && milestone.status === 1 && hasVoted === true
-  const isSubmitting = isPasskeyConnected ? gaslessSubmitLoading : (submitPending || submitConfirming)
+  const isSubmitting = submitPending || submitConfirming
   const isReviewing = reviewPending || reviewConfirming
   const submitConfirmed = !!submitHash && !submitConfirming && !submitPending
   const reviewConfirmed = !!reviewHash && !reviewConfirming && !reviewPending
@@ -1131,29 +1004,6 @@ function MilestoneCard({
   const handleSubmit = () => {
     const uri = evidenceInput.trim()
     if (!uri) { toast.error('Please enter an evidence URL or IPFS CID.'); return }
-
-    if (isPasskeyConnected) {
-      setGaslessSubmitLoading(true)
-      setGaslessSubmitError(null)
-      executeGaslessAction('submitMilestoneEvidence', [grant.id, BigInt(index), uri])
-        .then((hash) => {
-          setSubmitHash(hash)
-          setEvidenceTxHash(hash)
-          setEvidenceInput('')
-          saveEvidenceToCache(activeChainId, grant.id, index, uri)
-          setEvidenceUri(uri)
-          onRefreshMilestones()
-          onRefresh()
-          toast.success('Evidence submitted via gasless transaction!')
-        })
-        .catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : 'Gasless submission failed.'
-          setGaslessSubmitError(msg)
-          toast.error(msg)
-        })
-        .finally(() => setGaslessSubmitLoading(false))
-      return
-    }
 
     submitWrite(
       {
@@ -1317,7 +1167,7 @@ function MilestoneCard({
                 value={evidenceInput}
                 onChange={(e) => setEvidenceInput(e.target.value)}
                 placeholder="GitHub PR URL, IPFS CID, demo link…"
-                disabled={isSubmitting || (!isPasskeyConnected && isWrongChain)}
+                disabled={isSubmitting || isWrongChain}
                 maxLength={500}
                 className="w-full h-10 rounded-xl border px-3 text-sm outline-none disabled:opacity-50 btn-focus transition-all"
                 style={{
@@ -1338,9 +1188,9 @@ function MilestoneCard({
             </div>
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting || !evidenceInput.trim() || (!isPasskeyConnected && isWrongChain)}
+              disabled={isSubmitting || !evidenceInput.trim() || isWrongChain}
               title={
-                !isPasskeyConnected && isWrongChain ? 'Switch network first'
+                isWrongChain ? 'Switch network first'
                 : !evidenceInput.trim() ? 'Enter an evidence URL first'
                 : undefined
               }
@@ -1352,23 +1202,11 @@ function MilestoneCard({
             >
               {isSubmitting
                 ? <Loader2 size={13} className="animate-spin" />
-                : isPasskeyConnected
-                  ? <Fingerprint size={13} aria-hidden="true" />
-                  : <Send size={13} aria-hidden="true" />}
+                : <Send size={13} aria-hidden="true" />}
               {isSubmitting
-                ? (isPasskeyConnected ? 'Submitting gasless tx…' : submitPending ? 'Confirm in wallet…' : 'Submitting…')
-                : isPasskeyConnected ? 'Submit Evidence (Gasless)' : 'Submit Evidence'}
+                ? (submitPending ? 'Confirm in wallet…' : 'Submitting…')
+                : 'Submit Evidence'}
             </button>
-            {gaslessSubmitError && (
-              <div
-                className="flex items-start gap-1.5 text-xs"
-                style={{ color: 'var(--rose)' }}
-                role="alert"
-              >
-                <AlertCircle size={11} className="shrink-0 mt-0.5" aria-hidden="true" />
-                <span>{gaslessSubmitError}</span>
-              </div>
-            )}
             {submitHash && (
               <a
                 href={buildTxExplorerUrl(activeChainId, submitHash)}

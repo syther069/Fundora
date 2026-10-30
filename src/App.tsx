@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatedGroup } from './components/ui/animated-group'
+import { TextEffect } from './components/ui/text-effect'
 import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
@@ -10,6 +12,7 @@ import { Header } from './components/Header'
 import { GrantCard } from './components/GrantCard'
 import { GrantDetail } from './components/GrantDetail'
 import { AdminPanel } from './components/AdminPanel'
+import { ApplyAdminModal } from './components/ApplyAdminModal'
 import { useContractAdmin, useIsReviewer } from './hooks/useFundora'
 import { useUnifiedIsAdmin } from './hooks/useAdminRegistry'
 import { OrganizerTypeModal } from './components/events/OrganizerTypeModal'
@@ -25,10 +28,20 @@ import { EventCard } from './components/events/EventCard'
 import { EventDirectoryToolbar } from './components/events/EventDirectoryToolbar'
 import { EventSkeletonGrid } from './components/events/EventSkeletonGrid'
 import { EventDetailView } from './components/events/EventDetailView'
+import { ParticipantSubmitWizard } from './components/events/ParticipantSubmitWizard'
+import { SubmissionReceiptModal } from './components/events/SubmissionReceiptModal'
+import { EventPublishedModal } from './components/events/EventPublishedModal'
+import type { Submission, Event } from './types/events'
 
 // Phase 3 imports
 import { OrganizerCreateWizard } from './components/events/OrganizerCreateWizard'
-import { usePendingPrizeWithdrawals, useClaimPrize, usePendingOrganizerRefunds, useClaimOrganizerRefund } from './hooks/useFundoraEvents'
+import {
+  usePendingPrizeWithdrawals,
+  useClaimPrize,
+  usePendingOrganizerRefunds,
+  useClaimOrganizerRefund,
+  useUserSubmissionId,
+} from './hooks/useFundoraEvents'
 import { formatUnits } from 'viem'
 
 // Phase 4 imports
@@ -40,16 +53,14 @@ import { DeliberationLeaderboard } from './components/events/DeliberationLeaderb
 import { SettlementConsole } from './components/events/SettlementConsole'
 import type { WinnerMapping } from './components/events/DeliberationLeaderboard'
 
-// Apply as Organiser modal
-import { ApplyAdminModal } from './components/ApplyAdminModal'
-
 type View = 'events' | 'event-detail' | 'participant' | 'reviewer' | 'organizer' | 'grants' | 'detail' | 'admin'
 
 const _NOT_DEPLOYED = FUNDORA_ADDRESS === '0x0000000000000000000000000000000000000000'
 
 // ── Hero: disconnected state (legacy grants) ──────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
+function HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
+  const shouldReduce = useReducedMotion()
   const features = [
     { icon: <Zap size={12} />, label: 'Instant USDC payouts', color: 'var(--amber)' },
     { icon: <ShieldCheck size={12} />, label: 'Onchain evidence', color: 'var(--teal)' },
@@ -84,12 +95,15 @@ function _HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
           </svg>
         </div>
 
-        <h1
+        <TextEffect
+          as="h1"
+          per="word"
+          preset={shouldReduce ? 'fade' : 'fade-in-blur'}
           className="font-jakarta font-extrabold text-3xl mb-3 text-midnight"
           style={{ letterSpacing: '-0.03em' }}
         >
           Fundora
-        </h1>
+        </TextEffect>
         <p className="text-base leading-relaxed max-w-sm mx-auto mb-6" style={{ color: 'var(--muted)' }}>
           Milestone-based USDC grants with onchain evidence, reviewer votes, and transparent payouts — built on Arc.
         </p>
@@ -200,13 +214,25 @@ function RoleBanner({ isAdmin, isReviewer }: { isAdmin: boolean; isReviewer: boo
 // ── Wrong-chain banner ────────────────────────────────────────────────────────
 function WrongChainBanner({ chainId }: { chainId: number | undefined }) {
   const { switchChain } = useSwitchChain()
-  const isWrongChain = chainId !== undefined && !SUPPORTED_CHAIN_IDS.includes(chainId as 5042 | 5042002)
+  const { isLive } = useMode()
 
-  if (!isWrongChain) return null
+  // 1. Completely unsupported chain
+  const isUnsupported = chainId !== undefined && !(SUPPORTED_CHAIN_IDS as readonly number[]).includes(chainId)
+
+  // 2. Network mismatch between app mode and connected wallet chain
+  const isMismatch = chainId !== undefined && (
+    (isLive && chainId !== ARC_MAINNET_ID) ||
+    (!isLive && chainId === ARC_MAINNET_ID)
+  )
+
+  if (!isUnsupported && !isMismatch) return null
+
+  const targetChainId = isLive ? ARC_MAINNET_ID : ARC_TESTNET_ID
+  const targetChainName = isLive ? 'Arc Mainnet' : 'Arc Testnet'
 
   return (
     <div
-      className="border-b px-4 py-2 text-center text-xs font-medium flex items-center justify-center gap-2"
+      className="border-b px-4 py-2.5 text-center text-xs font-medium flex items-center justify-center gap-2 flex-wrap"
       style={{
         background: 'var(--coral-light)',
         borderColor: 'var(--coral-border)',
@@ -214,16 +240,19 @@ function WrongChainBanner({ chainId }: { chainId: number | undefined }) {
       }}
       role="alert"
     >
-      <AlertTriangle size={13} className="shrink-0" aria-hidden="true" />
+      <AlertTriangle size={14} className="shrink-0" aria-hidden="true" />
       <span>
-        Unsupported network (Chain ID: {chainId}). Switch to <strong>Arc Testnet</strong> or <strong>Arc Mainnet</strong> to interact.
+        {isUnsupported
+          ? `Unsupported network (Chain ID: ${chainId}).`
+          : `Network Mismatch: You are viewing ${isLive ? 'Live Mode' : 'Demo Mode'}, but your wallet is connected to ${chainId === ARC_MAINNET_ID ? 'Arc Mainnet' : 'Arc Testnet'}.`}
+        {' '}Switch to <strong>{targetChainName}</strong> to interact.
       </span>
       {switchChain && (
         <button
-          onClick={() => switchChain({ chainId: ARC_TESTNET_ID })}
-          className="underline font-semibold ml-1 hover:opacity-80 btn-focus"
+          onClick={() => switchChain({ chainId: targetChainId })}
+          className="underline font-bold ml-1.5 hover:opacity-80 btn-focus px-2 py-0.5 rounded bg-white/60 border border-coral-border shadow-xs"
         >
-          Switch to Arc Testnet
+          Switch to {targetChainName}
         </button>
       )}
     </div>
@@ -295,9 +324,11 @@ export default function App() {
   const { data: _contractAdmin } = useContractAdmin()
   const { data: isReviewer } = useIsReviewer(address)
   const { isAdmin, refetch: _refetchIsAdmin } = useUnifiedIsAdmin()
+  const shouldReduce = useReducedMotion()
   const [organizerTypeModalOpen, setOrganizerTypeModalOpen] = useState(false)
   const [selectedOrgCategory, setSelectedOrgCategory] = useState<'hackathon' | 'contest' | null>(null)
   const [applyAdminOpen, setApplyAdminOpen] = useState(false)
+  const [publishedEvent, setPublishedEvent] = useState<Event | null>(null)
 
   // Phase 4 — Demo / Live mode
   const { isLive } = useMode()
@@ -308,6 +339,8 @@ export default function App() {
     activeEvent,
     setActiveEventId,
     getSubmissionsForEvent,
+    addSubmission,
+    submissions,
     isLoading: eventsLoading,
     categoryFilter,
     setCategoryFilter,
@@ -322,6 +355,40 @@ export default function App() {
     statusCounts,
     resetFilters,
   } = useEvents()
+
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false)
+  const [receiptSubmission, setReceiptSubmission] = useState<Submission | null>(null)
+
+  const activeUserAddress = address
+
+  const activeEventIdBig = activeEvent
+    ? (() => {
+        try {
+          return BigInt(activeEvent.id.replace(/\D/g, '') || '0')
+        } catch {
+          return 0n
+        }
+      })()
+    : 0n
+
+  const { data: activeUserSubmissionId } = useUserSubmissionId(
+    activeEvent && activeEvent.modality === 'native_escrow' && activeEventIdBig > 0n ? activeEventIdBig : undefined,
+    activeUserAddress as `0x${string}` | undefined,
+  )
+
+  const _userSubmissions = useMemo(() => {
+    if (!activeUserAddress) return []
+    const all = Object.values(submissions).flat()
+    return all.filter(
+      (s) => s.submitterAddress?.toLowerCase() === activeUserAddress.toLowerCase()
+    )
+  }, [submissions, activeUserAddress])
+
+  const handleSubmissionSuccess = (newSub: Submission) => {
+    addSubmission(newSub)
+    setIsSubmitModalOpen(false)
+    setReceiptSubmission(newSub)
+  }
 
   // Precomputed event metrics for hero strip
   const totalEscrowUsdc = useMemo(() => {
@@ -459,9 +526,14 @@ export default function App() {
                       <Trophy size={12} />
                       {isLive ? 'Live Mainnet Events' : 'Arc Community Hackathons & Contests'}
                     </span>
-                    <h1 className="font-jakarta font-extrabold text-2xl sm:text-4xl text-midnight tracking-tight mb-2">
+                    <TextEffect
+                      as="h1"
+                      per="word"
+                      preset={shouldReduce ? 'fade' : 'fade-in-blur'}
+                      className="font-jakarta font-extrabold text-2xl sm:text-4xl text-midnight tracking-tight mb-2"
+                    >
                       Build With Arc. Win Onchain USDC.
-                    </h1>
+                    </TextEffect>
                     <p className="text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
                       Discover community competitions with verified smart contract escrow. Submit prototypes, media, or tools, and pull-claim rewards directly to your wallet.
                     </p>
@@ -551,7 +623,7 @@ export default function App() {
                     )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  <AnimatedGroup className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {filteredEvents.map((event) => (
                       <EventCard
                         key={event.id}
@@ -559,7 +631,7 @@ export default function App() {
                         onSelect={handleSelectEvent}
                       />
                     ))}
-                  </div>
+                  </AnimatedGroup>
                 )}
               </div>
             </motion.div>
@@ -580,7 +652,7 @@ export default function App() {
                 event={activeEvent}
                 submissions={getSubmissionsForEvent(activeEvent.id)}
                 onBack={() => setView('events')}
-                onOpenSubmitModal={() => setView('participant')}
+                onOpenSubmitModal={() => setIsSubmitModalOpen(true)}
               />
             </motion.div>
           )}
@@ -772,27 +844,45 @@ export default function App() {
             >
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <h1 className="font-jakarta font-extrabold text-2xl text-midnight tracking-tight mb-1">
-                    Organizer Operations Console
-                  </h1>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h1 className="font-jakarta font-extrabold text-2xl text-midnight tracking-tight">
+                      Organizer Operations Console
+                    </h1>
+                    {isAdmin ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                        <ShieldCheck size={11} /> Verified Organizer
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                        Verification Required
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-slate-600">
                     Create events, lock escrow prize pools on Arc, invite judges, and confirm final payouts.
                   </p>
                 </div>
-                {isLive ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-brand-border bg-brand-light text-brand">
-                    <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
-                    Connect on Arc Mainnet to create events
-                  </span>
-                ) : (
+                <div className="flex items-center gap-2.5">
+                  {isLive && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-brand-border bg-brand-light text-brand">
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
+                      Live Mainnet
+                    </span>
+                  )}
                   <button
-                    onClick={() => setOrganizerTypeModalOpen(true)}
-                    className="inline-flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold text-white bg-midnight hover:bg-slate-800 shadow-sm"
+                    onClick={() => {
+                      if (!isAdmin) {
+                        setApplyAdminOpen(true)
+                      } else {
+                        setOrganizerTypeModalOpen(true)
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold text-white bg-midnight hover:bg-slate-800 shadow-sm transition-all"
                   >
                     <PlusCircle size={14} />
                     Create New Event
                   </button>
-                )}
+                </div>
               </div>
 
               {/* Non-organiser CTA banner */}
@@ -981,7 +1071,7 @@ export default function App() {
                       {grants.length > 0 && <StatsStrip grants={grants} />}
 
                       {/* Grants Grid */}
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <AnimatedGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {grants.map((grant) => (
                           <GrantCard
                             key={grant.id.toString()}
@@ -990,7 +1080,7 @@ export default function App() {
                             isNavigating={navigating === grant.id.toString()}
                           />
                         ))}
-                      </div>
+                      </AnimatedGroup>
                     </>
                   )}
                 </div>
@@ -1033,14 +1123,61 @@ export default function App() {
             isOpen={organizerWizardOpen}
             initialCategory={selectedOrgCategory ?? 'hackathon'}
             onClose={() => { setOrganizerWizardOpen(false); setSelectedOrgCategory(null) }}
-            onSuccess={(_eventId, _txHash) => {
+            onSuccess={(_eventId, _txHash, createdEvent) => {
               setOrganizerWizardOpen(false)
               setSelectedOrgCategory(null)
+              if (createdEvent) {
+                setPublishedEvent(createdEvent)
+              }
               setView('organizer')
             }}
           />
         )}
       </AnimatePresence>
+
+      {/* Event Published Celebration Modal */}
+      <AnimatePresence>
+        {publishedEvent && (
+          <EventPublishedModal
+            event={publishedEvent}
+            onClose={() => setPublishedEvent(null)}
+            onViewEvent={(eventId) => {
+              setPublishedEvent(null)
+              handleSelectEvent(eventId)
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Participant Submit Wizard Modal */}
+      <AnimatePresence>
+        {isSubmitModalOpen && activeEvent && (
+          <ParticipantSubmitWizard
+            event={activeEvent}
+            isOpen={isSubmitModalOpen}
+            onClose={() => setIsSubmitModalOpen(false)}
+            onSuccess={handleSubmissionSuccess}
+            alreadySubmittedId={activeUserSubmissionId}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Submission Receipt Modal */}
+      <AnimatePresence>
+        {receiptSubmission && activeEvent && (
+          <SubmissionReceiptModal
+            submission={receiptSubmission}
+            eventTitle={activeEvent.title}
+            onClose={() => setReceiptSubmission(null)}
+            onViewShowcase={() => {
+              setReceiptSubmission(null)
+              setView('event-detail')
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+
     </div>
   )
 }

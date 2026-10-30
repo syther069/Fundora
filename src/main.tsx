@@ -23,7 +23,6 @@ import { config } from './config'
 import App from './App'
 import { GrantsProvider } from './context/GrantsContext'
 import { EventsProvider } from './context/EventsContext'
-import { PasskeyProvider } from './context/PasskeyContext'
 import { ModeProvider } from './context/ModeContext'
 import './index.css'
 
@@ -78,18 +77,15 @@ createRoot(document.getElementById('root')!).render(
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <ConnectKitProvider>
-          {/* PasskeyProvider: passkey / MSCA session state (Arc Testnet) */}
-          <PasskeyProvider>
-            {/* ModeProvider: Demo/Live toggle — must wrap EventsProvider */}
-            <ModeProvider>
-              {/* GrantsProvider for microgrants & EventsProvider for hackathons & contests */}
-              <GrantsProvider>
-                <EventsProvider>
-                  <App />
-                </EventsProvider>
-              </GrantsProvider>
-            </ModeProvider>
-          </PasskeyProvider>
+          {/* ModeProvider: Demo/Live toggle — must wrap EventsProvider */}
+          <ModeProvider>
+            {/* GrantsProvider for microgrants & EventsProvider for hackathons & contests */}
+            <GrantsProvider>
+              <EventsProvider>
+                <App />
+              </EventsProvider>
+            </GrantsProvider>
+          </ModeProvider>
           <StudioWatermark />
           <Toaster position="top-center" />
         </ConnectKitProvider>
