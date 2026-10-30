@@ -3,9 +3,9 @@ import {
   ADMIN_REGISTRY_ABI,
   getAdminRegistryAddress,
   getAdminRegistrationFee,
-
 } from '../contracts/fundora'
 import { useActiveChainId, useContractAdmin } from './useFundora'
+import { loadOrganizerProfile } from '../components/ApplyAdminModal'
 
 const POLL_INTERVAL = 12_000
 
@@ -98,8 +98,9 @@ export function useAdminCount() {
 /**
  * Unified admin check:
  * - isPlatformAdmin: msg.sender is the initial/contract admin of Fundora
- * - isRegisteredAdmin: msg.sender is registered in AdminRegistry
- * - isAdmin: true if either condition is met
+ * - isRegisteredAdmin: msg.sender is registered in AdminRegistry (onchain)
+ * - hasLocalProfile: msg.sender completed the organiser profile wizard (localStorage)
+ * - isAdmin: true if any condition is met
  */
 export function useUnifiedIsAdmin() {
   const { address } = useAccount()
@@ -113,12 +114,17 @@ export function useUnifiedIsAdmin() {
   )
 
   const isRegisteredAdmin = !!isRegistered
-  const isAdmin = isPlatformAdmin || isRegisteredAdmin
+
+  // Check localStorage organiser profile (created via the Apply as Organiser wizard)
+  const hasLocalProfile = !!(address && loadOrganizerProfile(address))
+
+  const isAdmin = isPlatformAdmin || isRegisteredAdmin || hasLocalProfile
 
   return {
     isAdmin,
     isPlatformAdmin,
     isRegisteredAdmin,
+    hasLocalProfile,
     isLoading: adminLoading || registeredLoading,
     refetch: refetchRegistered,
   }

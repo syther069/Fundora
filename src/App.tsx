@@ -40,6 +40,9 @@ import { DeliberationLeaderboard } from './components/events/DeliberationLeaderb
 import { SettlementConsole } from './components/events/SettlementConsole'
 import type { WinnerMapping } from './components/events/DeliberationLeaderboard'
 
+// Apply as Organiser modal
+import { ApplyAdminModal } from './components/ApplyAdminModal'
+
 type View = 'events' | 'event-detail' | 'participant' | 'reviewer' | 'organizer' | 'grants' | 'detail' | 'admin'
 
 const _NOT_DEPLOYED = FUNDORA_ADDRESS === '0x0000000000000000000000000000000000000000'
@@ -294,6 +297,7 @@ export default function App() {
   const { isAdmin, refetch: _refetchIsAdmin } = useUnifiedIsAdmin()
   const [organizerTypeModalOpen, setOrganizerTypeModalOpen] = useState(false)
   const [selectedOrgCategory, setSelectedOrgCategory] = useState<'hackathon' | 'contest' | null>(null)
+  const [applyAdminOpen, setApplyAdminOpen] = useState(false)
 
   // Phase 4 — Demo / Live mode
   const { isLive } = useMode()
@@ -791,6 +795,35 @@ export default function App() {
                 )}
               </div>
 
+              {/* Non-organiser CTA banner */}
+              {!isAdmin && (
+                <div
+                  className="rounded-2xl border p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+                  style={{ borderColor: 'var(--brand-border, #c7d2fe)', background: 'var(--brand-light)' }}
+                >
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: 'var(--brand)', color: '#fff' }}>
+                    <ShieldCheck size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-jakarta font-bold text-sm text-midnight mb-0.5">
+                      Apply for Verified Organiser Rights
+                    </p>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+                      Set up your organiser profile to lock smart contract prize escrow and launch competitions on Arc.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setApplyAdminOpen(true)}
+                    className="shrink-0 inline-flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    style={{ background: 'var(--brand)' }}
+                  >
+                    <ShieldCheck size={13} />
+                    Apply as Organiser
+                  </button>
+                </div>
+              )}
+
               {/* Event Operations Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -966,6 +999,20 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Apply as Organiser modal */}
+      <AnimatePresence>
+        {applyAdminOpen && (
+          <ApplyAdminModal
+            onClose={() => setApplyAdminOpen(false)}
+            onSuccessRedirect={(cat) => {
+              setApplyAdminOpen(false)
+              setSelectedOrgCategory(cat)
+              setOrganizerWizardOpen(true)
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Organizer type selection → create wizard flow */}
       <AnimatePresence>
