@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trophy, ChevronDown, ChevronUp, Copy, Check, Medal } from 'lucide-react'
+import { Trophy, ChevronDown, ChevronUp, Copy, Check, Medal, Info } from 'lucide-react'
 import type { Event, PrizeTier, Track } from '../../types/events'
 import type { OnchainSubmission } from '../../contracts/fundoraEvents'
-import { useSubmissionsBatch } from '../../hooks/useFundoraEvents'
+import { useSubmissionsBatch, useGetReview } from '../../hooks/useFundoraEvents'
 import { useEvents } from '../../context/EventsContext'
 import { useMode } from '../../context/ModeContext'
+import type { Address } from 'viem'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -146,11 +147,74 @@ function PrizeTierSelector({
   )
 }
 
-// ── Expanded row detail ───────────────────────────────────────────────────────
-function ExpandedRow({ row, event }: { row: LeaderboardRow; event: Event }) {
-  const meta = parseMeta(row.metadataUri)
+// ── Per-reviewer score row (one hook call each — safe pattern for hooks-in-loops) ──
+function ReviewerScoreRow({
+  reviewerAddr,
+  eventIdBig,
+  submissionIdBig,
+}: {
+  reviewerAddr: string
+  eventIdBig: bigint
+  submissionIdBig: bigint
+}) {
+  const { data, isLoading } = useGetReview(
+    eventIdBig,
+    submissionIdBig,
+    reviewerAddr as Address,
+  )
 
+  const reviewedAtLabel = useMemo(() => {
+    if (!data || data.reviewedAt === 0) return null
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    }).format(new Date(data.reviewedAt * 1000))
+  }, [data])
+
+  return (
+    <tr className="border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
+      <td className="py-1.5 pr-3 font-mono text-[11px]" style={{ color: 'var(--muted)' }}>
+        {shortAddr(reviewerAddr)}
+      </td>
+      <td className="py-1.5 px-3 text-center">
+        {isLoading ? (
+          <span className="inline-block w-3 h-3 rounded-full border-2 border-slate-300 border-t-brand animate-spin" aria-hidden="true" />
+        ) : data && data.score > 0 ? (
+          <span className="font-mono font-bold text-[12px] text-midnight tabular-nums">
+            {data.score}<span className="font-normal text-slate-400"> / 100</span>
+          </span>
+        ) : (
+          <span className="text-[11px]" style={{ color: 'var(--subtle)' }}>Not yet reviewed</span>
+        )}
+      </td>
+      <td className="py-1.5 pl-3 text-[11px] text-right" style={{ color: 'var(--muted)' }}>
+        {reviewedAtLabel ?? '—'}
+      </td>
+    </tr>
+  )
+}
+
+// ── Expanded row detail ───────────────────────────────────────────────────────
+function ExpandedRow({
+  row,
+  event,
+  eventIdBig,
+  isLive,
+}: {
+  row: LeaderboardRow
+  event: Event
+  eventIdBig: bigint
+  isLive: boolean
+}) {
+  const meta = parseMeta(row.metadataUri)
   const track: Track | undefined = event.tracks.find(t => t.id === row.trackId)
+
+  const submissionIdBig = useMemo(() => {
+    try { return BigInt(row.id) } catch { return 0n }
+  }, [row.id])
+
+  // event.reviewers is the list of reviewer addresses assigned to this event
+  const reviewers: string[] = (event as unknown as { reviewers?: string[] }).reviewers ?? []
 
   return (
     <motion.div
@@ -162,27 +226,75 @@ function ExpandedRow({ row, event }: { row: LeaderboardRow; event: Event }) {
     >
       <div className="px-4 pb-4 pt-2 border-t" style={{ borderColor: 'var(--border)', background: 'var(--warm-bg)' }}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+
+          {/* Left — project details */}
           <div>
             <p className="font-bold text-midnight mb-1">Project Details</p>
-            {meta.title && <p className="text-slate-600"><span className="font-semibold">Title:</span> {meta.title}</p>}
-            {track && <p className="text-slate-600 mt-0.5"><span className="font-semibold">Track:</span> {track.name}</p>}
+            {meta.title && (
+              <p className="text-slate-600">
+                <span className="font-semibold">Title:</span> {meta.title}
+              </p>
+            )}
+            {track && (
+              <p className="text-slate-600 mt-0.5">
+                <span className="font-semibold">Track:</span> {track.name}
+              </p>
+            )}
             <p className="font-mono text-slate-500 mt-0.5 select-all">{row.submitter}</p>
+            <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+              <p className="font-semibold text-midnight mb-0.5">Score Summary</p>
+              <p className="text-slate-600">
+                Cumulative: <span className="font-mono font-semibold">{row.scoreSum}</span>
+              </p>
+              <p className="text-slate-600">
+                Reviews: <span className="font-mono font-semibold">{row.reviewCount}</span>
+              </p>
+              <p className="text-slate-600">
+                Average: <span className="font-mono font-semibold">{avgScoreDisplay(row)}</span>
+              </p>
+              {row.disqualified && (
+                <p className="font-semibold mt-1" style={{ color: 'var(--coral)' }}>Disqualified</p>
+              )}
+            </div>
           </div>
+
+          {/* Right — per-reviewer breakdown */}
           <div>
-            <p className="font-bold text-midnight mb-1">Score Summary</p>
-            <p className="text-slate-600">
-              Cumulative: <span className="font-mono font-semibold">{row.scoreSum}</span>
+            <p className="font-bold text-midnight mb-2 flex items-center gap-1.5">
+              Reviewer Breakdown
+              <Info size={11} style={{ color: 'var(--muted)' }} aria-hidden="true" />
             </p>
-            <p className="text-slate-600">
-              Reviews: <span className="font-mono font-semibold">{row.reviewCount}</span>
-            </p>
-            <p className="text-slate-600">
-              Average: <span className="font-mono font-semibold">{avgScoreDisplay(row)}</span>
-            </p>
-            {row.disqualified && (
-              <p className="font-semibold mt-1" style={{ color: 'var(--coral)' }}>Disqualified</p>
+            {!isLive ? (
+              <p className="text-[11px] italic" style={{ color: 'var(--subtle)' }}>
+                Reviewer breakdown is available in Live mode only.
+              </p>
+            ) : reviewers.length === 0 ? (
+              <p className="text-[11px] italic" style={{ color: 'var(--subtle)' }}>
+                No reviewers assigned to this event yet.
+              </p>
+            ) : (
+              <table className="w-full text-xs table-fixed">
+                <thead>
+                  <tr style={{ color: 'var(--subtle)' }}>
+                    <th className="text-left font-semibold pb-1 w-1/3">Reviewer</th>
+                    <th className="text-center font-semibold pb-1 w-1/3">Score</th>
+                    <th className="text-right font-semibold pb-1 w-1/3">Reviewed At</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reviewers.map(addr => (
+                    <ReviewerScoreRow
+                      key={addr}
+                      reviewerAddr={addr}
+                      eventIdBig={eventIdBig}
+                      submissionIdBig={submissionIdBig}
+                    />
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
+
         </div>
       </div>
     </motion.div>
@@ -194,14 +306,18 @@ function LeaderboardRow({
   row,
   rank,
   event,
+  eventIdBig,
   isOrganizer,
+  isLive,
   winnerMapping,
   onWinnerMapped,
 }: {
   row: LeaderboardRow
   rank: number
   event: Event
+  eventIdBig: bigint
   isOrganizer: boolean
+  isLive: boolean
   winnerMapping: WinnerMapping
   onWinnerMapped: (tierId: string, submissionId: string, address: string, amountUsdc: bigint) => void
 }) {
@@ -279,7 +395,15 @@ function LeaderboardRow({
       </button>
 
       <AnimatePresence initial={false}>
-        {expanded && <ExpandedRow key="expanded" row={row} event={event} />}
+        {expanded && (
+          <ExpandedRow
+            key="expanded"
+            row={row}
+            event={event}
+            eventIdBig={eventIdBig}
+            isLive={isLive}
+          />
+        )}
       </AnimatePresence>
     </div>
   )
@@ -434,7 +558,9 @@ export function DeliberationLeaderboard({
               row={row}
               rank={i + 1}
               event={event}
+              eventIdBig={eventIdBig}
               isOrganizer={isOrganizer}
+              isLive={isLive}
               winnerMapping={winnerMapping}
               onWinnerMapped={onWinnerMapped}
             />

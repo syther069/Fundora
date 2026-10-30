@@ -867,15 +867,16 @@ export default function App() {
               <OrganizerReviewPanel isAdmin={!!isAdmin} />
 
               {/* ── Phase 5: Deliberation Leaderboard + Settlement Console ─── */}
-              {activeEvent && (
+              {/* Only render for the organizer of this specific event */}
+              {activeEvent && !!address && activeEvent.hostAddress === address && (
                 <DeliberationLeaderboard
                   event={activeEvent}
-                  isOrganizer={!!address && activeEvent.hostAddress === address}
+                  isOrganizer={true}
                   winnerMapping={winnerMapping}
                   onWinnerMapped={handleWinnerMapped}
                 />
               )}
-              {activeEvent && activeEvent.modality === 'native_escrow' && (
+              {activeEvent && !!address && activeEvent.hostAddress === address && activeEvent.modality === 'native_escrow' && (
                 <SettlementConsole
                   event={activeEvent}
                   winnerMapping={winnerMapping}
