@@ -87,6 +87,10 @@ export function useLiveEvents(): LiveEventsResult {
     async function load() {
       // Reset state at the top of the async function (not the sync effect body)
       if (!cancelled) { setIsLoading(true); setIsError(false); setError(null) }
+      if (!MAINNET_ADDRESS || MAINNET_ADDRESS === '0x0000000000000000000000000000000000000000') {
+        if (!cancelled) { setEvents([]); setIsLoading(false) }
+        return
+      }
       try {
         // 1. Read total event count
         const count = await mainnetClient.readContract({

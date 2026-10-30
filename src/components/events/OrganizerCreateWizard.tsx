@@ -14,8 +14,7 @@ import {
   type EventCreatePayload,
 } from '../../utils/metadataStorage'
 import type { Event } from '../../types/events'
-import { useCreateEvent } from '../../hooks/useFundoraEvents'
-import { FUNDORA_EVENTS_ADDRESS } from '../../contracts/fundoraEvents'
+import { useCreateEvent, useActiveEventsAddress } from '../../hooks/useFundoraEvents'
 
 // USDC on Arc (native = ERC-20 on Arc)
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000' as const
@@ -176,13 +175,14 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
     args: address ? [address] : undefined,
     query: { enabled: !!address && modality === 'native_escrow' },
   })
+  const eventsAddress = useActiveEventsAddress()
   const prizeTotal = totalPrizeUsdc(tracks)
   const { data: usdcAllowance, refetch: refetchAllowance } = useReadContract({
     address: USDC_ADDRESS,
     abi: ERC20_APPROVE_ABI,
     functionName: 'allowance',
-    args: address ? [address, FUNDORA_EVENTS_ADDRESS] : undefined,
-    query: { enabled: !!address && modality === 'native_escrow' },
+    args: address && eventsAddress ? [address, eventsAddress] : undefined,
+    query: { enabled: !!address && !!eventsAddress && modality === 'native_escrow' },
   })
 
   // ERC-20 approve
@@ -295,12 +295,12 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
 
   // ── Publish flow ─────────────────────────────────────────────────────────
   const handleApprove = () => {
-    if (!address) return
+    if (!address || !eventsAddress) return
     writeApprove({
       address: USDC_ADDRESS,
       abi: ERC20_APPROVE_ABI,
       functionName: 'approve',
-      args: [FUNDORA_EVENTS_ADDRESS, prizeTotal],
+      args: [eventsAddress, prizeTotal],
     })
   }
 
@@ -364,7 +364,7 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
         hostName: address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'Organizer',
         hostAddress: address,
         totalPrizePoolUsdc: prizeTotal,
-        contractAddress: modality === 'native_escrow' ? FUNDORA_EVENTS_ADDRESS : undefined,
+        contractAddress: modality === 'native_escrow' ? eventsAddress : undefined,
         tags: tags.length > 0 ? tags : [category],
         startDate: Math.floor(Date.now() / 1000),
         submissionDeadline: parseDateInput(submissionDeadlineDate) || Math.floor(Date.now() / 1000) + 86400 * 14,

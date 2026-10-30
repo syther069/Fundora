@@ -18,8 +18,8 @@ export function getAdminRegistrationFee(chainId: number): bigint {
 export const FUNDORA_ADDRESS = (import.meta.env?.VITE_FUNDORA_ADDRESS || '0xef34036dda3960a1cd57b1368329bfcf29700259') as `0x${string}` // Arc Testnet v4/v5
 export const FUNDORA_ADDRESS_MAINNET = (import.meta.env?.VITE_FUNDORA_ADDRESS_MAINNET || '0x371b4b6894882082e706cd84b781bf749472a602') as `0x${string}` // Arc Mainnet
 
-export const ADMIN_REGISTRY_ADDRESS = (import.meta.env?.VITE_ADMIN_REGISTRY_ADDRESS || '0xef34036dda3960a1cd57b1368329bfcf29700259') as `0x${string}`
-export const ADMIN_REGISTRY_ADDRESS_MAINNET = (import.meta.env?.VITE_ADMIN_REGISTRY_ADDRESS_MAINNET || '0x371b4b6894882082e706cd84b781bf749472a602') as `0x${string}`
+export const ADMIN_REGISTRY_ADDRESS = (import.meta.env?.VITE_ADMIN_REGISTRY_ADDRESS || '0x9bf7d4681410f7db14490cc67d517e3621d73fe6') as `0x${string}`
+export const ADMIN_REGISTRY_ADDRESS_MAINNET = (import.meta.env?.VITE_ADMIN_REGISTRY_ADDRESS_MAINNET || '0x0000000000000000000000000000000000000000') as `0x${string}`
 
 export function getContractAddress(chainId: number): `0x${string}` {
   return chainId === ARC_MAINNET_ID ? FUNDORA_ADDRESS_MAINNET : FUNDORA_ADDRESS

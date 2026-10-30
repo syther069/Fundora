@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "check": "bash scripts/check.sh",
     "contracts:build": "forge build",
-    "contracts:test": "forge test"
+    "contracts:test": "forge test",
+    "deploy:mainnet": "node --experimental-strip-types ./scripts/deploy-mainnet.ts",
+    "deploy:mainnet:dry": "node --experimental-strip-types ./scripts/deploy-mainnet.ts --dry-run"
   },
   "dependencies": {
     "@circle-fin/adapter-viem-v2": "^1.18.0",

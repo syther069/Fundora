@@ -214,13 +214,25 @@ function RoleBanner({ isAdmin, isReviewer }: { isAdmin: boolean; isReviewer: boo
 // ── Wrong-chain banner ────────────────────────────────────────────────────────
 function WrongChainBanner({ chainId }: { chainId: number | undefined }) {
   const { switchChain } = useSwitchChain()
-  const isWrongChain = chainId !== undefined && !(SUPPORTED_CHAIN_IDS as readonly number[]).includes(chainId)
+  const { isLive } = useMode()
 
-  if (!isWrongChain) return null
+  // 1. Completely unsupported chain
+  const isUnsupported = chainId !== undefined && !(SUPPORTED_CHAIN_IDS as readonly number[]).includes(chainId)
+
+  // 2. Network mismatch between app mode and connected wallet chain
+  const isMismatch = chainId !== undefined && (
+    (isLive && chainId !== ARC_MAINNET_ID) ||
+    (!isLive && chainId === ARC_MAINNET_ID)
+  )
+
+  if (!isUnsupported && !isMismatch) return null
+
+  const targetChainId = isLive ? ARC_MAINNET_ID : ARC_TESTNET_ID
+  const targetChainName = isLive ? 'Arc Mainnet' : 'Arc Testnet'
 
   return (
     <div
-      className="border-b px-4 py-2 text-center text-xs font-medium flex items-center justify-center gap-2"
+      className="border-b px-4 py-2.5 text-center text-xs font-medium flex items-center justify-center gap-2 flex-wrap"
       style={{
         background: 'var(--coral-light)',
         borderColor: 'var(--coral-border)',
@@ -228,16 +240,19 @@ function WrongChainBanner({ chainId }: { chainId: number | undefined }) {
       }}
       role="alert"
     >
-      <AlertTriangle size={13} className="shrink-0" aria-hidden="true" />
+      <AlertTriangle size={14} className="shrink-0" aria-hidden="true" />
       <span>
-        Unsupported network (Chain ID: {chainId}). Switch to <strong>Arc Testnet</strong> or <strong>Arc Mainnet</strong> to interact.
+        {isUnsupported
+          ? `Unsupported network (Chain ID: ${chainId}).`
+          : `Network Mismatch: You are viewing ${isLive ? 'Live Mode' : 'Demo Mode'}, but your wallet is connected to ${chainId === ARC_MAINNET_ID ? 'Arc Mainnet' : 'Arc Testnet'}.`}
+        {' '}Switch to <strong>{targetChainName}</strong> to interact.
       </span>
       {switchChain && (
         <button
-          onClick={() => switchChain({ chainId: ARC_TESTNET_ID })}
-          className="underline font-semibold ml-1 hover:opacity-80 btn-focus"
+          onClick={() => switchChain({ chainId: targetChainId })}
+          className="underline font-bold ml-1.5 hover:opacity-80 btn-focus px-2 py-0.5 rounded bg-white/60 border border-coral-border shadow-xs"
         >
-          Switch to Arc Testnet
+          Switch to {targetChainName}
         </button>
       )}
     </div>
@@ -847,12 +862,13 @@ export default function App() {
                     Create events, lock escrow prize pools on Arc, invite judges, and confirm final payouts.
                   </p>
                 </div>
-                {isLive ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-brand-border bg-brand-light text-brand">
-                    <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
-                    Connect on Arc Mainnet to create events
-                  </span>
-                ) : (
+                <div className="flex items-center gap-2.5">
+                  {isLive && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-brand-border bg-brand-light text-brand">
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
+                      Live Mainnet
+                    </span>
+                  )}
                   <button
                     onClick={() => {
                       if (!isAdmin) {
@@ -861,12 +877,12 @@ export default function App() {
                         setOrganizerTypeModalOpen(true)
                       }
                     }}
-                    className="inline-flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold text-white bg-midnight hover:bg-slate-800 shadow-sm"
+                    className="inline-flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold text-white bg-midnight hover:bg-slate-800 shadow-sm transition-all"
                   >
                     <PlusCircle size={14} />
                     Create New Event
                   </button>
-                )}
+                </div>
               </div>
 
               {/* Organizer Verification Card when not verified */}

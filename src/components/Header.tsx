@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useAccount } from 'wagmi'
+import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
   Compass, Users, Scale,
@@ -64,6 +64,16 @@ function ChainBadge() {
 // ── Demo / Live mode switcher ─────────────────────────────────────────────────
 function ModeSwitcher() {
   const { mode, setMode } = useMode()
+  const { isConnected } = useAccount()
+  const { switchChain } = useSwitchChain()
+
+  const handleSelectMode = (newMode: 'demo' | 'live') => {
+    setMode(newMode)
+    if (isConnected && switchChain) {
+      switchChain({ chainId: newMode === 'live' ? ARC_MAINNET_ID : ARC_TESTNET_ID })
+    }
+  }
+
   return (
     <div
       className="hidden md:inline-flex items-center rounded-full border p-0.5 gap-0.5"
@@ -72,7 +82,7 @@ function ModeSwitcher() {
       aria-label="Switch between Demo and Live mode"
     >
       <button
-        onClick={() => setMode('demo')}
+        onClick={() => handleSelectMode('demo')}
         className="relative flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-teal"
         style={mode === 'demo' ? { background: 'var(--teal-light)', color: 'var(--teal)' } : { color: 'var(--muted)' }}
         aria-pressed={mode === 'demo'}
@@ -86,7 +96,7 @@ function ModeSwitcher() {
         <span className="relative z-10">Demo</span>
       </button>
       <button
-        onClick={() => setMode('live')}
+        onClick={() => handleSelectMode('live')}
         className="relative flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-brand"
         style={mode === 'live' ? { background: 'var(--brand-light)', color: 'var(--brand)' } : { color: 'var(--muted)' }}
         aria-pressed={mode === 'live'}
