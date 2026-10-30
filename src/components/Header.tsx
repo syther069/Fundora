@@ -2,14 +2,12 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAccount } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
-  Fingerprint, Compass, Users, Scale,
+  Compass, Users, Scale,
   LayoutDashboard, Archive, FlaskConical, Radio,
   ChevronDown, BookOpen,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/fundora'
-import { usePasskeyContext } from '../context/PasskeyContext'
-import { PasskeyAuthModal } from './PasskeyAuthModal'
 import { useMode } from '../context/ModeContext'
 
 interface HeaderProps {
@@ -297,13 +295,7 @@ export function Header({
   currentView = 'events',
   onViewChange,
 }: HeaderProps = {}) {
-  const { isConnected } = useAccount()
-  const { isPasskeyConnected, smartAccountAddress, disconnect: passkeyDisconnect } = usePasskeyContext()
-  const [showPasskeyModal, setShowPasskeyModal] = useState(false)
-
-  const shortAddr = smartAccountAddress
-    ? `${smartAccountAddress.slice(0, 6)}…${smartAccountAddress.slice(-4)}`
-    : ''
+  const { isConnected: _isConnected } = useAccount()
 
   // Flat nav items — Organizer Console and Reviewer Console are in the dropdown
   const navItems = [
@@ -398,64 +390,6 @@ export function Header({
           <div className="shrink-0 flex items-center gap-2">
             {/* ConnectKit wallet button */}
             <ConnectKitButton />
-
-            {/* Passkey: connected state */}
-            {isPasskeyConnected && smartAccountAddress && (
-              <div className="flex items-center gap-1.5">
-                <div
-                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold"
-                  style={{
-                    background: 'var(--brand-light)',
-                    borderColor: 'var(--brand-border)',
-                    color: 'var(--brand)',
-                  }}
-                >
-                  <Fingerprint size={11} aria-hidden="true" />
-                  Smart Account (Gasless)
-                </div>
-                <span
-                  className="hidden md:block text-xs font-mono px-2 py-1 rounded-lg border"
-                  style={{
-                    background: 'var(--warm-bg-2)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--ink)',
-                  }}
-                  title={smartAccountAddress}
-                >
-                  {shortAddr}
-                </span>
-                <button
-                  onClick={passkeyDisconnect}
-                  className="text-xs font-semibold px-2.5 py-1 rounded-full border transition-all hover:opacity-70 btn-focus"
-                  style={{
-                    color: 'var(--muted)',
-                    borderColor: 'var(--border)',
-                    background: 'var(--surface)',
-                  }}
-                  aria-label="Disconnect passkey account"
-                >
-                  Disconnect
-                </button>
-              </div>
-            )}
-
-            {/* Passkey: sign-in button */}
-            {!isConnected && !isPasskeyConnected && (
-              <button
-                onClick={() => setShowPasskeyModal(true)}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full border transition-all hover:opacity-80 btn-focus"
-                style={{
-                  background: 'var(--brand-light)',
-                  borderColor: 'var(--brand-border)',
-                  color: 'var(--brand)',
-                }}
-                aria-label="Sign in with passkey — gasless account"
-              >
-                <Fingerprint size={13} aria-hidden="true" />
-                <span className="hidden sm:inline">Passkey (Gasless)</span>
-                <span className="sm:hidden">Passkey</span>
-              </button>
-            )}
           </div>
         </div>
 
@@ -499,13 +433,6 @@ export function Header({
           </div>
         )}
       </header>
-
-      {/* Passkey modal */}
-      <AnimatePresence>
-        {showPasskeyModal && (
-          <PasskeyAuthModal onClose={() => setShowPasskeyModal(false)} />
-        )}
-      </AnimatePresence>
     </>
   )
 }

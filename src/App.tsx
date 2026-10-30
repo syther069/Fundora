@@ -24,7 +24,6 @@ import { useActiveChainId } from './hooks/useFundora'
 
 // New Phase 2 Event Directory Components & Context
 import { useEvents } from './context/EventsContext'
-import { usePasskeyContext } from './context/PasskeyContext'
 import { EventCard } from './components/events/EventCard'
 import { EventDirectoryToolbar } from './components/events/EventDirectoryToolbar'
 import { EventSkeletonGrid } from './components/events/EventSkeletonGrid'
@@ -345,8 +344,7 @@ export default function App() {
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false)
   const [receiptSubmission, setReceiptSubmission] = useState<Submission | null>(null)
 
-  const { isPasskeyConnected, smartAccountAddress } = usePasskeyContext()
-  const activeUserAddress = isPasskeyConnected ? smartAccountAddress : address
+  const activeUserAddress = address
 
   const activeEventIdBig = activeEvent
     ? (() => {

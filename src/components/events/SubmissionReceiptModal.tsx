@@ -108,7 +108,7 @@ export function SubmissionReceiptModal({
 
         {/* Security & Pull-Payment Reminder */}
         <div className="p-3.5 rounded-xl bg-teal-50/70 border border-teal-200/70 text-[11px] text-teal-900 leading-relaxed mb-6">
-          <strong>Pull-Claim Protection:</strong> If selected as a winning team, rewards will be unlocked for your wallet address to pull-claim in one click with zero gas via your passkey or connected wallet.
+          <strong>Pull-Claim Protection:</strong> If selected as a winning team, rewards will be unlocked for your wallet address to pull-claim in one click with zero gas via your connected wallet.
         </div>
 
         {/* Action Buttons */}

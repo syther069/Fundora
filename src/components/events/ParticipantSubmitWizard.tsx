@@ -15,7 +15,6 @@ import {
   formatMetadataUri,
   type SubmissionPayload,
 } from '../../utils/metadataStorage'
-import { usePasskeyContext } from '../../context/PasskeyContext'
 import { useMode } from '../../context/ModeContext'
 import { useEvents } from '../../context/EventsContext'
 import { useSubmitEntry } from '../../hooks/useFundoraEvents'
@@ -39,8 +38,7 @@ export function ParticipantSubmitWizard({
   alreadySubmittedId,
 }: ParticipantSubmitWizardProps) {
   const { address } = useAccount()
-  const { isPasskeyConnected, smartAccountAddress } = usePasskeyContext()
-  const activeAddress = isPasskeyConnected ? smartAccountAddress : address
+  const activeAddress = address
   const { isLive } = useMode()
   const { addSubmission } = useEvents()
 
@@ -182,7 +180,7 @@ export function ParticipantSubmitWizard({
 
     if (currentStep === 4) {
       if (!agreedToRules) newErrors.agreedToRules = 'You must confirm that this is original work built for this event'
-      if (!activeAddress) newErrors.wallet = 'Please connect your wallet or sign in with a passkey to submit'
+      if (!activeAddress) newErrors.wallet = 'Please connect your wallet to submit'
     }
 
     setErrors(newErrors)
@@ -566,7 +564,7 @@ export function ParticipantSubmitWizard({
                     setDescription(e.target.value)
                     if (errors.description) setErrors({ ...errors, description: '' })
                   }}
-                  placeholder="Explain what your project does, how it leverages Arc's unique architecture (e.g. USDC gas, passkeys), and instructions for judges..."
+                  placeholder="Explain what your project does, how it leverages Arc's unique architecture (e.g. USDC gas, fast finality), and instructions for judges..."
                   className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-midnight placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand ${errors.description ? 'border-coral ring-1 ring-coral' : 'border-slate-200'
                     }`}
                 />
