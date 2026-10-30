@@ -36,7 +36,13 @@ import type { Submission, Event } from './types/events'
 
 // Phase 3 imports
 import { OrganizerCreateWizard } from './components/events/OrganizerCreateWizard'
-import { usePendingPrizeWithdrawals, useClaimPrize, usePendingOrganizerRefunds, useClaimOrganizerRefund } from './hooks/useFundoraEvents'
+import {
+  usePendingPrizeWithdrawals,
+  useClaimPrize,
+  usePendingOrganizerRefunds,
+  useClaimOrganizerRefund,
+  useUserSubmissionId,
+} from './hooks/useFundoraEvents'
 import { formatUnits } from 'viem'
 
 // Phase 4 imports
@@ -341,6 +347,21 @@ export default function App() {
 
   const { isPasskeyConnected, smartAccountAddress } = usePasskeyContext()
   const activeUserAddress = isPasskeyConnected ? smartAccountAddress : address
+
+  const activeEventIdBig = activeEvent
+    ? (() => {
+        try {
+          return BigInt(activeEvent.id.replace(/\D/g, '') || '0')
+        } catch {
+          return 0n
+        }
+      })()
+    : 0n
+
+  const { data: activeUserSubmissionId } = useUserSubmissionId(
+    activeEvent && activeEvent.modality === 'native_escrow' && activeEventIdBig > 0n ? activeEventIdBig : undefined,
+    activeUserAddress as `0x${string}` | undefined,
+  )
 
   const _userSubmissions = useMemo(() => {
     if (!activeUserAddress) return []
@@ -1101,6 +1122,7 @@ export default function App() {
             isOpen={isSubmitModalOpen}
             onClose={() => setIsSubmitModalOpen(false)}
             onSuccess={handleSubmissionSuccess}
+            alreadySubmittedId={activeUserSubmissionId}
           />
         )}
       </AnimatePresence>

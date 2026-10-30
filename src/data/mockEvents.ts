@@ -78,6 +78,7 @@ We want real-world applications that solve genuine financial friction:
       { id: 'r3', name: 'User Experience & Polish', description: 'Responsive, accessible, fast fintech interface adhering to universal UX state contracts.', weightPercentage: 25, maxScore: 10 },
       { id: 'r4', name: 'Business Viability & Impact', description: 'Clarity of the target user, immediate market potential, and ecosystem stickiness.', weightPercentage: 15, maxScore: 10 },
     ],
+    reviewers: ['0x5B12Ce46C7194aD57d143bC22847224047b1Ef42', '0xb5fd2471b99e9c7324309a43282a391e87585c5e'],
   },
 
   {
@@ -135,6 +136,7 @@ We want real-world applications that solve genuine financial friction:
       { id: 'cr2', name: 'Clarity of Arc Messaging', description: 'Accurate representation of Arc USDC gas or sub-second finality.', weightPercentage: 35, maxScore: 10 },
       { id: 'cr3', name: 'Social Virality & Reach', description: 'Engagement, impressions, and reception across X.', weightPercentage: 25, maxScore: 10 },
     ],
+    reviewers: ['0x5B12Ce46C7194aD57d143bC22847224047b1Ef42'],
   },
 
   {
@@ -181,6 +183,7 @@ Participants compete for $100,000 in total prizes across specialized agent track
       },
     ],
     rubric: [],
+    reviewers: ['0x5B12Ce46C7194aD57d143bC22847224047b1Ef42', '0xb5fd2471b99e9c7324309a43282a391e87585c5e'],
   },
 
   {
@@ -231,6 +234,7 @@ Participants compete for $100,000 in total prizes across specialized agent track
       { id: 'j2', name: 'Code Craft & Type Safety', description: 'Zero unhandled rejections, robust TypeScript types.', weightPercentage: 35, maxScore: 10 },
       { id: 'j3', name: 'Documentation & Examples', description: 'Run-in-5-minutes docker setup and README clarity.', weightPercentage: 25, maxScore: 10 },
     ],
+    reviewers: ['0x5B12Ce46C7194aD57d143bC22847224047b1Ef42', '0xb5fd2471b99e9c7324309a43282a391e87585c5e'],
   },
 
   {
@@ -268,6 +272,7 @@ Participants compete for $100,000 in total prizes across specialized agent track
       },
     ],
     rubric: [],
+    reviewers: ['0x5B12Ce46C7194aD57d143bC22847224047b1Ef42', '0xb5fd2471b99e9c7324309a43282a391e87585c5e'],
   },
 ]
 

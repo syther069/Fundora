@@ -4,6 +4,7 @@ import { Trophy, ChevronDown, ChevronUp, Copy, Check, Medal, Info } from 'lucide
 import type { Event, PrizeTier, Track } from '../../types/events'
 import type { OnchainSubmission } from '../../contracts/fundoraEvents'
 import { useSubmissionsBatch, useGetReview } from '../../hooks/useFundoraEvents'
+import { loadScorecardDraft } from '../../utils/scorecardStorage'
 import { useEvents } from '../../context/EventsContext'
 import { useMode } from '../../context/ModeContext'
 import type { Address } from 'viem'
@@ -147,6 +148,54 @@ function PrizeTierSelector({
   )
 }
 
+// ── Per-reviewer score row (Demo mode: reads from scorecardStorage) ───────────
+function DemoReviewerScoreRow({
+  reviewerAddr,
+  eventId,
+  submissionId,
+  fallbackScore,
+}: {
+  reviewerAddr: string
+  eventId: string
+  submissionId: string
+  fallbackScore: number
+}) {
+  const draft = useMemo(() => {
+    return loadScorecardDraft(eventId, submissionId, reviewerAddr)
+  }, [eventId, submissionId, reviewerAddr])
+
+  const score = draft?.onchainScore ?? (draft?.submitted && draft.criterionScores
+    ? Math.round((Object.values(draft.criterionScores).reduce((a, b) => a + b, 0) / Object.keys(draft.criterionScores).length) * 10)
+    : (fallbackScore > 0 ? fallbackScore : null))
+
+  const dateLabel = draft?.savedAt
+    ? new Intl.DateTimeFormat('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      }).format(new Date(draft.savedAt))
+    : fallbackScore > 0 ? 'Assigned' : '—'
+
+  return (
+    <tr className="border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
+      <td className="py-1.5 pr-3 font-mono text-[11px]" style={{ color: 'var(--muted)' }}>
+        {shortAddr(reviewerAddr)}
+      </td>
+      <td className="py-1.5 px-3 text-center">
+        {score !== null && score > 0 ? (
+          <span className="font-mono font-bold text-[12px] text-midnight tabular-nums">
+            {score}<span className="font-normal text-slate-400"> / 100</span>
+          </span>
+        ) : (
+          <span className="text-[11px]" style={{ color: 'var(--subtle)' }}>Not yet reviewed</span>
+        )}
+      </td>
+      <td className="py-1.5 pl-3 text-[11px] text-right" style={{ color: 'var(--muted)' }}>
+        {dateLabel}
+      </td>
+    </tr>
+  )
+}
+
 // ── Per-reviewer score row (one hook call each — safe pattern for hooks-in-loops) ──
 function ReviewerScoreRow({
   reviewerAddr,
@@ -214,7 +263,7 @@ function ExpandedRow({
   }, [row.id])
 
   // event.reviewers is the list of reviewer addresses assigned to this event
-  const reviewers: string[] = (event as unknown as { reviewers?: string[] }).reviewers ?? []
+  const reviewers: string[] = event.reviewers ?? []
 
   return (
     <motion.div
@@ -264,11 +313,7 @@ function ExpandedRow({
               Reviewer Breakdown
               <Info size={11} style={{ color: 'var(--muted)' }} aria-hidden="true" />
             </p>
-            {!isLive ? (
-              <p className="text-[11px] italic" style={{ color: 'var(--subtle)' }}>
-                Reviewer breakdown is available in Live mode only.
-              </p>
-            ) : reviewers.length === 0 ? (
+            {reviewers.length === 0 ? (
               <p className="text-[11px] italic" style={{ color: 'var(--subtle)' }}>
                 No reviewers assigned to this event yet.
               </p>
@@ -282,14 +327,24 @@ function ExpandedRow({
                   </tr>
                 </thead>
                 <tbody>
-                  {reviewers.map(addr => (
-                    <ReviewerScoreRow
-                      key={addr}
-                      reviewerAddr={addr}
-                      eventIdBig={eventIdBig}
-                      submissionIdBig={submissionIdBig}
-                    />
-                  ))}
+                  {reviewers.map(addr =>
+                    isLive ? (
+                      <ReviewerScoreRow
+                        key={addr}
+                        reviewerAddr={addr}
+                        eventIdBig={eventIdBig}
+                        submissionIdBig={submissionIdBig}
+                      />
+                    ) : (
+                      <DemoReviewerScoreRow
+                        key={addr}
+                        reviewerAddr={addr}
+                        eventId={event.id}
+                        submissionId={row.id}
+                        fallbackScore={row.scoreSum}
+                      />
+                    )
+                  )}
                 </tbody>
               </table>
             )}

@@ -16,6 +16,8 @@ import {
   type SubmissionPayload,
 } from '../../utils/metadataStorage'
 import { usePasskeyContext } from '../../context/PasskeyContext'
+import { useMode } from '../../context/ModeContext'
+import { useEvents } from '../../context/EventsContext'
 import { useSubmitEntry } from '../../hooks/useFundoraEvents'
 
 interface ParticipantSubmitWizardProps {
@@ -39,6 +41,8 @@ export function ParticipantSubmitWizard({
   const { address } = useAccount()
   const { isPasskeyConnected, smartAccountAddress } = usePasskeyContext()
   const activeAddress = isPasskeyConnected ? smartAccountAddress : address
+  const { isLive } = useMode()
+  const { addSubmission } = useEvents()
 
   // Onchain submit hook
   const {
@@ -207,6 +211,29 @@ export function ParticipantSubmitWizard({
       return
     }
 
+    if (!isLive) {
+      const newSubmission: Submission = {
+        id: `sub_${Date.now().toString().slice(-6)}`,
+        eventId: event.id,
+        trackId,
+        title,
+        tagline,
+        description,
+        submitterAddress: activeAddress,
+        submitterName,
+        teamMembers,
+        demoUrl: demoUrl.trim() || undefined,
+        repoUrl: repoUrl.trim() || undefined,
+        socialPostUrl: socialPostUrl.trim() || undefined,
+        mediaUrls: mediaUrls.length > 0 ? mediaUrls : videoUrl ? [videoUrl] : [],
+        submittedAt: Math.floor(Date.now() / 1000),
+      }
+      addSubmission(newSubmission)
+      clearSubmissionDraft(event.id)
+      onSuccess(newSubmission)
+      return
+    }
+
     const payload: SubmissionPayload = {
       title,
       tagline,
@@ -226,6 +253,10 @@ export function ParticipantSubmitWizard({
 
     // eventId is a numeric string in the frontend Event type
     const eventIdBig = BigInt(event.id.replace(/\D/g, '') || '0')
+    if (eventIdBig <= 0n) {
+      setErrors({ submit: 'Invalid onchain event ID. Only verified live events can accept onchain entries.' })
+      return
+    }
 
     submitEntry(eventIdBig, metadataUri, submissionHash)
   }
@@ -251,6 +282,7 @@ export function ParticipantSubmitWizard({
       submittedAt: Math.floor(Date.now() / 1000),
       claimTxHash: txHash,
     }
+    addSubmission(newSubmission)
     onSuccess(newSubmission)
   }, [isOnchainSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 

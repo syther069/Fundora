@@ -80,6 +80,7 @@ export interface Event {
   winnersAnnouncedDate?: number // unix timestamp (seconds)
   tracks: Track[]
   rubric: RubricCriterion[]
+  reviewers?: string[]
   submissionsCount: number
   isBlindJudging?: boolean
 }

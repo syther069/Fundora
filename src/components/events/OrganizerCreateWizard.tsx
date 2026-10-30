@@ -391,6 +391,7 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
           weightPercentage: Number(r.weightPercentage) || 0,
           maxScore: 10,
         })),
+        reviewers: reviewers.filter(Boolean),
         submissionsCount: 0,
       }
       onSuccess(1n, createHash, createdEv)
