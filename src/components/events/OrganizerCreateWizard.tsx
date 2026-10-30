@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain } from 'wagmi'
+import { useModal } from 'connectkit'
 import { parseUnits } from 'viem'
 import {
   X, ArrowLeft, ArrowRight, ShieldCheck, ExternalLink, Plus, Trash2,
@@ -14,7 +15,14 @@ import {
   type EventCreatePayload,
 } from '../../utils/metadataStorage'
 import type { Event } from '../../types/events'
-import { useCreateEvent, useActiveEventsAddress } from '../../hooks/useFundoraEvents'
+import { useCreateEvent } from '../../hooks/useFundoraEvents'
+import { useMode } from '../../context/ModeContext'
+import { ARC_MAINNET_ID, ARC_TESTNET_ID } from '../../contracts/fundora'
+import {
+  FUNDORA_EVENTS_ADDRESS_TESTNET,
+  FUNDORA_EVENTS_ADDRESS_MAINNET,
+} from '../../contracts/fundoraEvents'
+import { buildTxExplorerUrl } from '@/onchain-facts'
 
 // USDC on Arc (native = ERC-20 on Arc)
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000' as const
@@ -112,7 +120,15 @@ function totalPrizeUsdc(tracks: TrackForm[]): bigint {
 const TODAY_STR = new Date().toISOString().split('T')[0]
 
 export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCategory }: OrganizerCreateWizardProps) {
-  const { address } = useAccount()
+  const { address, isConnected, chainId } = useAccount()
+  const { switchChain } = useSwitchChain()
+  const { setOpen: openConnectModal } = useModal()
+  const { isLive } = useMode()
+
+  const targetChainId = isLive ? ARC_MAINNET_ID : ARC_TESTNET_ID
+  const targetNetworkName = isLive ? 'Arc Mainnet' : 'Arc Testnet'
+  const isWrongChain = isConnected && chainId !== targetChainId
+  const eventsAddress = isLive ? FUNDORA_EVENTS_ADDRESS_MAINNET : FUNDORA_EVENTS_ADDRESS_TESTNET
 
   // ── Wizard step ──────────────────────────────────────────────────────────
   const [step, setStep] = useState<WizardStep>(1)
@@ -173,15 +189,16 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
     abi: ERC20_APPROVE_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
+    chainId: targetChainId,
     query: { enabled: !!address && modality === 'native_escrow' },
   })
-  const eventsAddress = useActiveEventsAddress()
   const prizeTotal = totalPrizeUsdc(tracks)
   const { data: usdcAllowance, refetch: refetchAllowance } = useReadContract({
     address: USDC_ADDRESS,
     abi: ERC20_APPROVE_ABI,
     functionName: 'allowance',
     args: address && eventsAddress ? [address, eventsAddress] : undefined,
+    chainId: targetChainId,
     query: { enabled: !!address && !!eventsAddress && modality === 'native_escrow' },
   })
 
@@ -202,7 +219,7 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
     isConfirming: isCreateConfirming,
     isSuccess: isCreateSuccess,
     error: createError,
-  } = useCreateEvent()
+  } = useCreateEvent(targetChainId)
 
   // Draft was loaded via lazy useState initializers above.
   // Show a restore notice if a draft was found.
@@ -296,16 +313,25 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
   // ── Publish flow ─────────────────────────────────────────────────────────
   const handleApprove = () => {
     if (!address || !eventsAddress) return
+    if (isWrongChain) {
+      switchChain({ chainId: targetChainId })
+      return
+    }
     writeApprove({
       address: USDC_ADDRESS,
       abi: ERC20_APPROVE_ABI,
       functionName: 'approve',
       args: [eventsAddress, prizeTotal],
+      chainId: targetChainId,
     })
   }
 
   const handleCreate = () => {
     if (!validate(6)) return
+    if (isWrongChain) {
+      switchChain({ chainId: targetChainId })
+      return
+    }
     createEvent({
       title,
       description,
@@ -318,6 +344,14 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
   }
 
   const handlePublish = () => {
+    if (!isConnected) {
+      openConnectModal(true)
+      return
+    }
+    if (isWrongChain) {
+      switchChain({ chainId: targetChainId })
+      return
+    }
     const currentAllowance = (usdcAllowance) ?? 0n
     if (modality === 'native_escrow' && currentAllowance < prizeTotal) {
       handleApprove()
@@ -974,18 +1008,78 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
                 </div>
               </div>
 
+              {/* Target network info */}
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                <span className="text-slate-600 font-medium">Publishing Network:</span>
+                <span className="font-bold flex items-center gap-2 text-midnight">
+                  <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-brand' : 'bg-teal'}`} />
+                  {targetNetworkName}
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${isLive ? 'bg-brand-light text-brand border-brand-border' : 'bg-teal-light text-teal border-teal-border'}`}>
+                    {isLive ? 'Live Mainnet' : 'Demo Testnet'}
+                  </span>
+                </span>
+              </div>
+
+              {/* Disconnected wallet prompt */}
+              {!isConnected && (
+                <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50/70 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 text-amber-900 font-medium">
+                    <AlertCircle size={15} className="shrink-0 text-amber-700" />
+                    <span>Connect your wallet to review your balance and publish your event.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openConnectModal?.(true)}
+                    className="px-3 py-1.5 rounded-xl font-bold text-white bg-amber-700 hover:bg-amber-800 transition-colors shrink-0"
+                  >
+                    Connect Wallet
+                  </button>
+                </div>
+              )}
+
+              {/* Wrong chain prompt */}
+              {isConnected && isWrongChain && (
+                <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50/70 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 text-amber-900 font-medium">
+                    <AlertCircle size={15} className="shrink-0 text-amber-700" />
+                    <span>You are connected to Chain {chainId}. Switch to {targetNetworkName} to publish in {isLive ? 'Live' : 'Demo'} mode.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => switchChain({ chainId: targetChainId })}
+                    className="px-3 py-1.5 rounded-xl font-bold text-white bg-amber-700 hover:bg-amber-800 transition-colors shrink-0"
+                  >
+                    Switch to {targetNetworkName}
+                  </button>
+                </div>
+              )}
+
               {/* USDC balance check (native only) */}
-              {isNative && (
+              {isNative && isConnected && !isWrongChain && (
                 <div className={`p-4 rounded-2xl border text-xs ${(usdcBalance ?? 0n) >= prizeTotal ? 'border-teal-200 bg-teal-50/60' : 'border-coral-200 bg-coral-50/60'}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <DollarSign size={13} className={(usdcBalance ?? 0n) >= prizeTotal ? 'text-teal' : 'text-coral'} />
-                    <span className="font-bold text-midnight">Your USDC Balance</span>
+                    <span className="font-bold text-midnight">Your USDC Balance on {targetNetworkName}</span>
                   </div>
                   <div className="font-mono font-bold text-base tabular-nums text-midnight">
                     ${Number(((usdcBalance) ?? 0n) / BigInt(10 ** USDC_DECIMALS)).toLocaleString()} USDC
                   </div>
                   {(usdcBalance ?? 0n) < prizeTotal && (
-                    <p className="text-coral mt-1 font-medium">Insufficient balance. You need at least ${Number(prizeTotal / BigInt(10 ** USDC_DECIMALS)).toLocaleString()} USDC on Arc Testnet.</p>
+                    <div className="text-coral mt-1.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <span className="font-medium">
+                        Insufficient balance. You need at least ${Number(prizeTotal / BigInt(10 ** USDC_DECIMALS)).toLocaleString()} USDC on {targetNetworkName}.
+                      </span>
+                      {!isLive && (
+                        <a
+                          href="https://faucet.circle.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline font-semibold shrink-0 hover:opacity-80"
+                        >
+                          Get Testnet USDC ↗
+                        </a>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -1026,7 +1120,7 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
                     </p>
                     {createHash && (
                       <a
-                        href={`https://explorer.testnet.arc.io/tx/${createHash}`}
+                        href={buildTxExplorerUrl(targetChainId, createHash)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-[11px] font-mono text-teal hover:underline mt-1.5"
@@ -1093,10 +1187,17 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
             <button
               type="button"
               onClick={handlePublish}
-              disabled={isPublishing || !address}
+              disabled={
+                isPublishing ||
+                (isConnected && !isWrongChain && isNative && (usdcBalance ?? 0n) < prizeTotal)
+              }
               className="inline-flex items-center gap-2 py-2.5 px-6 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-hover disabled:opacity-50 transition-colors shadow-sm"
             >
-              {isApprovePending || publishStage === 'approving' ? (
+              {!isConnected ? (
+                'Connect Wallet'
+              ) : isWrongChain ? (
+                `Switch to ${targetNetworkName}`
+              ) : isApprovePending || publishStage === 'approving' ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
                   Confirm Approval…
@@ -1114,7 +1215,7 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
               ) : isCreateConfirming ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Publishing on Arc…
+                  Publishing on {targetNetworkName}…
                 </>
               ) : (
                 <>

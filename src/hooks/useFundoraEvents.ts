@@ -256,8 +256,11 @@ function useContractWrite(functionName: string) {
   }
 }
 
-export function useCreateEvent() {
-  const contractAddress = useActiveEventsAddress()
+export function useCreateEvent(overrideChainId?: number) {
+  const { isLive } = useMode()
+  const { chainId } = useAccount()
+  const targetChain = overrideChainId ?? (isLive ? ARC_MAINNET_ID : (chainId === ARC_MAINNET_ID ? ARC_MAINNET_ID : ARC_TESTNET_ID))
+  const contractAddress = getFundoraEventsAddress(targetChain)
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const receipt = useWaitForTransactionReceipt({ hash })
 
@@ -283,6 +286,7 @@ export function useCreateEvent() {
         params.submissionDeadline,
         params.judgingDeadline,
       ],
+      chainId: targetChain,
     })
   }
 

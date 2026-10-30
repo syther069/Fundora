@@ -13,7 +13,7 @@ export const EventStatus = {
 export type EventStatusValue = (typeof EventStatus)[keyof typeof EventStatus]
 
 export const FUNDORA_EVENTS_ADDRESS_TESTNET = (import.meta.env?.VITE_FUNDORA_EVENTS_ADDRESS || '0xc9c7033f4736f8b6e213ea7617596c3fd7bb154a') as `0x${string}`
-export const FUNDORA_EVENTS_ADDRESS_MAINNET = (import.meta.env?.VITE_FUNDORA_EVENTS_ADDRESS_MAINNET || '0x0000000000000000000000000000000000000000') as `0x${string}`
+export const FUNDORA_EVENTS_ADDRESS_MAINNET = (import.meta.env?.VITE_FUNDORA_EVENTS_ADDRESS_MAINNET || '0xa8353b078a258cd9caacc618b1fe1404666b9525') as `0x${string}`
 
 export function getFundoraEventsAddress(chainId?: number): `0x${string}` {
   return chainId === ARC_MAINNET_ID ? FUNDORA_EVENTS_ADDRESS_MAINNET : FUNDORA_EVENTS_ADDRESS_TESTNET
