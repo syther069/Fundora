@@ -21,10 +21,14 @@ import { useActiveChainId } from './hooks/useFundora'
 
 // New Phase 2 Event Directory Components & Context
 import { useEvents } from './context/EventsContext'
+import { usePasskeyContext } from './context/PasskeyContext'
 import { EventCard } from './components/events/EventCard'
 import { EventDirectoryToolbar } from './components/events/EventDirectoryToolbar'
 import { EventSkeletonGrid } from './components/events/EventSkeletonGrid'
 import { EventDetailView } from './components/events/EventDetailView'
+import { ParticipantSubmitWizard } from './components/events/ParticipantSubmitWizard'
+import { SubmissionReceiptModal } from './components/events/SubmissionReceiptModal'
+import type { Submission } from './types/events'
 
 // Phase 3 imports
 import { OrganizerCreateWizard } from './components/events/OrganizerCreateWizard'
@@ -197,7 +201,7 @@ function RoleBanner({ isAdmin, isReviewer }: { isAdmin: boolean; isReviewer: boo
 // ── Wrong-chain banner ────────────────────────────────────────────────────────
 function WrongChainBanner({ chainId }: { chainId: number | undefined }) {
   const { switchChain } = useSwitchChain()
-  const isWrongChain = chainId !== undefined && !SUPPORTED_CHAIN_IDS.includes(chainId as 5042 | 5042002)
+  const isWrongChain = chainId !== undefined && !(SUPPORTED_CHAIN_IDS as readonly number[]).includes(chainId)
 
   if (!isWrongChain) return null
 
@@ -304,6 +308,8 @@ export default function App() {
     activeEvent,
     setActiveEventId,
     getSubmissionsForEvent,
+    addSubmission,
+    submissions,
     isLoading: eventsLoading,
     categoryFilter,
     setCategoryFilter,
@@ -318,6 +324,26 @@ export default function App() {
     statusCounts,
     resetFilters,
   } = useEvents()
+
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false)
+  const [receiptSubmission, setReceiptSubmission] = useState<Submission | null>(null)
+
+  const { isPasskeyConnected, smartAccountAddress } = usePasskeyContext()
+  const activeUserAddress = isPasskeyConnected ? smartAccountAddress : address
+
+  const userSubmissions = useMemo(() => {
+    if (!activeUserAddress) return []
+    const all = Object.values(submissions).flat()
+    return all.filter(
+      (s) => s.submitterAddress?.toLowerCase() === activeUserAddress.toLowerCase()
+    )
+  }, [submissions, activeUserAddress])
+
+  const handleSubmissionSuccess = (newSub: Submission) => {
+    addSubmission(newSub)
+    setIsSubmitModalOpen(false)
+    setReceiptSubmission(newSub)
+  }
 
   // Precomputed event metrics for hero strip
   const totalEscrowUsdc = useMemo(() => {
@@ -576,7 +602,7 @@ export default function App() {
                 event={activeEvent}
                 submissions={getSubmissionsForEvent(activeEvent.id)}
                 onBack={() => setView('events')}
-                onOpenSubmitModal={() => setView('participant')}
+                onOpenSubmitModal={() => setIsSubmitModalOpen(true)}
               />
             </motion.div>
           )}
@@ -990,6 +1016,33 @@ export default function App() {
               setOrganizerWizardOpen(false)
               setSelectedOrgCategory(null)
               setView('organizer')
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Participant Submit Wizard Modal */}
+      <AnimatePresence>
+        {isSubmitModalOpen && activeEvent && (
+          <ParticipantSubmitWizard
+            event={activeEvent}
+            isOpen={isSubmitModalOpen}
+            onClose={() => setIsSubmitModalOpen(false)}
+            onSuccess={handleSubmissionSuccess}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Submission Receipt Modal */}
+      <AnimatePresence>
+        {receiptSubmission && activeEvent && (
+          <SubmissionReceiptModal
+            submission={receiptSubmission}
+            eventTitle={activeEvent.title}
+            onClose={() => setReceiptSubmission(null)}
+            onViewShowcase={() => {
+              setReceiptSubmission(null)
+              setView('event-detail')
             }}
           />
         )}

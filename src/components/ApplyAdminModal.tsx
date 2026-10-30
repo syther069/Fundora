@@ -36,7 +36,8 @@ import { parseOnchainError } from '../utils/errors'
 
 interface Props {
   onClose: () => void
-  onSuccessRedirect: () => void
+  onSuccessRedirect?: () => void
+  onSuccess?: () => void
 }
 
 const ERC20_ABI = [
@@ -71,7 +72,15 @@ const ERC20_ABI = [
 
 type Step = 'form' | 'approving' | 'registering' | 'verifying' | 'success'
 
-export function ApplyAdminModal({ onClose, onSuccessRedirect }: Props) {
+export function ApplyAdminModal({ onClose, onSuccessRedirect, onSuccess }: Props) {
+  const handleSuccessRedirect = () => {
+    if (onSuccessRedirect) {
+      onSuccessRedirect()
+    } else if (onSuccess) {
+      onSuccess()
+    }
+  }
+
   const { address, isConnected, chainId } = useAccount()
   const { switchChain } = useSwitchChain()
   const publicClient = usePublicClient()
@@ -388,7 +397,7 @@ export function ApplyAdminModal({ onClose, onSuccessRedirect }: Props) {
                 <button
                   onClick={() => {
                     onClose()
-                    onSuccessRedirect()
+                    handleSuccessRedirect()
                   }}
                   className="btn btn-primary btn-md btn-focus mx-auto w-full sm:w-auto px-8"
                 >
@@ -416,7 +425,7 @@ export function ApplyAdminModal({ onClose, onSuccessRedirect }: Props) {
               <button
                 onClick={() => {
                   onClose()
-                  onSuccessRedirect()
+                  handleSuccessRedirect()
                 }}
                 className="btn btn-primary btn-sm btn-focus mx-auto"
               >
