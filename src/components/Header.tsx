@@ -292,7 +292,7 @@ function ConsolesDropdown({ isReviewer, currentView, onViewChange }: ConsolesDro
 
 // ── Main Header ───────────────────────────────────────────────────────────────
 export function Header({
-  isAdmin,
+  isAdmin: _isAdmin,
   isReviewer,
   currentView = 'events',
   onViewChange,

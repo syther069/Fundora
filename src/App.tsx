@@ -10,6 +10,7 @@ import { Header } from './components/Header'
 import { GrantCard } from './components/GrantCard'
 import { GrantDetail } from './components/GrantDetail'
 import { AdminPanel } from './components/AdminPanel'
+import { ApplyAdminModal } from './components/ApplyAdminModal'
 import { useContractAdmin, useIsReviewer } from './hooks/useFundora'
 import { useUnifiedIsAdmin } from './hooks/useAdminRegistry'
 import { OrganizerTypeModal } from './components/events/OrganizerTypeModal'
@@ -295,7 +296,8 @@ export default function App() {
 
   const { data: _contractAdmin } = useContractAdmin()
   const { data: isReviewer } = useIsReviewer(address)
-  const { isAdmin, refetch: _refetchIsAdmin } = useUnifiedIsAdmin()
+  const { isAdmin, refetch: refetchIsAdmin } = useUnifiedIsAdmin()
+  const [showApplyModal, setShowApplyModal] = useState(false)
   const [organizerTypeModalOpen, setOrganizerTypeModalOpen] = useState(false)
   const [selectedOrgCategory, setSelectedOrgCategory] = useState<'hackathon' | 'contest' | null>(null)
 
@@ -331,7 +333,7 @@ export default function App() {
   const { isPasskeyConnected, smartAccountAddress } = usePasskeyContext()
   const activeUserAddress = isPasskeyConnected ? smartAccountAddress : address
 
-  const userSubmissions = useMemo(() => {
+  const _userSubmissions = useMemo(() => {
     if (!activeUserAddress) return []
     const all = Object.values(submissions).flat()
     return all.filter(
@@ -794,9 +796,20 @@ export default function App() {
             >
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <h1 className="font-jakarta font-extrabold text-2xl text-midnight tracking-tight mb-1">
-                    Organizer Operations Console
-                  </h1>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h1 className="font-jakarta font-extrabold text-2xl text-midnight tracking-tight">
+                      Organizer Operations Console
+                    </h1>
+                    {isAdmin ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                        <ShieldCheck size={11} /> Verified Organizer
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                        Verification Required
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-slate-600">
                     Create events, lock escrow prize pools on Arc, invite judges, and confirm final payouts.
                   </p>
@@ -808,7 +821,13 @@ export default function App() {
                   </span>
                 ) : (
                   <button
-                    onClick={() => setOrganizerTypeModalOpen(true)}
+                    onClick={() => {
+                      if (!isAdmin) {
+                        setShowApplyModal(true)
+                      } else {
+                        setOrganizerTypeModalOpen(true)
+                      }
+                    }}
                     className="inline-flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold text-white bg-midnight hover:bg-slate-800 shadow-sm"
                   >
                     <PlusCircle size={14} />
@@ -816,6 +835,28 @@ export default function App() {
                   </button>
                 )}
               </div>
+
+              {/* Organizer Verification Card when not verified */}
+              {!isAdmin && (
+                <div className="rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50/70 via-white to-amber-50/40 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 font-jakarta font-bold text-sm text-amber-900">
+                      <ShieldCheck size={16} className="text-amber-700" />
+                      Apply for Verified Organizer Rights
+                    </div>
+                    <p className="text-xs text-slate-600 max-w-xl leading-relaxed">
+                      To lock smart contract prize escrow and publish competitions on Arc, register your wallet as a verified organizer via AdminRegistry.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowApplyModal(true)}
+                    className="inline-flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold text-white bg-amber-700 hover:bg-amber-800 transition-all shrink-0 shadow-sm"
+                  >
+                    <ShieldCheck size={13} />
+                    Apply as Organizer
+                  </button>
+                </div>
+              )}
 
               {/* Event Operations Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1043,6 +1084,20 @@ export default function App() {
             onViewShowcase={() => {
               setReceiptSubmission(null)
               setView('event-detail')
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Admin / Organizer Application Modal */}
+      <AnimatePresence>
+        {showApplyModal && (
+          <ApplyAdminModal
+            onClose={() => setShowApplyModal(false)}
+            onSuccessRedirect={() => {
+              void refetchIsAdmin()
+              setShowApplyModal(false)
+              setOrganizerTypeModalOpen(true)
             }}
           />
         )}
