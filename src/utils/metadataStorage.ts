@@ -24,6 +24,7 @@ export interface EventCreatePayload {
   tagline: string
   description: string
   category: 'hackathon' | 'contest'
+  contactEmail: string
   modality: 'native_escrow' | 'external_listing'
   externalUrl?: string
   externalPlatformName?: string
@@ -42,6 +43,60 @@ export interface EventCreatePayload {
     weightPercentage: number
   }>
   reviewers: string[]
+}
+
+// ── Organizer Submissions (pending manual review) ─────────────────────────────
+
+export type OrganizerSubmissionStatus = 'pending' | 'approved' | 'rejected'
+
+export interface OrganizerSubmission {
+  id: string               // uuid-like: `osub_${Date.now()}`
+  title: string
+  category: 'hackathon' | 'contest'
+  contactEmail: string
+  organizerAddress: string
+  modality: 'native_escrow' | 'external_listing'
+  status: OrganizerSubmissionStatus
+  submittedAt: number      // unix ms
+  decidedAt?: number       // unix ms — set when admin approves or rejects
+  rejectionReason?: string
+  txHash?: string          // set if createEvent was called onchain
+  eventId?: string         // onchain event id if created
+}
+
+const ORGANIZER_SUBMISSIONS_KEY = 'fundora_organizer_submissions'
+
+export function saveOrganizerSubmission(sub: OrganizerSubmission): void {
+  try {
+    const existing = getOrganizerSubmissions()
+    const updated = [sub, ...existing.filter(s => s.id !== sub.id)]
+    localStorage.setItem(ORGANIZER_SUBMISSIONS_KEY, JSON.stringify(updated))
+  } catch (err) {
+    console.warn('Failed to save organizer submission', err)
+  }
+}
+
+export function getOrganizerSubmissions(): OrganizerSubmission[] {
+  try {
+    const raw = localStorage.getItem(ORGANIZER_SUBMISSIONS_KEY)
+    if (!raw) return []
+    return JSON.parse(raw) as OrganizerSubmission[]
+  } catch {
+    return []
+  }
+}
+
+export function updateOrganizerSubmission(
+  id: string,
+  patch: Partial<OrganizerSubmission>,
+): void {
+  try {
+    const existing = getOrganizerSubmissions()
+    const updated = existing.map(s => (s.id === id ? { ...s, ...patch } : s))
+    localStorage.setItem(ORGANIZER_SUBMISSIONS_KEY, JSON.stringify(updated))
+  } catch (err) {
+    console.warn('Failed to update organizer submission', err)
+  }
 }
 
 export interface EventCreateDraft extends EventCreatePayload {

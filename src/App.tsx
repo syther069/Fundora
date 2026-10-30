@@ -12,7 +12,8 @@ import { GrantDetail } from './components/GrantDetail'
 import { AdminPanel } from './components/AdminPanel'
 import { useContractAdmin, useIsReviewer } from './hooks/useFundora'
 import { useUnifiedIsAdmin } from './hooks/useAdminRegistry'
-import { ApplyAdminModal } from './components/ApplyAdminModal'
+import { OrganizerTypeModal } from './components/events/OrganizerTypeModal'
+import { OrganizerReviewPanel } from './components/events/OrganizerReviewPanel'
 import { useGrants } from './context/GrantsContext'
 import type { Grant } from './hooks/useFundora'
 import { FUNDORA_ADDRESS, ARC_TESTNET_ID, ARC_MAINNET_ID, SUPPORTED_CHAIN_IDS } from './contracts/fundora'
@@ -284,8 +285,9 @@ export default function App() {
 
   const { data: _contractAdmin } = useContractAdmin()
   const { data: isReviewer } = useIsReviewer(address)
-  const { isAdmin, refetch: refetchIsAdmin } = useUnifiedIsAdmin()
-  const [showApplyModal, setShowApplyModal] = useState(false)
+  const { isAdmin, refetch: _refetchIsAdmin } = useUnifiedIsAdmin()
+  const [organizerTypeModalOpen, setOrganizerTypeModalOpen] = useState(false)
+  const [selectedOrgCategory, setSelectedOrgCategory] = useState<'hackathon' | 'contest' | null>(null)
 
   // Phase 4 — Demo / Live mode
   const { isLive } = useMode()
@@ -385,7 +387,6 @@ export default function App() {
       <Header
         currentView={view}
         onViewChange={(v) => setView(v as View)}
-        onOpenApplyAdmin={() => setShowApplyModal(true)}
         isAdmin={isAdmin}
         isReviewer={!!isReviewer}
       />
@@ -730,7 +731,7 @@ export default function App() {
                   </span>
                 ) : (
                   <button
-                    onClick={() => setOrganizerWizardOpen(true)}
+                    onClick={() => setOrganizerTypeModalOpen(true)}
                     className="inline-flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-bold text-white bg-midnight hover:bg-slate-800 shadow-sm"
                   >
                     <PlusCircle size={14} />
@@ -800,6 +801,9 @@ export default function App() {
                   )}
                 </div>
               </div>
+
+              {/* Organizer Review Panel */}
+              <OrganizerReviewPanel isAdmin={!!isAdmin} />
             </motion.div>
           )}
 
@@ -881,26 +885,29 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* Admin Application Modal */}
+      {/* Organizer type selection → create wizard flow */}
       <AnimatePresence>
-        {showApplyModal && (
-          <ApplyAdminModal
-            onClose={() => setShowApplyModal(false)}
-            onSuccessRedirect={() => {
-              refetchIsAdmin()
-              setShowApplyModal(false)
+        {organizerTypeModalOpen && (
+          <OrganizerTypeModal
+            isOpen={organizerTypeModalOpen}
+            onSelect={(cat) => {
+              setSelectedOrgCategory(cat)
+              setOrganizerTypeModalOpen(false)
+              setOrganizerWizardOpen(true)
             }}
+            onClose={() => setOrganizerTypeModalOpen(false)}
           />
         )}
 
-        {/* Phase 3 — Organizer Create Wizard */}
         {organizerWizardOpen && (
           <OrganizerCreateWizard
             isOpen={organizerWizardOpen}
-            onClose={() => setOrganizerWizardOpen(false)}
+            initialCategory={selectedOrgCategory ?? 'hackathon'}
+            onClose={() => { setOrganizerWizardOpen(false); setSelectedOrgCategory(null) }}
             onSuccess={(_eventId, _txHash) => {
               setOrganizerWizardOpen(false)
-              setView('events')
+              setSelectedOrgCategory(null)
+              setView('organizer')
             }}
           />
         )}

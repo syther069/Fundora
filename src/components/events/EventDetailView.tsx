@@ -67,7 +67,7 @@ export function EventDetailView({ event, submissions, onBack, onOpenSubmitModal 
 
   const copyAddress = (addr?: string) => {
     if (!addr) return
-    navigator.clipboard.writeText(addr)
+    void navigator.clipboard.writeText(addr)
     setCopiedAddr(true)
     setTimeout(() => setCopiedAddr(false), 2000)
   }

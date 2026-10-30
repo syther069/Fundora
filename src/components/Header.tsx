@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAccount } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
-  Fingerprint, ShieldCheck, Compass, Users, Scale,
+  Fingerprint, Compass, Users, Scale,
   LayoutDashboard, Archive, FlaskConical, Radio,
   ChevronDown, BookOpen,
 } from 'lucide-react'
@@ -13,7 +13,6 @@ import { PasskeyAuthModal } from './PasskeyAuthModal'
 import { useMode } from '../context/ModeContext'
 
 interface HeaderProps {
-  onOpenApplyAdmin?: () => void
   isAdmin?: boolean
   isReviewer?: boolean
   currentView?: string
@@ -111,13 +110,12 @@ function ModeSwitcher() {
 
 // ── Consoles dropdown (Organizer + Reviewer) ──────────────────────────────────
 interface ConsolesDropdownProps {
-  isAdmin?: boolean
   isReviewer?: boolean
   currentView?: string
   onViewChange: (view: string) => void
 }
 
-function ConsolesDropdown({ isAdmin, isReviewer, currentView, onViewChange }: ConsolesDropdownProps) {
+function ConsolesDropdown({ isReviewer, currentView, onViewChange }: ConsolesDropdownProps) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -162,13 +160,11 @@ function ConsolesDropdown({ isAdmin, isReviewer, currentView, onViewChange }: Co
     if (e.key === 'Tab') setOpen(false)
   }, [])
 
-  // Neither role — hide entirely (after all hooks)
-  if (!isAdmin && !isReviewer) return null
-
+  // Organizer Console always shown; Reviewer Console only to reviewers
   const isActive = currentView === 'organizer' || currentView === 'reviewer'
 
   const items = [
-    ...(isAdmin ? [{ id: 'organizer', label: 'Organizer Console', icon: LayoutDashboard, desc: 'Create events, lock escrow, manage prizes' }] : []),
+    { id: 'organizer', label: 'Organizer Console', icon: LayoutDashboard, desc: 'Create hackathons and contests on Arc' },
     ...(isReviewer ? [{ id: 'reviewer', label: 'Reviewer Console', icon: Scale, desc: 'Evaluate submissions and score entries' }] : []),
   ]
 
@@ -296,7 +292,6 @@ function ConsolesDropdown({ isAdmin, isReviewer, currentView, onViewChange }: Co
 
 // ── Main Header ───────────────────────────────────────────────────────────────
 export function Header({
-  onOpenApplyAdmin,
   isAdmin,
   isReviewer,
   currentView = 'events',
@@ -316,11 +311,11 @@ export function Header({
     { id: 'participant', label: 'Participant Hub', icon: Users },
   ]
 
-  // Mobile nav includes dropdown items as flat buttons
+  // Mobile nav — Organizer always shown, Reviewer only to reviewers
   const mobileNavItems = [
     { id: 'events', label: 'Explore', icon: Compass },
     { id: 'participant', label: 'Participant', icon: Users },
-    ...(isAdmin ? [{ id: 'organizer', label: 'Organizer', icon: LayoutDashboard }] : []),
+    { id: 'organizer', label: 'Organizer', icon: LayoutDashboard },
     ...(isReviewer ? [{ id: 'reviewer', label: 'Reviewer', icon: Scale }] : []),
   ]
 
@@ -389,7 +384,6 @@ export function Header({
 
                 {/* Consoles dropdown */}
                 <ConsolesDropdown
-                  isAdmin={isAdmin}
                   isReviewer={isReviewer}
                   currentView={currentView}
                   onViewChange={onViewChange}
@@ -409,24 +403,6 @@ export function Header({
               >
                 <Archive size={12} aria-hidden="true" />
                 {currentView === 'grants' ? 'Hackathons' : 'Microgrants'}
-              </button>
-            )}
-
-            {/* Apply as Admin */}
-            {!isAdmin && onOpenApplyAdmin && (
-              <button
-                id="header-apply-admin-btn"
-                onClick={onOpenApplyAdmin}
-                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full border transition-all hover:opacity-85 btn-focus"
-                style={{
-                  background: 'var(--surface)',
-                  borderColor: 'var(--border)',
-                  color: 'var(--ink)',
-                }}
-                aria-label="Apply to launch grants as an Admin"
-              >
-                <ShieldCheck size={13} style={{ color: 'var(--brand)' }} aria-hidden="true" />
-                Apply as Admin
               </button>
             )}
 

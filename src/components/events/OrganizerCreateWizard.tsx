@@ -10,6 +10,7 @@ import {
   saveEventCreateDraft,
   loadEventCreateDraft,
   clearEventCreateDraft,
+  saveOrganizerSubmission,
   type EventCreatePayload,
 } from '../../utils/metadataStorage'
 import { useCreateEvent } from '../../hooks/useFundoraEvents'
@@ -53,6 +54,7 @@ interface OrganizerCreateWizardProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: (eventId: bigint, txHash: string) => void
+  initialCategory?: 'hackathon' | 'contest'
 }
 
 type WizardStep = 1 | 2 | 3 | 4 | 5 | 6
@@ -109,7 +111,7 @@ function totalPrizeUsdc(tracks: TrackForm[]): bigint {
 // Computed once at module load — avoids impure Date() call during render
 const TODAY_STR = new Date().toISOString().split('T')[0]
 
-export function OrganizerCreateWizard({ isOpen, onClose, onSuccess }: OrganizerCreateWizardProps) {
+export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCategory }: OrganizerCreateWizardProps) {
   const { address } = useAccount()
 
   // ── Wizard step ──────────────────────────────────────────────────────────
@@ -129,8 +131,9 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess }: OrganizerC
   const [tagline, setTagline] = useState(() => _initDraft?.tagline ?? '')
   const [description, setDescription] = useState(() => _initDraft?.description ?? '')
   const [category, setCategory] = useState<'hackathon' | 'contest'>(
-    () => _initDraft?.category ?? 'hackathon'
+    () => initialCategory ?? _initDraft?.category ?? 'hackathon'
   )
+  const [contactEmail, setContactEmail] = useState(() => _initDraft?.contactEmail ?? '')
   const [tags, setTags] = useState<string[]>(() => _initDraft?.tags ?? [])
   const [tagInput, setTagInput] = useState('')
   const [externalUrl, setExternalUrl] = useState(() => _initDraft?.externalUrl ?? '')
@@ -211,7 +214,7 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess }: OrganizerC
     if (!isOpen || !title.trim()) return
     const timer = setTimeout(() => {
       const payload: EventCreatePayload = {
-        title, tagline, description, category, modality, externalUrl,
+        title, tagline, description, category, contactEmail, modality, externalUrl,
         externalPlatformName, tags,
         submissionDeadlineDays: parseDateInput(submissionDeadlineDate),
         judgingDays: parseDateInput(judgingDeadlineDate),
@@ -222,7 +225,7 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess }: OrganizerC
       saveEventCreateDraft(payload)
     }, 800)
     return () => clearTimeout(timer)
-  }, [isOpen, title, tagline, description, category, modality, externalUrl, externalPlatformName,
+  }, [isOpen, title, tagline, description, category, contactEmail, modality, externalUrl, externalPlatformName,
     tags, submissionDeadlineDate, judgingDeadlineDate, tracks, rubric, reviewers])
 
   // Derive full publish stage from wagmi state — no setState needed for transitions
@@ -238,6 +241,7 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess }: OrganizerC
   const handleClearDraft = () => {
     clearEventCreateDraft()
     setTitle(''); setTagline(''); setDescription('')
+    setContactEmail('')
     setTags([]); setExternalUrl(''); setExternalPlatformName('')
     setTracks([defaultTrack()]); setReviewers([])
   }
@@ -248,6 +252,8 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess }: OrganizerC
     if (s === 2) {
       if (!title.trim()) e.title = 'Event title is required'
       if (!description.trim() || description.length < 50) e.description = 'Description must be at least 50 characters'
+      if (!contactEmail.trim()) e.contactEmail = 'Contact email is required'
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) e.contactEmail = 'Enter a valid email address'
       if (modality === 'external_listing') {
         if (!externalUrl.trim()) e.externalUrl = 'External URL is required'
         else if (!/^https?:\/\//.test(externalUrl)) e.externalUrl = 'Must be a valid https:// URL'
@@ -329,14 +335,24 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess }: OrganizerC
     void refetchAllowance().then(() => handleCreate())
   }, [isApproveConfirmed]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // After createEvent confirms: clear draft + notify parent. No setState here.
+  // After createEvent confirms: save pending submission, clear draft, notify parent.
   const didNotifyRef = useRef(false)
   useEffect(() => {
     if (!isCreateDone || didNotifyRef.current) return
     didNotifyRef.current = true
     clearEventCreateDraft()
+    saveOrganizerSubmission({
+      id: `org_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      organizerAddress: address ?? '',
+      title,
+      contactEmail,
+      category,
+      modality,
+      status: 'pending',
+      submittedAt: Date.now(),
+    })
     if (createHash) onSuccess(1n, createHash)
-  }, [isCreateDone, createHash, onSuccess])
+  }, [isCreateDone, createHash, onSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isOpen) return null
 
@@ -548,6 +564,24 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess }: OrganizerC
                   className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-midnight placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand resize-none ${errors.description ? 'border-coral ring-1 ring-coral' : 'border-slate-200'}`}
                 />
                 {errors.description && <span className="text-xs text-coral mt-1 block">{errors.description}</span>}
+              </div>
+
+              {/* Contact Email */}
+              <div>
+                <label className="block text-xs font-bold text-midnight uppercase tracking-wider mb-1.5">
+                  Contact Email *
+                </label>
+                <input
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => { setContactEmail(e.target.value); if (errors.contactEmail) setErrors({ ...errors, contactEmail: '' }) }}
+                  placeholder="you@example.com"
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-midnight placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand ${errors.contactEmail ? 'border-coral ring-1 ring-coral' : 'border-slate-200'}`}
+                />
+                {errors.contactEmail && <span className="text-xs text-coral mt-1 block">{errors.contactEmail}</span>}
+                <p className="text-[11px] text-slate-500 mt-1">
+                  You'll receive a submission confirmation at this address, and a decision email once your event has been manually reviewed.
+                </p>
               </div>
 
               {/* External URL (only for external listings) */}
