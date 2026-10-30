@@ -8,6 +8,7 @@ import {
   FUNDORA_EVENTS_ABI,
   type OnchainEventInfo,
   type OnchainSubmission,
+  type ReviewRecord,
 } from '../contracts/fundoraEvents'
 import type { Address } from 'viem'
 
@@ -141,6 +142,38 @@ export function useEventsPaused() {
     address: FUNDORA_EVENTS_ADDRESS,
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'paused',
+  })
+}
+
+export function useGetReview(
+  eventId: bigint | undefined,
+  submissionId: bigint | undefined,
+  reviewer: Address | undefined,
+) {
+  return useReadContract({
+    address: FUNDORA_EVENTS_ADDRESS,
+    abi: FUNDORA_EVENTS_ABI,
+    functionName: 'getReview',
+    args: eventId !== undefined && submissionId !== undefined && reviewer
+      ? [eventId, submissionId, reviewer]
+      : undefined,
+    query: { enabled: !!eventId && !!submissionId && !!reviewer },
+  })
+}
+
+export function useHasReviewed(
+  eventId: bigint | undefined,
+  submissionId: bigint | undefined,
+  reviewer: Address | undefined,
+) {
+  return useReadContract({
+    address: FUNDORA_EVENTS_ADDRESS,
+    abi: FUNDORA_EVENTS_ABI,
+    functionName: 'hasReviewed',
+    args: eventId !== undefined && submissionId !== undefined && reviewer
+      ? [eventId, submissionId, reviewer]
+      : undefined,
+    query: { enabled: !!eventId && !!submissionId && !!reviewer },
   })
 }
 
@@ -303,4 +336,4 @@ export function useSubmitReview() {
 }
 
 // ── Type exports ──────────────────────────────────────────────────────────────
-export type { OnchainEventInfo, OnchainSubmission }
+export type { OnchainEventInfo, OnchainSubmission, ReviewRecord }

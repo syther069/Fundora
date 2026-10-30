@@ -4,7 +4,7 @@ import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
   Users, Zap, ShieldCheck, TrendingUp, AlertTriangle, ArrowRight,
-  Trophy, Compass, Scale, Layers, PlusCircle, LayoutGrid, Clock, CheckCircle2
+  Trophy, Compass, Layers, PlusCircle, LayoutGrid, CheckCircle2
 } from 'lucide-react'
 import { Header } from './components/Header'
 import { GrantCard } from './components/GrantCard'
@@ -33,6 +33,12 @@ import { formatUnits } from 'viem'
 
 // Phase 4 imports
 import { useMode } from './context/ModeContext'
+
+// Phase 5 imports
+import { ReviewerWorkspace } from './components/events/ReviewerWorkspace'
+import { DeliberationLeaderboard } from './components/events/DeliberationLeaderboard'
+import { SettlementConsole } from './components/events/SettlementConsole'
+import type { WinnerMapping } from './components/events/DeliberationLeaderboard'
 
 type View = 'events' | 'event-detail' | 'participant' | 'reviewer' | 'organizer' | 'grants' | 'detail' | 'admin'
 
@@ -346,6 +352,23 @@ export default function App() {
 
   // ── Phase 3: Organizer Create Wizard ──────────────────────────────────────
   const [organizerWizardOpen, setOrganizerWizardOpen] = useState(false)
+
+  // Phase 5: winner mapping for deliberation + settlement
+  const [winnerMapping, setWinnerMapping] = useState<WinnerMapping>({})
+  const handleWinnerMapped = (tierId: string, submissionId: string, address: string, amountUsdc: bigint) => {
+    if (!tierId || !submissionId) {
+      // clear the existing mapping for this submission
+      setWinnerMapping(prev => {
+        const next = { ...prev }
+        for (const [k, v] of Object.entries(next)) {
+          if (v.submissionId === submissionId) delete next[k]
+        }
+        return next
+      })
+      return
+    }
+    setWinnerMapping(prev => ({ ...prev, [tierId]: { submissionId, address, amountUsdc } }))
+  }
 
   // ── Phase 3: Real onchain data for participant hub ────────────────────────
   const { data: pendingPrize } = usePendingPrizeWithdrawals(address ?? undefined)
@@ -726,177 +749,8 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="space-y-6"
             >
-              <div className="flex items-start justify-between flex-wrap gap-3">
-                <div>
-                  <h1 className="font-jakarta font-extrabold text-2xl text-midnight tracking-tight mb-1">
-                    Reviewer Judging Workspace
-                  </h1>
-                  <p className="text-sm text-slate-600">
-                    Evaluate assigned hackathon and contest submissions using published criteria.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setView('events')}
-                  className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-semibold text-white bg-brand hover:bg-brand-hover shadow-sm"
-                >
-                  <Compass size={14} />
-                  Browse Events
-                </button>
-              </div>
-
-              {/* Role access check */}
-              {!isConnected ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center space-y-4">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
-                    <Scale size={22} />
-                  </div>
-                  <div>
-                    <h3 className="font-jakarta font-bold text-base text-midnight mb-1">Connect your wallet</h3>
-                    <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-                      Connect the wallet that was assigned reviewer access by an event organizer.
-                    </p>
-                  </div>
-                  <ConnectKitButton label="Connect to access reviewer tools" />
-                </div>
-              ) : !isReviewer ? (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-8 text-center space-y-3">
-                  <div className="w-11 h-11 rounded-2xl mx-auto flex items-center justify-center"
-                    style={{ background: 'var(--amber-light)', color: 'var(--amber)' }}>
-                    <AlertTriangle size={20} />
-                  </div>
-                  <div>
-                    <h3 className="font-jakarta font-bold text-base text-midnight mb-1">Reviewer access not detected</h3>
-                    <p className="text-xs leading-relaxed max-w-sm mx-auto" style={{ color: 'var(--amber)' }}>
-                      Your connected wallet has not been assigned as a reviewer on any active event.
-                      Contact the event organizer to be added as a reviewer.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setView('events')}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl border transition-colors"
-                    style={{ borderColor: 'var(--amber-border)', color: 'var(--amber)', background: 'var(--amber-light)' }}
-                  >
-                    <Trophy size={13} />
-                    Browse open events
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {/* Assigned Events Queue */}
-                  {(() => {
-                    const assignedEvents = events.filter(e =>
-                      e.status === 'active' || e.status === 'judging'
-                    )
-                    return assignedEvents.length === 0 ? (
-                      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center space-y-3">
-                        <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
-                          <Scale size={20} />
-                        </div>
-                        <div>
-                          <h3 className="font-jakarta font-bold text-base text-midnight mb-1">No active judging assignments</h3>
-                          <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-                            You have reviewer access but no events are currently in their submission or judging phase.
-                            Check back when an event organizer opens judging.
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setView('events')}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:underline"
-                        >
-                          Browse all events <ArrowRight size={12} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <h2 className="font-jakarta font-bold text-sm text-midnight uppercase tracking-wider">
-                          Active Judging Assignments
-                        </h2>
-                        {assignedEvents.map(ev => (
-                          <div key={ev.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                            <div className="flex items-start justify-between gap-4 flex-wrap">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
-                                    style={{
-                                      background: ev.status === 'judging' ? 'var(--amber-light)' : 'var(--brand-light)',
-                                      color: ev.status === 'judging' ? 'var(--amber)' : 'var(--brand)',
-                                    }}>
-                                    {ev.status === 'judging' ? <Scale size={10} /> : <Clock size={10} />}
-                                    {ev.status === 'judging' ? 'Judging Open' : 'Accepting Submissions'}
-                                  </span>
-                                  <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-                                    {ev.category === 'hackathon' ? 'Hackathon' : 'Contest'}
-                                  </span>
-                                </div>
-                                <h3 className="font-jakarta font-bold text-base text-midnight line-clamp-1 mb-1">
-                                  {ev.title}
-                                </h3>
-                                <p className="text-xs text-slate-500 line-clamp-1">{ev.hostName}</p>
-                              </div>
-                              <div className="flex items-center gap-3 shrink-0">
-                                <div className="text-right">
-                                  <div className="font-mono font-bold text-lg text-midnight tabular-nums">
-                                    {ev.submissionsCount}
-                                  </div>
-                                  <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
-                                    Submissions
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => handleSelectEvent(ev.id)}
-                                  className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-hover shadow-sm transition-colors"
-                                >
-                                  <Scale size={13} />
-                                  {ev.status === 'judging' ? 'Open Queue' : 'Preview'}
-                                </button>
-                              </div>
-                            </div>
-                            {ev.submissionsCount > 0 && (
-                              <div className="mt-4 pt-4 border-t border-slate-100">
-                                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
-                                  <span>{ev.submissionsCount} total {ev.category === 'hackathon' ? 'projects' : 'entries'}</span>
-                                  <span className="font-medium text-brand">View all →</span>
-                                </div>
-                                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--warm-bg-2)' }}>
-                                  <div className="h-full rounded-full" style={{ background: 'var(--brand)', width: ev.status === 'judging' ? '40%' : '100%' }} />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
-
-                  {/* Reviewer guidelines */}
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                    <h3 className="font-jakarta font-bold text-sm text-midnight mb-3 flex items-center gap-2">
-                      <ShieldCheck size={14} className="text-brand" />
-                      Reviewer Guidelines
-                    </h3>
-                    <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
-                      <li className="flex items-start gap-2">
-                        <span className="w-1 h-1 rounded-full bg-brand mt-1.5 shrink-0" />
-                        Scores you submit are recorded onchain and inform the final deliberation leaderboard.
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="w-1 h-1 rounded-full bg-brand mt-1.5 shrink-0" />
-                        Score each submission on its own merits using the event's published rubric.
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="w-1 h-1 rounded-full bg-brand mt-1.5 shrink-0" />
-                        Participant wallet addresses are visible to prevent conflicts of interest — recuse yourself if needed.
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="w-1 h-1 rounded-full bg-brand mt-1.5 shrink-0" />
-                        Once a review is submitted it cannot be changed. Review carefully before confirming.
-                      </li>
-                    </ul>
-                  </div>
-                </>
-              )}
+              <ReviewerWorkspace onSelectEvent={handleSelectEvent} />
             </motion.div>
           )}
 
@@ -1011,6 +865,26 @@ export default function App() {
 
               {/* Organizer Review Panel */}
               <OrganizerReviewPanel isAdmin={!!isAdmin} />
+
+              {/* ── Phase 5: Deliberation Leaderboard + Settlement Console ─── */}
+              {activeEvent && (
+                <DeliberationLeaderboard
+                  event={activeEvent}
+                  isOrganizer={!!address && activeEvent.hostAddress === address}
+                  winnerMapping={winnerMapping}
+                  onWinnerMapped={handleWinnerMapped}
+                />
+              )}
+              {activeEvent && activeEvent.modality === 'native_escrow' && (
+                <SettlementConsole
+                  event={activeEvent}
+                  winnerMapping={winnerMapping}
+                  onSettled={() => {
+                    setWinnerMapping({})
+                    setView('events')
+                  }}
+                />
+              )}
             </motion.div>
           )}
 

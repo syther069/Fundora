@@ -48,8 +48,15 @@ export interface OnchainSubmission {
   metadataUri: string
   submissionHash: `0x${string}`
   submittedAt: number
-  totalScore: number
-  isFinalized: boolean
+  scoreSum: number      // cumulative sum of all reviewer scores (1–100 each)
+  reviewCount: number   // number of reviews submitted
+  disqualified: boolean
+}
+
+export interface ReviewRecord {
+  score: number       // 1–100
+  notesHash: `0x${string}`
+  reviewedAt: number  // unix seconds
 }
 
 // ── ABI ───────────────────────────────────────────────────────────────────────
@@ -238,8 +245,9 @@ export const FUNDORA_EVENTS_ABI = [
           { name: 'metadataUri', type: 'string' },
           { name: 'submissionHash', type: 'bytes32' },
           { name: 'submittedAt', type: 'uint40' },
-          { name: 'totalScore', type: 'uint16' },
-          { name: 'isFinalized', type: 'bool' },
+          { name: 'scoreSum', type: 'uint32' },
+          { name: 'reviewCount', type: 'uint16' },
+          { name: 'disqualified', type: 'bool' },
         ],
       },
     ],
@@ -264,11 +272,44 @@ export const FUNDORA_EVENTS_ABI = [
           { name: 'metadataUri', type: 'string' },
           { name: 'submissionHash', type: 'bytes32' },
           { name: 'submittedAt', type: 'uint40' },
-          { name: 'totalScore', type: 'uint16' },
-          { name: 'isFinalized', type: 'bool' },
+          { name: 'scoreSum', type: 'uint32' },
+          { name: 'reviewCount', type: 'uint16' },
+          { name: 'disqualified', type: 'bool' },
         ],
       },
     ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getReview',
+    inputs: [
+      { name: 'eventId', type: 'uint256' },
+      { name: 'submissionId', type: 'uint256' },
+      { name: 'reviewer', type: 'address' },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'score', type: 'uint16' },
+          { name: 'notesHash', type: 'bytes32' },
+          { name: 'reviewedAt', type: 'uint40' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'hasReviewed',
+    inputs: [
+      { name: 'eventId', type: 'uint256' },
+      { name: 'submissionId', type: 'uint256' },
+      { name: 'reviewer', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'view',
   },
   {
