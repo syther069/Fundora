@@ -309,12 +309,14 @@ export function Header({
   const navItems = [
     { id: 'events', label: 'Explore Events', icon: Compass },
     { id: 'participant', label: 'Participant Hub', icon: Users },
+    { id: 'grants', label: 'Microgrants', icon: Archive },
   ]
 
   // Mobile nav — Organizer always shown, Reviewer only to reviewers
   const mobileNavItems = [
     { id: 'events', label: 'Explore', icon: Compass },
     { id: 'participant', label: 'Participant', icon: Users },
+    { id: 'grants', label: 'Microgrants', icon: Archive },
     { id: 'organizer', label: 'Organizer', icon: LayoutDashboard },
     ...(isReviewer ? [{ id: 'reviewer', label: 'Reviewer', icon: Scale }] : []),
   ]
@@ -394,18 +396,6 @@ export function Header({
 
           {/* ── Right: Wallet & Actions ──────────────────────────────────────── */}
           <div className="shrink-0 flex items-center gap-2">
-            {/* Legacy Microgrants toggle */}
-            {onViewChange && (
-              <button
-                onClick={() => onViewChange(currentView === 'grants' ? 'events' : 'grants')}
-                className="hidden xl:inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-midnight px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                title="Toggle between Hackathons and legacy Microgrants"
-              >
-                <Archive size={12} aria-hidden="true" />
-                {currentView === 'grants' ? 'Hackathons' : 'Microgrants'}
-              </button>
-            )}
-
             {/* ConnectKit wallet button */}
             <ConnectKitButton />
 

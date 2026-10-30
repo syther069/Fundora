@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatedGroup } from './components/ui/animated-group'
+import { TextEffect } from './components/ui/text-effect'
 import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
@@ -29,7 +31,8 @@ import { EventSkeletonGrid } from './components/events/EventSkeletonGrid'
 import { EventDetailView } from './components/events/EventDetailView'
 import { ParticipantSubmitWizard } from './components/events/ParticipantSubmitWizard'
 import { SubmissionReceiptModal } from './components/events/SubmissionReceiptModal'
-import type { Submission } from './types/events'
+import { EventPublishedModal } from './components/events/EventPublishedModal'
+import type { Submission, Event } from './types/events'
 
 // Phase 3 imports
 import { OrganizerCreateWizard } from './components/events/OrganizerCreateWizard'
@@ -51,7 +54,8 @@ const _NOT_DEPLOYED = FUNDORA_ADDRESS === '0x00000000000000000000000000000000000
 
 // ── Hero: disconnected state (legacy grants) ──────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
+function HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
+  const shouldReduce = useReducedMotion()
   const features = [
     { icon: <Zap size={12} />, label: 'Instant USDC payouts', color: 'var(--amber)' },
     { icon: <ShieldCheck size={12} />, label: 'Onchain evidence', color: 'var(--teal)' },
@@ -86,12 +90,15 @@ function _HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
           </svg>
         </div>
 
-        <h1
+        <TextEffect
+          as="h1"
+          per="word"
+          preset={shouldReduce ? 'fade' : 'fade-in-blur'}
           className="font-jakarta font-extrabold text-3xl mb-3 text-midnight"
           style={{ letterSpacing: '-0.03em' }}
         >
           Fundora
-        </h1>
+        </TextEffect>
         <p className="text-base leading-relaxed max-w-sm mx-auto mb-6" style={{ color: 'var(--muted)' }}>
           Milestone-based USDC grants with onchain evidence, reviewer votes, and transparent payouts — built on Arc.
         </p>
@@ -297,9 +304,11 @@ export default function App() {
   const { data: _contractAdmin } = useContractAdmin()
   const { data: isReviewer } = useIsReviewer(address)
   const { isAdmin, refetch: refetchIsAdmin } = useUnifiedIsAdmin()
+  const shouldReduce = useReducedMotion()
   const [showApplyModal, setShowApplyModal] = useState(false)
   const [organizerTypeModalOpen, setOrganizerTypeModalOpen] = useState(false)
   const [selectedOrgCategory, setSelectedOrgCategory] = useState<'hackathon' | 'contest' | null>(null)
+  const [publishedEvent, setPublishedEvent] = useState<Event | null>(null)
 
   // Phase 4 — Demo / Live mode
   const { isLive } = useMode()
@@ -483,9 +492,14 @@ export default function App() {
                       <Trophy size={12} />
                       {isLive ? 'Live Mainnet Events' : 'Arc Community Hackathons & Contests'}
                     </span>
-                    <h1 className="font-jakarta font-extrabold text-2xl sm:text-4xl text-midnight tracking-tight mb-2">
+                    <TextEffect
+                      as="h1"
+                      per="word"
+                      preset={shouldReduce ? 'fade' : 'fade-in-blur'}
+                      className="font-jakarta font-extrabold text-2xl sm:text-4xl text-midnight tracking-tight mb-2"
+                    >
                       Build With Arc. Win Onchain USDC.
-                    </h1>
+                    </TextEffect>
                     <p className="text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
                       Discover community competitions with verified smart contract escrow. Submit prototypes, media, or tools, and pull-claim rewards directly to your wallet.
                     </p>
@@ -575,7 +589,7 @@ export default function App() {
                     )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  <AnimatedGroup className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {filteredEvents.map((event) => (
                       <EventCard
                         key={event.id}
@@ -583,7 +597,7 @@ export default function App() {
                         onSelect={handleSelectEvent}
                       />
                     ))}
-                  </div>
+                  </AnimatedGroup>
                 )}
               </div>
             </motion.div>
@@ -1015,7 +1029,7 @@ export default function App() {
                       {grants.length > 0 && <StatsStrip grants={grants} />}
 
                       {/* Grants Grid */}
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <AnimatedGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {grants.map((grant) => (
                           <GrantCard
                             key={grant.id.toString()}
@@ -1024,7 +1038,7 @@ export default function App() {
                             isNavigating={navigating === grant.id.toString()}
                           />
                         ))}
-                      </div>
+                      </AnimatedGroup>
                     </>
                   )}
                 </div>
@@ -1053,10 +1067,27 @@ export default function App() {
             isOpen={organizerWizardOpen}
             initialCategory={selectedOrgCategory ?? 'hackathon'}
             onClose={() => { setOrganizerWizardOpen(false); setSelectedOrgCategory(null) }}
-            onSuccess={(_eventId, _txHash) => {
+            onSuccess={(_eventId, _txHash, createdEvent) => {
               setOrganizerWizardOpen(false)
               setSelectedOrgCategory(null)
+              if (createdEvent) {
+                setPublishedEvent(createdEvent)
+              }
               setView('organizer')
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Event Published Celebration Modal */}
+      <AnimatePresence>
+        {publishedEvent && (
+          <EventPublishedModal
+            event={publishedEvent}
+            onClose={() => setPublishedEvent(null)}
+            onViewEvent={(eventId) => {
+              setPublishedEvent(null)
+              handleSelectEvent(eventId)
             }}
           />
         )}
