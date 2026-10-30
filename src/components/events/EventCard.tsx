@@ -13,8 +13,11 @@ function formatUsdc(amount: bigint): string {
   return Number(dollars).toLocaleString('en-US')
 }
 
+// Module-level timestamp to avoid impure Date.now() during render
+const MODULE_NOW_SECS = Math.floor(Date.now() / 1000)
+
 function getCountdownLabel(deadlineSec: number, status: string): { label: string; isUrgent: boolean } {
-  const now = Math.floor(Date.now() / 1000)
+  const now = MODULE_NOW_SECS
   const diff = deadlineSec - now
 
   if (status === 'completed') {
@@ -47,7 +50,7 @@ export const EventCard = memo(function EventCard({ event, onSelect }: EventCardP
   const isJudging = event.status === 'judging'
 
   return (
-    <motion.div
+    <motion.article
       layout
       whileHover={{ y: -3 }}
       transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
@@ -59,8 +62,7 @@ export const EventCard = memo(function EventCard({ event, onSelect }: EventCardP
         }
       }}
       tabIndex={0}
-      role="button"
-      aria-label={`View details for ${event.title}, total prize pool $${formatUsdc(event.totalPrizePoolUsdc)} USDC`}
+      aria-label={`${event.title} — ${event.category === 'hackathon' ? 'Hackathon' : 'Contest'}, $${formatUsdc(event.totalPrizePoolUsdc)} USDC prize pool. Press Enter to view details.`}
       className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
     >
       <div>
@@ -195,6 +197,6 @@ export const EventCard = memo(function EventCard({ event, onSelect }: EventCardP
           </div>
         </div>
       </div>
-    </motion.div>
+    </motion.article>
   )
 })

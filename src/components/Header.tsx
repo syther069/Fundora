@@ -472,8 +472,18 @@ export function Header({
         {/* ── Mobile bottom nav bar ──────────────────────────────────────────── */}
         {onViewChange && (
           <div
-            className="lg:hidden flex items-center gap-1 px-4 py-2 border-t overflow-x-auto"
-            style={{ borderColor: 'var(--border)', background: 'rgba(255,255,255,0.8)' }}
+            className="lg:hidden relative border-t"
+            style={{ borderColor: 'var(--border)' }}
+          >
+            {/* Fade-out gradient on right edge to signal scroll */}
+            <div
+              className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10"
+              style={{ background: 'linear-gradient(to left, rgba(255,255,255,0.95), transparent)' }}
+              aria-hidden="true"
+            />
+          <div
+            className="flex items-center gap-1 px-4 py-2 overflow-x-auto scrollbar-none"
+            style={{ background: 'rgba(255,255,255,0.8)' }}
             role="navigation"
             aria-label="Mobile navigation"
           >
@@ -495,6 +505,7 @@ export function Header({
                 </button>
               )
             })}
+          </div>
           </div>
         )}
       </header>

@@ -42,7 +42,7 @@ export function EventDetailView({ event, submissions, onBack, onOpenSubmitModal 
   const eventIdBig = (() => {
     try { return BigInt(event.id.replace(/\D/g, '') || '0') } catch { return 0n }
   })()
-  const { data: existingSubId } = useUserSubmissionId(
+  const { data: existingSubId, isLoading: subCheckLoading } = useUserSubmissionId(
     isNativeEvent && eventIdBig > 0n ? eventIdBig : undefined,
     address ?? undefined,
   )
@@ -276,6 +276,15 @@ export function EventDetailView({ event, submissions, onBack, onOpenSubmitModal 
                   className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-500 bg-slate-200 cursor-not-allowed"
                 >
                   Submissions Closed (In Review)
+                </button>
+              ) : subCheckLoading ? (
+                <button
+                  disabled
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-400 bg-slate-100 cursor-wait"
+                  aria-label="Checking submission status…"
+                >
+                  <span className="w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-500 animate-spin" aria-hidden="true" />
+                  Checking status…
                 </button>
               ) : alreadySubmittedId && alreadySubmittedId > 0n ? (
                 <button

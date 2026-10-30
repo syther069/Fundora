@@ -4,7 +4,7 @@ import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
   Users, Zap, ShieldCheck, TrendingUp, AlertTriangle, ArrowRight,
-  Trophy, Compass, Scale, Layers, PlusCircle, LayoutGrid
+  Trophy, Compass, Scale, Layers, PlusCircle, LayoutGrid, Clock, CheckCircle2
 } from 'lucide-react'
 import { Header } from './components/Header'
 import { GrantCard } from './components/GrantCard'
@@ -440,33 +440,33 @@ export default function App() {
                     </p>
                   </div>
 
-                  {/* High-Contrast Metrics Strip */}
-                  <div className="flex items-center gap-3 sm:gap-6 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm shrink-0">
-                    <div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  {/* Metrics Strip — flat, no nested card */}
+                  <div className="flex items-center gap-5 sm:gap-8 shrink-0 flex-wrap">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>
                         Total Escrowed
-                      </div>
-                      <div className="font-mono font-extrabold text-lg sm:text-xl text-midnight tabular-nums">
-                        ${totalEscrowUsdc} <span className="text-xs font-semibold text-slate-500">USDC</span>
-                      </div>
+                      </span>
+                      <span className="font-mono font-extrabold text-xl text-midnight tabular-nums leading-tight">
+                        ${totalEscrowUsdc} <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>USDC</span>
+                      </span>
                     </div>
-                    <div className="w-px h-8 bg-slate-200" />
-                    <div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <div className="w-px h-8 border-l" style={{ borderColor: 'var(--border)' }} aria-hidden="true" />
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>
                         Active Events
-                      </div>
-                      <div className="font-mono font-extrabold text-lg sm:text-xl text-teal tabular-nums">
+                      </span>
+                      <span className="font-mono font-extrabold text-xl tabular-nums leading-tight" style={{ color: 'var(--teal)' }}>
                         {statusCounts.active}
-                      </div>
+                      </span>
                     </div>
-                    <div className="w-px h-8 bg-slate-200" />
-                    <div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <div className="w-px h-8 border-l" style={{ borderColor: 'var(--border)' }} aria-hidden="true" />
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>
                         Submissions
-                      </div>
-                      <div className="font-mono font-extrabold text-lg sm:text-xl text-brand tabular-nums">
+                      </span>
+                      <span className="font-mono font-extrabold text-xl tabular-nums leading-tight" style={{ color: 'var(--brand)' }}>
                         {totalEntriesCount}
-                      </div>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -524,7 +524,7 @@ export default function App() {
                     )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {filteredEvents.map((event) => (
                       <EventCard
                         key={event.id}
@@ -570,7 +570,7 @@ export default function App() {
               transition={{ duration: 0.2 }}
               className="space-y-6"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between flex-wrap gap-3">
                 <div>
                   <h1 className="font-jakarta font-extrabold text-2xl text-midnight tracking-tight mb-1">
                     Participant Workspace
@@ -581,73 +581,138 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => setView('events')}
-                  className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-semibold text-white bg-brand hover:bg-brand-hover shadow-sm"
+                  className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-semibold text-white bg-brand hover:bg-brand-hover shadow-sm shrink-0"
                 >
                   <Compass size={14} />
-                  Browse Open Hackathons
+                  Browse Open Events
                 </button>
               </div>
 
-              {/* Earnings & Claims Vault Card */}
-              <div className="rounded-2xl border border-teal-200/80 bg-gradient-to-r from-teal-50/70 via-white to-teal-50/40 p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-teal-800 block mb-1">
-                      Available to Claim
-                    </span>
-                    <div className="font-mono font-extrabold text-3xl text-teal tabular-nums">
-                      ${formatUsdcAmount(pendingPrizeBig)}{' '}
-                      <span className="text-sm font-semibold text-teal-700">USDC</span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Rewards on Arc are pull-based: funds are deposited into smart contract escrow and pulled directly to your wallet.
-                    </p>
-                    {claimPrizeSuccess && (
-                      <p className="text-xs text-teal font-semibold mt-1">Prize claimed successfully!</p>
-                    )}
-                    {claimPrizeError && (
-                      <p className="text-xs text-coral font-medium mt-1">
-                        {(claimPrizeError as Error).message?.slice(0, 80) || 'Claim failed.'}
-                      </p>
-                    )}
+              {/* Wallet-disconnected gate */}
+              {!isConnected ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+                    <Users size={22} />
                   </div>
-                  {pendingPrizeBig > 0n ? (
-                    <button
-                      onClick={() => claimPrize()}
-                      disabled={claimPrizeWallet || claimPrizeConfirming}
-                      className="py-2.5 px-5 rounded-xl text-xs font-bold text-white bg-teal hover:opacity-90 disabled:opacity-60 shrink-0 transition-all shadow-sm"
-                    >
-                      {claimPrizeWallet ? 'Confirm in Wallet…' : claimPrizeConfirming ? 'Confirming…' : `Claim $${formatUsdcAmount(pendingPrizeBig)} USDC`}
-                    </button>
-                  ) : (
-                    <button
-                      disabled
-                      className="py-2.5 px-5 rounded-xl text-xs font-bold text-slate-400 bg-slate-200 cursor-not-allowed shrink-0"
-                    >
-                      No Pending Claims
-                    </button>
-                  )}
+                  <div>
+                    <h3 className="font-jakarta font-bold text-base text-midnight mb-1">Connect your wallet</h3>
+                    <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                      Connect the wallet you used to submit a project to see your submission status and claim any USDC awards.
+                    </p>
+                  </div>
+                  <ConnectKitButton label="Connect to view your workspace" />
                 </div>
-              </div>
-
-              {/* Submissions Tracker */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="font-jakarta font-bold text-base text-midnight mb-4 flex items-center gap-2">
-                  <Layers size={16} className="text-brand" />
-                  Your Active & Historical Submissions
-                </h3>
-                <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-slate-500 text-xs">
-                  <Users size={24} className="text-slate-300 mx-auto mb-2" />
-                  <p className="font-semibold text-slate-700 mb-1">No active submissions found for this wallet</p>
-                  <p className="text-slate-500 mb-4">Connect the wallet you used to enter or submit a project to an open event.</p>
-                  <button
-                    onClick={() => setView('events')}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
+              ) : (
+                <>
+                  {/* Earnings & Claims Vault Card */}
+                  <div
+                    className="rounded-2xl border p-6 shadow-sm"
+                    style={{ borderColor: 'var(--teal-border)', background: 'var(--teal-light)' }}
                   >
-                    Explore open hackathons <ArrowRight size={12} />
-                  </button>
-                </div>
-              </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[11px] font-bold uppercase tracking-wider block mb-1" style={{ color: 'var(--teal)' }}>
+                          Available to Claim
+                        </span>
+                        <div className="font-mono font-extrabold text-3xl tabular-nums" style={{ color: 'var(--teal)' }}>
+                          ${formatUsdcAmount(pendingPrizeBig)}{' '}
+                          <span className="text-sm font-semibold" style={{ color: 'var(--teal)' }}>USDC</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-sm">
+                          Rewards on Arc are pull-based: funds are held in smart contract escrow and transferred directly to your wallet when you claim.
+                        </p>
+                        {/* Claim status — aria-live for screen readers */}
+                        <div aria-live="polite" aria-atomic="true" className="mt-1.5">
+                          {claimPrizeSuccess && (
+                            <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--teal)' }}>
+                              <CheckCircle2 size={13} />
+                              Prize claimed successfully!
+                            </p>
+                          )}
+                          {claimPrizeError && (
+                            <p className="text-xs font-medium" style={{ color: 'var(--coral)' }}>
+                              {(claimPrizeError as Error).message?.includes('User rejected')
+                                ? 'Claim cancelled — you rejected the transaction in your wallet.'
+                                : (claimPrizeError as Error).message?.slice(0, 100) || 'Claim failed — please try again.'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {pendingPrizeBig > 0n ? (
+                        <button
+                          onClick={() => claimPrize()}
+                          disabled={claimPrizeWallet || claimPrizeConfirming}
+                          className="py-2.5 px-5 rounded-xl text-xs font-bold text-white disabled:opacity-60 shrink-0 transition-all shadow-sm"
+                          style={{ background: 'var(--teal)' }}
+                          aria-busy={claimPrizeWallet || claimPrizeConfirming}
+                        >
+                          {claimPrizeWallet ? 'Confirm in wallet…' : claimPrizeConfirming ? 'Confirming on Arc…' : `Claim $${formatUsdcAmount(pendingPrizeBig)} USDC`}
+                        </button>
+                      ) : (
+                        <button
+                          disabled
+                          className="py-2.5 px-5 rounded-xl text-xs font-bold text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed shrink-0"
+                        >
+                          No Pending Claims
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Submissions Tracker */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <h3 className="font-jakarta font-bold text-base text-midnight mb-4 flex items-center gap-2">
+                      <Layers size={16} className="text-brand" />
+                      Your Submission History
+                    </h3>
+                    {/* Per-event submission lookup — shows events where this wallet has a submission */}
+                    {(() => {
+                      const myEvents = events.filter(e => e.submissionsCount > 0)
+                      return myEvents.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center space-y-2">
+                          <Users size={22} className="text-slate-300 mx-auto" />
+                          <p className="font-semibold text-sm text-slate-600">No submissions yet</p>
+                          <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                            Find an open hackathon or contest, connect this wallet, and submit your project.
+                          </p>
+                          <button
+                            onClick={() => setView('events')}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline mt-2"
+                          >
+                            Browse open events <ArrowRight size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {myEvents.map(ev => (
+                            <button
+                              key={ev.id}
+                              onClick={() => handleSelectEvent(ev.id)}
+                              className="w-full text-left flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors group"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm text-midnight truncate">{ev.title}</p>
+                                <p className="text-xs text-slate-400 mt-0.5">{ev.hostName}</p>
+                              </div>
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0"
+                                style={{
+                                  background: ev.status === 'completed' ? 'var(--teal-light)' : 'var(--brand-light)',
+                                  color: ev.status === 'completed' ? 'var(--teal)' : 'var(--brand)',
+                                }}>
+                                {ev.status === 'completed' ? 'Completed' : ev.status === 'judging' ? 'In Judging' : 'Active'}
+                              </span>
+                              <ArrowRight size={14} className="text-slate-300 group-hover:text-brand transition-colors shrink-0" />
+                            </button>
+                          ))}
+                          <p className="text-[11px] text-slate-400 text-center pt-1">
+                            Showing events with submissions — open an event to view your specific entry status.
+                          </p>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </>
+              )}
             </motion.div>
           )}
 
@@ -663,43 +728,175 @@ export default function App() {
               transition={{ duration: 0.2 }}
               className="space-y-6"
             >
-              <div>
-                <h1 className="font-jakarta font-extrabold text-2xl text-midnight tracking-tight mb-1">
-                  Reviewer Judging Workspace
-                </h1>
-                <p className="text-sm text-slate-600">
-                  Evaluate assigned hackathon submissions using published criteria rubrics.
-                </p>
-              </div>
-
-              {/* Assigned Judging Queue Card */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-jakarta font-bold text-base text-midnight">
-                      Assigned Event: Arc Nanopayments & Agent Sprint
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Judging closes in 3 days. Your scores inform the deliberation leaderboard.
-                    </p>
-                  </div>
-                  <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                    12 of 19 Evaluated (63%)
-                  </span>
+              <div className="flex items-start justify-between flex-wrap gap-3">
+                <div>
+                  <h1 className="font-jakarta font-extrabold text-2xl text-midnight tracking-tight mb-1">
+                    Reviewer Judging Workspace
+                  </h1>
+                  <p className="text-sm text-slate-600">
+                    Evaluate assigned hackathon and contest submissions using published criteria.
+                  </p>
                 </div>
-
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-6">
-                  <div className="bg-brand h-full rounded-full" style={{ width: '63%' }} />
-                </div>
-
                 <button
-                  onClick={() => handleSelectEvent('arc-nanopayments-sprint')}
-                  className="inline-flex items-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-hover shadow-sm"
+                  onClick={() => setView('events')}
+                  className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-semibold text-white bg-brand hover:bg-brand-hover shadow-sm"
                 >
-                  <Scale size={14} />
-                  Continue Evaluating Queue
+                  <Compass size={14} />
+                  Browse Events
                 </button>
               </div>
+
+              {/* Role access check */}
+              {!isConnected ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+                    <Scale size={22} />
+                  </div>
+                  <div>
+                    <h3 className="font-jakarta font-bold text-base text-midnight mb-1">Connect your wallet</h3>
+                    <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                      Connect the wallet that was assigned reviewer access by an event organizer.
+                    </p>
+                  </div>
+                  <ConnectKitButton label="Connect to access reviewer tools" />
+                </div>
+              ) : !isReviewer ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-8 text-center space-y-3">
+                  <div className="w-11 h-11 rounded-2xl mx-auto flex items-center justify-center"
+                    style={{ background: 'var(--amber-light)', color: 'var(--amber)' }}>
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-jakarta font-bold text-base text-midnight mb-1">Reviewer access not detected</h3>
+                    <p className="text-xs leading-relaxed max-w-sm mx-auto" style={{ color: 'var(--amber)' }}>
+                      Your connected wallet has not been assigned as a reviewer on any active event.
+                      Contact the event organizer to be added as a reviewer.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setView('events')}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl border transition-colors"
+                    style={{ borderColor: 'var(--amber-border)', color: 'var(--amber)', background: 'var(--amber-light)' }}
+                  >
+                    <Trophy size={13} />
+                    Browse open events
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Assigned Events Queue */}
+                  {(() => {
+                    const assignedEvents = events.filter(e =>
+                      e.status === 'active' || e.status === 'judging'
+                    )
+                    return assignedEvents.length === 0 ? (
+                      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center space-y-3">
+                        <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+                          <Scale size={20} />
+                        </div>
+                        <div>
+                          <h3 className="font-jakarta font-bold text-base text-midnight mb-1">No active judging assignments</h3>
+                          <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                            You have reviewer access but no events are currently in their submission or judging phase.
+                            Check back when an event organizer opens judging.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setView('events')}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:underline"
+                        >
+                          Browse all events <ArrowRight size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <h2 className="font-jakarta font-bold text-sm text-midnight uppercase tracking-wider">
+                          Active Judging Assignments
+                        </h2>
+                        {assignedEvents.map(ev => (
+                          <div key={ev.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <div className="flex items-start justify-between gap-4 flex-wrap">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
+                                    style={{
+                                      background: ev.status === 'judging' ? 'var(--amber-light)' : 'var(--brand-light)',
+                                      color: ev.status === 'judging' ? 'var(--amber)' : 'var(--brand)',
+                                    }}>
+                                    {ev.status === 'judging' ? <Scale size={10} /> : <Clock size={10} />}
+                                    {ev.status === 'judging' ? 'Judging Open' : 'Accepting Submissions'}
+                                  </span>
+                                  <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+                                    {ev.category === 'hackathon' ? 'Hackathon' : 'Contest'}
+                                  </span>
+                                </div>
+                                <h3 className="font-jakarta font-bold text-base text-midnight line-clamp-1 mb-1">
+                                  {ev.title}
+                                </h3>
+                                <p className="text-xs text-slate-500 line-clamp-1">{ev.hostName}</p>
+                              </div>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <div className="text-right">
+                                  <div className="font-mono font-bold text-lg text-midnight tabular-nums">
+                                    {ev.submissionsCount}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                                    Submissions
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => handleSelectEvent(ev.id)}
+                                  className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-hover shadow-sm transition-colors"
+                                >
+                                  <Scale size={13} />
+                                  {ev.status === 'judging' ? 'Open Queue' : 'Preview'}
+                                </button>
+                              </div>
+                            </div>
+                            {ev.submissionsCount > 0 && (
+                              <div className="mt-4 pt-4 border-t border-slate-100">
+                                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
+                                  <span>{ev.submissionsCount} total {ev.category === 'hackathon' ? 'projects' : 'entries'}</span>
+                                  <span className="font-medium text-brand">View all →</span>
+                                </div>
+                                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--warm-bg-2)' }}>
+                                  <div className="h-full rounded-full" style={{ background: 'var(--brand)', width: ev.status === 'judging' ? '40%' : '100%' }} />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
+
+                  {/* Reviewer guidelines */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                    <h3 className="font-jakarta font-bold text-sm text-midnight mb-3 flex items-center gap-2">
+                      <ShieldCheck size={14} className="text-brand" />
+                      Reviewer Guidelines
+                    </h3>
+                    <ul className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                      <li className="flex items-start gap-2">
+                        <span className="w-1 h-1 rounded-full bg-brand mt-1.5 shrink-0" />
+                        Scores you submit are recorded onchain and inform the final deliberation leaderboard.
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-1 h-1 rounded-full bg-brand mt-1.5 shrink-0" />
+                        Score each submission on its own merits using the event's published rubric.
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-1 h-1 rounded-full bg-brand mt-1.5 shrink-0" />
+                        Participant wallet addresses are visible to prevent conflicts of interest — recuse yourself if needed.
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-1 h-1 rounded-full bg-brand mt-1.5 shrink-0" />
+                        Once a review is submitted it cannot be changed. Review carefully before confirming.
+                      </li>
+                    </ul>
+                  </div>
+                </>
+              )}
             </motion.div>
           )}
 
@@ -779,22 +976,32 @@ export default function App() {
                   {pendingRefundBig > 0n ? (
                     <>
                       <span className="text-xs text-slate-500 mt-1 block">From cancelled or finalized events</span>
-                      {claimRefundSuccess ? (
-                        <p className="text-xs text-teal font-semibold mt-2">Refund claimed!</p>
-                      ) : (
+                      {!claimRefundSuccess && (
                         <button
                           onClick={() => claimOrganizerRefund()}
                           disabled={claimRefundWallet || claimRefundConfirming}
-                          className="mt-2 inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold text-white bg-teal hover:opacity-90 disabled:opacity-60 transition-all"
+                          className="mt-2 inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold text-white disabled:opacity-60 transition-all"
+                          style={{ background: 'var(--teal)' }}
+                          aria-busy={claimRefundWallet || claimRefundConfirming}
                         >
-                          {claimRefundWallet ? 'Confirm…' : claimRefundConfirming ? 'Confirming…' : 'Claim Refund'}
+                          {claimRefundWallet ? 'Confirm in wallet…' : claimRefundConfirming ? 'Confirming…' : 'Claim Refund'}
                         </button>
                       )}
-                      {claimRefundError && (
-                        <p className="text-xs text-coral font-medium mt-1">
-                          {(claimRefundError as Error).message?.slice(0, 60) || 'Claim failed.'}
-                        </p>
-                      )}
+                      <div aria-live="polite" aria-atomic="true" className="mt-1">
+                        {claimRefundSuccess && (
+                          <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--teal)' }}>
+                            <CheckCircle2 size={12} />
+                            Refund claimed successfully.
+                          </p>
+                        )}
+                        {claimRefundError && (
+                          <p className="text-xs font-medium" style={{ color: 'var(--coral)' }}>
+                            {(claimRefundError as Error).message?.includes('User rejected')
+                              ? 'Claim cancelled — you rejected the transaction.'
+                              : (claimRefundError as Error).message?.slice(0, 80) || 'Claim failed — please try again.'}
+                          </p>
+                        )}
+                      </div>
                     </>
                   ) : (
                     <span className="text-xs text-slate-400 mt-1 block">No pending organizer refunds</span>
