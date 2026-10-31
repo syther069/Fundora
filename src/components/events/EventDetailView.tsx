@@ -200,9 +200,17 @@ export function EventDetailView({ event, submissions, onBack, onOpenSubmitModal 
                   onClick={() => copyAddress(event.hostAddress)}
                   className="inline-flex items-center gap-1 font-mono text-[11px] text-slate-400 hover:text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-200"
                   title="Copy host wallet address"
+                  aria-label={copiedAddr ? 'Host wallet address copied to clipboard' : 'Copy host wallet address'}
                 >
                   {event.hostAddress.slice(0, 6)}...{event.hostAddress.slice(-4)}
-                  {copiedAddr ? <Check size={10} className="text-teal" /> : <Copy size={10} />}
+                  {copiedAddr ? (
+                    <Check size={10} className="text-teal" aria-hidden="true" />
+                  ) : (
+                    <Copy size={10} aria-hidden="true" />
+                  )}
+                  <span className="sr-only" aria-live="polite">
+                    {copiedAddr ? 'Address copied to clipboard' : ''}
+                  </span>
                 </button>
               )}
             </div>
