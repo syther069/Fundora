@@ -34,32 +34,6 @@ function LogoMark() {
   )
 }
 
-// ── Chain / Demo badge ────────────────────────────────────────────────────────
-function ChainBadge() {
-  const { chainId } = useAccount()
-  const { isLive } = useMode()
-  const isMainnet = chainId === ARC_MAINNET_ID
-  const isTestnet = chainId === ARC_TESTNET_ID
-  if (isLive) return null
-  if (chainId && !isMainnet && !isTestnet) return null
-  return (
-    <span
-      className="hidden md:inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border"
-      style={isMainnet ? {
-        background: 'var(--brand-light)', color: 'var(--brand)', borderColor: 'var(--brand-border)',
-      } : {
-        background: 'var(--teal-light)', color: 'var(--teal)', borderColor: 'var(--teal-border)',
-      }}
-    >
-      <span
-        className="w-1.5 h-1.5 rounded-full animate-pulse"
-        style={{ background: isMainnet ? 'var(--brand)' : 'var(--teal)' }}
-        aria-hidden="true"
-      />
-      Demo
-    </span>
-  )
-}
 
 // ── Demo / Live mode switcher ─────────────────────────────────────────────────
 function ModeSwitcher() {
@@ -352,7 +326,6 @@ export function Header({
                 >
                   Fundora
                 </span>
-                <ChainBadge />
                 <ModeSwitcher />
               </div>
             </button>
