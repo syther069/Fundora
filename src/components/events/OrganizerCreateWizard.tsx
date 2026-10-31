@@ -199,31 +199,71 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
   } = useQuery({
     queryKey: ['arc-direct-usdc-balance', targetChainId, address],
     queryFn: async (): Promise<bigint> => {
-      if (!publicClient || !address || modality !== 'native_escrow') return 0n
-      const [erc20Res, nativeRes] = await Promise.allSettled([
-        publicClient.readContract({
-          address: USDC_ADDRESS,
-          abi: ERC20_APPROVE_ABI,
-          functionName: 'balanceOf',
-          args: [address],
-        }),
-        publicClient.getBalance({ address }),
-      ])
-
+      if (!address || modality !== 'native_escrow') return 0n
       let highest = 0n
-      if (erc20Res.status === 'fulfilled' && typeof erc20Res.value === 'bigint') {
-        highest = erc20Res.value
+
+      // 1. Primary: Injected wallet provider (bypasses browser ad-blockers / net::ERR_BLOCKED_BY_CLIENT)
+      if (typeof window !== 'undefined' && (window as unknown as { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum) {
+        const provider = (window as unknown as { ethereum: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum
+        try {
+          const cleanAddr = address.toLowerCase().replace('0x', '').padStart(64, '0')
+          // ERC-20 balanceOf(address) selector: 0x70a08231
+          const rawErc20 = await provider.request({
+            method: 'eth_call',
+            params: [{ to: USDC_ADDRESS, data: `0x70a08231${cleanAddr}` }, 'latest'],
+          })
+          if (rawErc20 && typeof rawErc20 === 'string' && rawErc20 !== '0x') {
+            const val = BigInt(rawErc20)
+            if (val > highest) highest = val
+          }
+        } catch {
+          // ignore provider errors
+        }
+
+        try {
+          const rawNative = await provider.request({
+            method: 'eth_getBalance',
+            params: [address, 'latest'],
+          })
+          if (rawNative && typeof rawNative === 'string' && rawNative !== '0x') {
+            const val = BigInt(rawNative) / 1_000_000_000_000n
+            if (val > highest) highest = val
+          }
+        } catch {
+          // ignore provider errors
+        }
       }
-      if (nativeRes.status === 'fulfilled' && typeof nativeRes.value === 'bigint') {
-        const norm = nativeRes.value / 1_000_000_000_000n
-        if (norm > highest) highest = norm
+
+      // 2. Fallback: PublicClient HTTP reads
+      if (publicClient) {
+        try {
+          const [erc20Res, nativeRes] = await Promise.allSettled([
+            publicClient.readContract({
+              address: USDC_ADDRESS,
+              abi: ERC20_APPROVE_ABI,
+              functionName: 'balanceOf',
+              args: [address],
+            }),
+            publicClient.getBalance({ address }),
+          ])
+
+          if (erc20Res.status === 'fulfilled' && typeof erc20Res.value === 'bigint') {
+            if (erc20Res.value > highest) highest = erc20Res.value
+          }
+          if (nativeRes.status === 'fulfilled' && typeof nativeRes.value === 'bigint') {
+            const norm = nativeRes.value / 1_000_000_000_000n
+            if (norm > highest) highest = norm
+          }
+        } catch {
+          // ignore
+        }
       }
+
       return highest
     },
-    enabled: !!publicClient && !!address && modality === 'native_escrow' && step === 6,
-    staleTime: 0,
-    gcTime: 0,
-    refetchInterval: 3000,
+    enabled: !!address && modality === 'native_escrow' && step === 6,
+    staleTime: 5000,
+    gcTime: 15000,
   })
 
   // Dual-interface USDC balance reads (ERC-20 precompile + Native gas view on Arc)
@@ -238,10 +278,9 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
     args: address ? [address] : undefined,
     chainId: targetChainId,
     query: {
-      enabled: !!address && modality === 'native_escrow',
-      refetchInterval: 3000,
-      staleTime: 0,
-      gcTime: 0,
+      enabled: !!address && modality === 'native_escrow' && step === 6,
+      staleTime: 5000,
+      gcTime: 15000,
     },
   })
 
@@ -253,10 +292,9 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
     address,
     chainId: targetChainId,
     query: {
-      enabled: !!address && modality === 'native_escrow',
-      refetchInterval: 3000,
-      staleTime: 0,
-      gcTime: 0,
+      enabled: !!address && modality === 'native_escrow' && step === 6,
+      staleTime: 5000,
+      gcTime: 15000,
     },
   })
 
@@ -305,10 +343,9 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
     args: address && eventsAddress ? [address, eventsAddress] : undefined,
     chainId: targetChainId,
     query: {
-      enabled: !!address && !!eventsAddress && modality === 'native_escrow',
-      refetchInterval: 3000,
-      staleTime: 0,
-      gcTime: 0,
+      enabled: !!address && !!eventsAddress && modality === 'native_escrow' && step === 6,
+      staleTime: 5000,
+      gcTime: 15000,
     },
   })
 
@@ -1237,6 +1274,9 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
                           <p className="font-medium text-xs">
                             Insufficient balance. You need at least <strong>${formatUsdc(prizeTotal)} USDC</strong> on {targetNetworkName} (detected <strong>${formatUsdc(usdcBalance)} USDC</strong> in your wallet).
                           </p>
+                          <p className="text-[11px] text-slate-500 font-sans">
+                            If your browser extension or ad-blocker is blocking RPC queries, you can still click <strong>{isNative ? 'Approve & Publish' : 'Publish Event'}</strong> below to verify and sign directly with your wallet.
+                          </p>
                           <div className="flex flex-wrap items-center gap-2 pt-1">
                             <button
                               type="button"
@@ -1386,8 +1426,7 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
               onClick={handlePublish}
               disabled={
                 isPublishing ||
-                isBalanceLoading ||
-                (isConnected && !isWrongChain && isNative && usdcBalance !== undefined && usdcBalance < prizeTotal)
+                isBalanceLoading
               }
               className="inline-flex items-center gap-2 py-2.5 px-6 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-hover disabled:opacity-50 transition-colors shadow-sm"
             >
