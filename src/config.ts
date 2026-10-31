@@ -3,7 +3,7 @@
  * Built with Arc Studio — https://studio.arc.io
  */
 
-import { http, createConfig } from 'wagmi'
+import { http, fallback, createConfig } from 'wagmi'
 import { mainnet, baseSepolia, arbitrumSepolia, sepolia, base, arbitrum } from 'wagmi/chains'
 import { arcTestnet, arc } from 'viem/chains'
 import { injected } from 'wagmi/connectors'
@@ -18,8 +18,17 @@ export const config = createConfig({
   chains: [arcTestnet, arc, baseSepolia, arbitrumSepolia, sepolia, base, arbitrum, mainnet],
   connectors: [injected()],
   transports: {
-    [arcTestnet.id]:      http(arcTestnet.rpcUrls.default.http[0]),
-    [arc.id]:             http('https://rpc.mainnet.arc.io'),
+    [arcTestnet.id]:      fallback([
+      http(arcTestnet.rpcUrls.default.http[0]),
+      http('https://rpc.blockdaemon.testnet.arc.io'),
+      http('https://rpc.drpc.testnet.arc.io'),
+    ]),
+    [arc.id]:             fallback([
+      http('https://rpc.mainnet.arc.io'),
+      http('https://rpc.blockdaemon.mainnet.arc.io'),
+      http('https://rpc.drpc.mainnet.arc.io'),
+      http('https://rpc.quicknode.mainnet.arc.io'),
+    ]),
     // CCTP testnet sources — use public defaults
     [baseSepolia.id]:     http(),
     [arbitrumSepolia.id]: http(),

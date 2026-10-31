@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useBalance, useSwitchChain } from 'wagmi'
 import { useModal } from 'connectkit'
 import { parseUnits } from 'viem'
 import {
   X, ArrowLeft, ArrowRight, ShieldCheck, ExternalLink, Plus, Trash2,
-  AlertCircle, CheckCircle2, Loader2, Info, DollarSign, Calendar, Zap
+  AlertCircle, CheckCircle2, Loader2, Info, DollarSign, Calendar, Zap, RotateCw
 } from 'lucide-react'
 import {
   saveEventCreateDraft,
@@ -22,7 +22,7 @@ import {
   FUNDORA_EVENTS_ADDRESS_TESTNET,
   FUNDORA_EVENTS_ADDRESS_MAINNET,
 } from '../../contracts/fundoraEvents'
-import { buildTxExplorerUrl } from '@/onchain-facts'
+import { buildTxExplorerUrl, buildAddressExplorerUrl } from '@/onchain-facts'
 
 // USDC on Arc (native = ERC-20 on Arc)
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000' as const
@@ -116,6 +116,12 @@ function totalPrizeUsdc(tracks: TrackForm[]): bigint {
   return total
 }
 
+function formatUsdc(amount?: bigint): string {
+  if (amount === undefined) return '0.00'
+  const val = Number(amount) / 10 ** USDC_DECIMALS
+  return val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+}
+
 // Computed once at module load — avoids impure Date() call during render
 const TODAY_STR = new Date().toISOString().split('T')[0]
 
@@ -183,15 +189,61 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
 
   // ── Step 6: Publish tx states (fully derived from wagmi — see publishStage below)
 
-  // USDC balance + allowance reads
-  const { data: usdcBalance } = useReadContract({
+  // Dual-interface USDC balance reads (ERC-20 precompile + Native gas view on Arc)
+  const {
+    data: erc20Balance,
+    isLoading: isErc20Loading,
+    refetch: refetchErc20Balance,
+  } = useReadContract({
     address: USDC_ADDRESS,
     abi: ERC20_APPROVE_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
     chainId: targetChainId,
-    query: { enabled: !!address && modality === 'native_escrow' },
+    query: {
+      enabled: !!address && modality === 'native_escrow',
+      refetchInterval: 5000,
+    },
   })
+
+  const {
+    data: nativeBalance,
+    isLoading: isNativeLoading,
+    refetch: refetchNativeBalance,
+  } = useBalance({
+    address,
+    chainId: targetChainId,
+    query: {
+      enabled: !!address && modality === 'native_escrow',
+      refetchInterval: 5000,
+    },
+  })
+
+  // Normalize Arc native gas view (18 decimals -> 6 decimals)
+  const nativeAsUsdc6 = useMemo(() => {
+    if (!nativeBalance?.value) return 0n
+    return nativeBalance.value / 1_000_000_000_000n
+  }, [nativeBalance?.value])
+
+  // Derive maximum confirmed USDC balance between ERC-20 and native interface
+  const usdcBalance = useMemo(() => {
+    if (erc20Balance === undefined && !nativeBalance) return undefined
+    const erc20Val = erc20Balance ?? 0n
+    return erc20Val > nativeAsUsdc6 ? erc20Val : nativeAsUsdc6
+  }, [erc20Balance, nativeBalance, nativeAsUsdc6])
+
+  const isBalanceLoading = isConnected && !isWrongChain && usdcBalance === undefined && (isErc20Loading || isNativeLoading)
+
+  const [isRefreshingBalance, setIsRefreshingBalance] = useState(false)
+  const handleRefreshBalance = async () => {
+    setIsRefreshingBalance(true)
+    try {
+      await Promise.allSettled([refetchErc20Balance(), refetchNativeBalance(), refetchAllowance()])
+    } finally {
+      setIsRefreshingBalance(false)
+    }
+  }
+
   const prizeTotal = totalPrizeUsdc(tracks)
   const { data: usdcAllowance, refetch: refetchAllowance } = useReadContract({
     address: USDC_ADDRESS,
@@ -199,7 +251,7 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
     functionName: 'allowance',
     args: address && eventsAddress ? [address, eventsAddress] : undefined,
     chainId: targetChainId,
-    query: { enabled: !!address && !!eventsAddress && modality === 'native_escrow' },
+    query: { enabled: !!address && !!eventsAddress && modality === 'native_escrow', refetchInterval: 5000 },
   })
 
   // ERC-20 approve
@@ -1056,30 +1108,101 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
 
               {/* USDC balance check (native only) */}
               {isNative && isConnected && !isWrongChain && (
-                <div className={`p-4 rounded-2xl border text-xs ${(usdcBalance ?? 0n) >= prizeTotal ? 'border-teal-200 bg-teal-50/60' : 'border-coral-200 bg-coral-50/60'}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <DollarSign size={13} className={(usdcBalance ?? 0n) >= prizeTotal ? 'text-teal' : 'text-coral'} />
-                    <span className="font-bold text-midnight">Your USDC Balance on {targetNetworkName}</span>
+                <div className={`p-4 rounded-2xl border text-xs transition-colors ${
+                  isBalanceLoading
+                    ? 'border-slate-200 bg-slate-50/70'
+                    : (usdcBalance ?? 0n) >= prizeTotal
+                    ? 'border-teal-200 bg-teal-50/60'
+                    : 'border-coral-200 bg-coral-50/60'
+                }`}>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <DollarSign size={14} className={
+                        isBalanceLoading
+                          ? 'text-slate-400'
+                          : (usdcBalance ?? 0n) >= prizeTotal
+                          ? 'text-teal'
+                          : 'text-coral'
+                      } />
+                      <span className="font-bold text-midnight">Your USDC Balance on {targetNetworkName}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleRefreshBalance}
+                      disabled={isRefreshingBalance || isBalanceLoading}
+                      title="Re-check balance onchain"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-midnight disabled:opacity-50 transition-colors"
+                    >
+                      <RotateCw size={12} className={isRefreshingBalance || isBalanceLoading ? 'animate-spin' : ''} />
+                      <span>{isRefreshingBalance ? 'Refreshing…' : 'Refresh'}</span>
+                    </button>
                   </div>
-                  <div className="font-mono font-bold text-base tabular-nums text-midnight">
-                    ${Number(((usdcBalance) ?? 0n) / BigInt(10 ** USDC_DECIMALS)).toLocaleString()} USDC
-                  </div>
-                  {(usdcBalance ?? 0n) < prizeTotal && (
-                    <div className="text-coral mt-1.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <span className="font-medium">
-                        Insufficient balance. You need at least ${Number(prizeTotal / BigInt(10 ** USDC_DECIMALS)).toLocaleString()} USDC on {targetNetworkName}.
-                      </span>
-                      {!isLive && (
+
+                  {address && (
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 mb-2 font-mono bg-white/70 px-2.5 py-1.5 rounded-lg border border-slate-200/60">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-400 font-sans">Account:</span>
                         <a
-                          href="https://faucet.circle.com"
+                          href={buildAddressExplorerUrl(targetChainId, address)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="underline font-semibold shrink-0 hover:opacity-80"
+                          className="font-medium text-slate-700 hover:text-brand hover:underline inline-flex items-center gap-1"
                         >
-                          Get Testnet USDC ↗
+                          {address.slice(0, 6)}…{address.slice(-4)}
+                          <ExternalLink size={10} />
                         </a>
-                      )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openConnectModal?.(true)}
+                        className="text-[10px] text-brand hover:underline font-sans font-semibold"
+                      >
+                        Change Account
+                      </button>
                     </div>
+                  )}
+
+                  {isBalanceLoading ? (
+                    <div className="flex items-center gap-2 py-1 text-slate-500">
+                      <Loader2 size={14} className="animate-spin text-brand" />
+                      <span className="font-medium">Querying {targetNetworkName} for USDC balance…</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="font-mono font-bold text-base tabular-nums text-midnight">
+                        ${formatUsdc(usdcBalance)} USDC
+                      </div>
+
+                      {(usdcBalance ?? 0n) < prizeTotal && (
+                        <div className="text-coral mt-1.5 flex flex-col gap-1.5">
+                          <p className="font-medium">
+                            Insufficient balance. You need at least ${formatUsdc(prizeTotal)} USDC on {targetNetworkName} (found ${formatUsdc(usdcBalance)} USDC).
+                          </p>
+                          <div className="flex items-center gap-3 text-[11px] font-semibold">
+                            {!isLive ? (
+                              <a
+                                href="https://faucet.circle.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline hover:opacity-80 inline-flex items-center gap-1 text-teal"
+                              >
+                                Get Testnet USDC from Circle Faucet ↗
+                              </a>
+                            ) : (
+                              <a
+                                href={address ? buildAddressExplorerUrl(targetChainId, address) : 'https://explorer.arc.io'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline hover:opacity-80 inline-flex items-center gap-1 text-midnight"
+                              >
+                                Verify Account on Arc Explorer ↗
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -1094,7 +1217,7 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
                     </div>
                     <div>
                       <span className="font-semibold text-midnight block">Approve USDC</span>
-                      <span className="text-slate-500">Authorize FundoraEvents to transfer ${Number(prizeTotal / BigInt(10 ** USDC_DECIMALS)).toLocaleString()} USDC from your wallet.</span>
+                      <span className="text-slate-500">Authorize FundoraEvents to transfer ${formatUsdc(prizeTotal)} USDC from your wallet.</span>
                     </div>
                   </div>
                   <div className={`flex items-start gap-2.5 p-2.5 rounded-xl border ${publishStage === 'creating' || publishStage === 'done' ? 'border-teal-200 bg-teal-50/60' : 'border-slate-200'}`}>
@@ -1189,7 +1312,8 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
               onClick={handlePublish}
               disabled={
                 isPublishing ||
-                (isConnected && !isWrongChain && isNative && (usdcBalance ?? 0n) < prizeTotal)
+                isBalanceLoading ||
+                (isConnected && !isWrongChain && isNative && usdcBalance !== undefined && usdcBalance < prizeTotal)
               }
               className="inline-flex items-center gap-2 py-2.5 px-6 rounded-xl text-xs font-bold text-white bg-brand hover:bg-brand-hover disabled:opacity-50 transition-colors shadow-sm"
             >
@@ -1197,6 +1321,11 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
                 'Connect Wallet'
               ) : isWrongChain ? (
                 `Switch to ${targetNetworkName}`
+              ) : isBalanceLoading ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Checking Balance…
+                </>
               ) : isApprovePending || publishStage === 'approving' ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
