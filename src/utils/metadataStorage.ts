@@ -181,3 +181,17 @@ export function formatMetadataUri(payload: SubmissionPayload): string {
   const json = JSON.stringify(payload)
   return `data:application/json;base64,${btoa(unescape(encodeURIComponent(json)))}`
 }
+
+export function parseSubmissionMetadata(uri: string): Partial<SubmissionPayload> {
+  if (!uri) return {}
+  try {
+    if (uri.startsWith('data:application/json;base64,')) {
+      const b64 = uri.replace('data:application/json;base64,', '')
+      const json = decodeURIComponent(escape(atob(b64)))
+      return JSON.parse(json) as Partial<SubmissionPayload>
+    }
+    return JSON.parse(uri) as Partial<SubmissionPayload>
+  } catch {
+    return { title: uri }
+  }
+}

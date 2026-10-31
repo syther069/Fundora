@@ -7,6 +7,7 @@ import { useSubmissionsBatch, useGetReview } from '../../hooks/useFundoraEvents'
 import { loadScorecardDraft } from '../../utils/scorecardStorage'
 import { useEvents } from '../../context/EventsContext'
 import { useMode } from '../../context/ModeContext'
+import { parseSubmissionMetadata } from '../../utils/metadataStorage'
 import type { Address } from 'viem'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -37,8 +38,8 @@ interface LeaderboardRow {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function parseMeta(uri: string): { title?: string } {
-  try { return JSON.parse(uri) as { title?: string } } catch { return {} }
+function parseMeta(uri: string): { title?: string; tagline?: string; trackId?: string } {
+  return parseSubmissionMetadata(uri)
 }
 
 function shortAddr(addr: string) {
@@ -490,14 +491,18 @@ export function DeliberationLeaderboard({
   const rows: LeaderboardRow[] = useMemo(() => {
     if (isLive) {
       if (!onchainSubs) return []
-      return (onchainSubs as OnchainSubmission[]).map(sub => ({
-        id: sub.id.toString(),
-        submitter: sub.submitter,
-        metadataUri: sub.metadataUri,
-        scoreSum: sub.scoreSum,
-        reviewCount: sub.reviewCount,
-        disqualified: sub.disqualified,
-      }))
+      return (onchainSubs as OnchainSubmission[]).map(sub => {
+        const meta = parseSubmissionMetadata(sub.metadataUri)
+        return {
+          id: sub.id.toString(),
+          submitter: sub.submitter,
+          metadataUri: sub.metadataUri,
+          scoreSum: sub.scoreSum,
+          reviewCount: sub.reviewCount,
+          disqualified: sub.disqualified,
+          trackId: meta.trackId,
+        }
+      })
     } else {
       return (getSubmissionsForEvent(event.id)).map((sub) => ({
         id: sub.id,

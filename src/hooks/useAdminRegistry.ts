@@ -1,11 +1,22 @@
-import { useReadContract, useAccount } from 'wagmi'
+import {
+  useReadContract,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+  useAccount,
+} from 'wagmi'
 import {
   ADMIN_REGISTRY_ABI,
   getAdminRegistryAddress,
   getAdminRegistrationFee,
 } from '../contracts/fundora'
 import { useActiveChainId, useContractAdmin } from './useFundora'
-import { loadOrganizerProfile } from '../components/ApplyAdminModal'
+import {
+  saveOrganizerProfile,
+  loadOrganizerProfile,
+  type OrganizerProfile,
+} from '../utils/organizerStorage'
+
+export { saveOrganizerProfile, loadOrganizerProfile, type OrganizerProfile }
 
 const POLL_INTERVAL = 12_000
 
@@ -75,7 +86,7 @@ export function useAdminRegistrationFee() {
     chainId,
   })
 
-  const fee = onchainFee !== undefined ? (onchainFee) : getAdminRegistrationFee(chainId)
+  const fee = onchainFee !== undefined ? (onchainFee as bigint) : getAdminRegistrationFee(chainId)
 
   return { fee, ...rest }
 }
@@ -127,5 +138,49 @@ export function useUnifiedIsAdmin() {
     hasLocalProfile,
     isLoading: adminLoading || registeredLoading,
     refetch: refetchRegistered,
+  }
+}
+
+/**
+ * Write hook to register an admin on AdminRegistry with USDC payment
+ */
+export function useRegisterAdmin() {
+  const chainId = useActiveChainId()
+  const registryAddress = getAdminRegistryAddress(chainId)
+
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const receipt = useWaitForTransactionReceipt({ hash, chainId })
+
+  const registerAdmin = (params: {
+    arcHouseUsername: string
+    orgName: string
+    grantDescription: string
+    estimatedBudget: bigint
+    numWinners: number
+    prizePoolDetails: string
+  }) => {
+    writeContract({
+      address: registryAddress,
+      abi: ADMIN_REGISTRY_ABI,
+      functionName: 'registerAdmin',
+      args: [
+        params.arcHouseUsername,
+        params.orgName,
+        params.grantDescription,
+        params.estimatedBudget,
+        params.numWinners,
+        params.prizePoolDetails,
+      ],
+      chainId,
+    })
+  }
+
+  return {
+    registerAdmin,
+    hash,
+    isPending,
+    isConfirming: receipt.isLoading,
+    isSuccess: receipt.isSuccess,
+    error: error ?? receipt.error,
   }
 }

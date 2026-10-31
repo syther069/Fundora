@@ -16,6 +16,8 @@ interface EventDetailProps {
   submissions: Submission[]
   onBack: () => void
   onOpenSubmitModal?: () => void
+  onOpenReviewerWorkspace?: () => void
+  onOpenOrganizerConsole?: () => void
 }
 
 type TabType = 'overview' | 'tracks' | 'rubric' | 'showcase' | 'winners'
