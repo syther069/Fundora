@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useBalance, useSwitchChain } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useBalance, useSwitchChain, usePublicClient } from 'wagmi'
+import { useQuery } from '@tanstack/react-query'
 import { useModal } from 'connectkit'
 import { parseUnits } from 'viem'
 import {
@@ -129,7 +130,8 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
   const { address, isConnected, chainId } = useAccount()
   const { switchChain } = useSwitchChain()
   const { setOpen: openConnectModal } = useModal()
-  const { isLive } = useMode()
+  const { isLive, setMode } = useMode()
+  const publicClient = usePublicClient({ chainId: isLive ? ARC_MAINNET_ID : ARC_TESTNET_ID })
 
   const targetChainId = isLive ? ARC_MAINNET_ID : ARC_TESTNET_ID
   const targetNetworkName = isLive ? 'Arc Mainnet' : 'Arc Testnet'
@@ -189,6 +191,41 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
 
   // ── Step 6: Publish tx states (fully derived from wagmi — see publishStage below)
 
+  // Direct viem RPC read (bypasses stale query caches)
+  const {
+    data: directBalance,
+    isLoading: directLoading,
+    refetch: refetchDirect,
+  } = useQuery({
+    queryKey: ['arc-direct-usdc-balance', targetChainId, address],
+    queryFn: async (): Promise<bigint> => {
+      if (!publicClient || !address || modality !== 'native_escrow') return 0n
+      const [erc20Res, nativeRes] = await Promise.allSettled([
+        publicClient.readContract({
+          address: USDC_ADDRESS,
+          abi: ERC20_APPROVE_ABI,
+          functionName: 'balanceOf',
+          args: [address],
+        }),
+        publicClient.getBalance({ address }),
+      ])
+
+      let highest = 0n
+      if (erc20Res.status === 'fulfilled' && typeof erc20Res.value === 'bigint') {
+        highest = erc20Res.value
+      }
+      if (nativeRes.status === 'fulfilled' && typeof nativeRes.value === 'bigint') {
+        const norm = nativeRes.value / 1_000_000_000_000n
+        if (norm > highest) highest = norm
+      }
+      return highest
+    },
+    enabled: !!publicClient && !!address && modality === 'native_escrow' && step === 6,
+    staleTime: 0,
+    gcTime: 0,
+    refetchInterval: 3000,
+  })
+
   // Dual-interface USDC balance reads (ERC-20 precompile + Native gas view on Arc)
   const {
     data: erc20Balance,
@@ -202,7 +239,9 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
     chainId: targetChainId,
     query: {
       enabled: !!address && modality === 'native_escrow',
-      refetchInterval: 5000,
+      refetchInterval: 3000,
+      staleTime: 0,
+      gcTime: 0,
     },
   })
 
@@ -215,7 +254,9 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
     chainId: targetChainId,
     query: {
       enabled: !!address && modality === 'native_escrow',
-      refetchInterval: 5000,
+      refetchInterval: 3000,
+      staleTime: 0,
+      gcTime: 0,
     },
   })
 
@@ -225,20 +266,32 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
     return nativeBalance.value / 1_000_000_000_000n
   }, [nativeBalance?.value])
 
-  // Derive maximum confirmed USDC balance between ERC-20 and native interface
-  const usdcBalance = useMemo(() => {
+  const hookBalance = useMemo(() => {
     if (erc20Balance === undefined && !nativeBalance) return undefined
     const erc20Val = erc20Balance ?? 0n
     return erc20Val > nativeAsUsdc6 ? erc20Val : nativeAsUsdc6
   }, [erc20Balance, nativeBalance, nativeAsUsdc6])
 
-  const isBalanceLoading = isConnected && !isWrongChain && usdcBalance === undefined && (isErc20Loading || isNativeLoading)
+  // Maximum confirmed balance across direct RPC calls and Wagmi hooks
+  const usdcBalance = useMemo(() => {
+    if (directBalance !== undefined && hookBalance !== undefined) {
+      return directBalance > hookBalance ? directBalance : hookBalance
+    }
+    return directBalance !== undefined ? directBalance : hookBalance
+  }, [directBalance, hookBalance])
+
+  const isBalanceLoading = isConnected && !isWrongChain && usdcBalance === undefined && (isErc20Loading || isNativeLoading || directLoading)
 
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false)
   const handleRefreshBalance = async () => {
     setIsRefreshingBalance(true)
     try {
-      await Promise.allSettled([refetchErc20Balance(), refetchNativeBalance(), refetchAllowance()])
+      await Promise.allSettled([
+        refetchDirect(),
+        refetchErc20Balance(),
+        refetchNativeBalance(),
+        refetchAllowance(),
+      ])
     } finally {
       setIsRefreshingBalance(false)
     }
@@ -251,7 +304,12 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
     functionName: 'allowance',
     args: address && eventsAddress ? [address, eventsAddress] : undefined,
     chainId: targetChainId,
-    query: { enabled: !!address && !!eventsAddress && modality === 'native_escrow', refetchInterval: 5000 },
+    query: {
+      enabled: !!address && !!eventsAddress && modality === 'native_escrow',
+      refetchInterval: 3000,
+      staleTime: 0,
+      gcTime: 0,
+    },
   })
 
   // ERC-20 approve
@@ -1175,17 +1233,33 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
                       </div>
 
                       {(usdcBalance ?? 0n) < prizeTotal && (
-                        <div className="text-coral mt-1.5 flex flex-col gap-1.5">
-                          <p className="font-medium">
-                            Insufficient balance. You need at least ${formatUsdc(prizeTotal)} USDC on {targetNetworkName} (found ${formatUsdc(usdcBalance)} USDC).
+                        <div className="text-coral mt-2 flex flex-col gap-2 pt-2 border-t border-coral-200/60">
+                          <p className="font-medium text-xs">
+                            Insufficient balance. You need at least <strong>${formatUsdc(prizeTotal)} USDC</strong> on {targetNetworkName} (detected <strong>${formatUsdc(usdcBalance)} USDC</strong> in your wallet).
                           </p>
-                          <div className="flex items-center gap-3 text-[11px] font-semibold">
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setStep(4)}
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-coral bg-white border border-coral-200 hover:bg-coral-50 transition-colors"
+                            >
+                              Edit Prize Amount
+                            </button>
+                            {isLive && (
+                              <button
+                                type="button"
+                                onClick={() => setMode('demo')}
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-colors"
+                              >
+                                Switch to Demo Mode (Testnet)
+                              </button>
+                            )}
                             {!isLive ? (
                               <a
                                 href="https://faucet.circle.com"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="underline hover:opacity-80 inline-flex items-center gap-1 text-teal"
+                                className="text-[11px] font-semibold underline hover:opacity-80 inline-flex items-center gap-1 text-teal ml-1"
                               >
                                 Get Testnet USDC from Circle Faucet ↗
                               </a>
@@ -1194,9 +1268,9 @@ export function OrganizerCreateWizard({ isOpen, onClose, onSuccess, initialCateg
                                 href={address ? buildAddressExplorerUrl(targetChainId, address) : 'https://explorer.arc.io'}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="underline hover:opacity-80 inline-flex items-center gap-1 text-midnight"
+                                className="text-[11px] font-semibold underline hover:opacity-80 inline-flex items-center gap-1 text-slate-700 ml-1"
                               >
-                                Verify Account on Arc Explorer ↗
+                                Verify on Arc Explorer ↗
                               </a>
                             )}
                           </div>

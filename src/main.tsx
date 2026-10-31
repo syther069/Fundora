@@ -26,9 +26,15 @@ import { EventsProvider } from './context/EventsContext'
 import { ModeProvider } from './context/ModeContext'
 import './index.css'
 
-// 3.2 — staleTime set globally; data survives component unmounts
+// Fresh onchain queries with short staleTime so balances and contract states stay responsive
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 5 * 60 * 1000, gcTime: 10 * 60 * 1000 } },
+  defaultOptions: {
+    queries: {
+      staleTime: 3000,
+      gcTime: 60 * 1000,
+      refetchOnWindowFocus: true,
+    },
+  },
 })
 
 // Studio logo SVG
