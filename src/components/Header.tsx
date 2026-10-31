@@ -3,8 +3,8 @@ import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
   Compass, Users, Scale,
-  LayoutDashboard, Archive, FlaskConical, Radio,
-  ChevronDown, BookOpen,
+  LayoutDashboard, FlaskConical, Radio,
+  ChevronDown, BookOpen, Sparkles,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ARC_TESTNET_ID, ARC_MAINNET_ID } from '../contracts/fundora'
@@ -283,16 +283,16 @@ export function Header({
 
   // Flat nav items — Organizer Console and Reviewer Console are in the dropdown
   const navItems = [
+    { id: 'landing', label: 'Overview', icon: Sparkles },
     { id: 'events', label: 'Explore Events', icon: Compass },
     { id: 'participant', label: 'Participant Hub', icon: Users },
-    { id: 'grants', label: 'Microgrants', icon: Archive },
   ]
 
   // Mobile nav — Organizer always shown, Reviewer only to reviewers
   const mobileNavItems = [
+    { id: 'landing', label: 'Overview', icon: Sparkles },
     { id: 'events', label: 'Explore', icon: Compass },
     { id: 'participant', label: 'Participant', icon: Users },
-    { id: 'grants', label: 'Microgrants', icon: Archive },
     { id: 'organizer', label: 'Organizer', icon: LayoutDashboard },
     ...(isReviewer ? [{ id: 'reviewer', label: 'Reviewer', icon: Scale }] : []),
   ]
@@ -314,7 +314,7 @@ export function Header({
           <div className="flex items-center gap-5 min-w-0">
             {/* Logo + wordmark */}
             <button
-              onClick={() => onViewChange?.('events')}
+              onClick={() => onViewChange?.('landing')}
               className="flex items-center gap-2.5 shrink-0 text-left outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-lg"
               aria-label="Fundora home"
             >

@@ -17,3 +17,4 @@ export function XIcon({ size = 14, className = 'text-current' }: XIconProps) {
     </svg>
   )
 }
+

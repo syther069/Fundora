@@ -21,7 +21,6 @@ import { ConnectKitProvider } from 'connectkit'
 import { Toaster } from 'sonner'
 import { config } from './config'
 import App from './App'
-import { GrantsProvider } from './context/GrantsContext'
 import { EventsProvider } from './context/EventsContext'
 import { ModeProvider } from './context/ModeContext'
 import './index.css'
@@ -85,12 +84,9 @@ createRoot(document.getElementById('root')!).render(
         <ConnectKitProvider>
           {/* ModeProvider: Demo/Live toggle — must wrap EventsProvider */}
           <ModeProvider>
-            {/* GrantsProvider for microgrants & EventsProvider for hackathons & contests */}
-            <GrantsProvider>
-              <EventsProvider>
-                <App />
-              </EventsProvider>
-            </GrantsProvider>
+            <EventsProvider>
+              <App />
+            </EventsProvider>
           </ModeProvider>
           <StudioWatermark />
           <Toaster position="top-center" />

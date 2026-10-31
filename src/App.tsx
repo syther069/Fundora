@@ -5,22 +5,16 @@ import { TextEffect } from './components/ui/text-effect'
 import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import {
-  Users, Zap, ShieldCheck, TrendingUp, AlertTriangle, ArrowRight,
-  Trophy, Compass, Layers, PlusCircle, LayoutGrid, CheckCircle2
+  Users, ShieldCheck, AlertTriangle, ArrowRight,
+  Trophy, Compass, Layers, PlusCircle, CheckCircle2
 } from 'lucide-react'
 import { Header } from './components/Header'
-import { GrantCard } from './components/GrantCard'
-import { GrantDetail } from './components/GrantDetail'
-import { AdminPanel } from './components/AdminPanel'
 import { ApplyAdminModal } from './components/ApplyAdminModal'
 import { useContractAdmin, useIsReviewer } from './hooks/useFundora'
 import { useUnifiedIsAdmin } from './hooks/useAdminRegistry'
 import { OrganizerTypeModal } from './components/events/OrganizerTypeModal'
 import { OrganizerReviewPanel } from './components/events/OrganizerReviewPanel'
-import { useGrants } from './context/GrantsContext'
-import type { Grant } from './hooks/useFundora'
-import { FUNDORA_ADDRESS, ARC_TESTNET_ID, ARC_MAINNET_ID, SUPPORTED_CHAIN_IDS } from './contracts/fundora'
-import { useActiveChainId } from './hooks/useFundora'
+import { ARC_TESTNET_ID, ARC_MAINNET_ID, SUPPORTED_CHAIN_IDS } from './contracts/fundora'
 
 // New Phase 2 Event Directory Components & Context
 import { useEvents } from './context/EventsContext'
@@ -53,130 +47,9 @@ import { DeliberationLeaderboard } from './components/events/DeliberationLeaderb
 import { SettlementConsole } from './components/events/SettlementConsole'
 import type { WinnerMapping } from './components/events/DeliberationLeaderboard'
 
-type View = 'events' | 'event-detail' | 'participant' | 'reviewer' | 'organizer' | 'grants' | 'detail' | 'admin'
+import { LandingPage } from './components/LandingPage'
 
-const _NOT_DEPLOYED = FUNDORA_ADDRESS === '0x0000000000000000000000000000000000000000'
-
-// ── Hero: disconnected state (legacy grants) ──────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function HeroConnect({ onOpenApplyAdmin }: { onOpenApplyAdmin?: () => void }) {
-  const shouldReduce = useReducedMotion()
-  const features = [
-    { icon: <Zap size={12} />, label: 'Instant USDC payouts', color: 'var(--amber)' },
-    { icon: <ShieldCheck size={12} />, label: 'Onchain evidence', color: 'var(--teal)' },
-    { icon: <Users size={12} />, label: 'Reviewer governance', color: 'var(--brand)' },
-    { icon: <TrendingUp size={12} />, label: 'Transparent milestones', color: 'var(--violet)' },
-  ]
-
-  return (
-    <div
-      className="card rounded-3xl overflow-hidden max-w-lg mx-auto"
-      style={{ boxShadow: 'var(--shadow-lg)' }}
-    >
-      <div
-        className="h-2"
-        style={{ background: 'linear-gradient(90deg, #1A3F75 0%, #0F766E 50%, #B45309 100%)' }}
-        aria-hidden="true"
-      />
-
-      <div className="px-5 py-8 sm:px-8 sm:py-10 text-center">
-        <div
-          className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center"
-          style={{
-            background: 'linear-gradient(135deg, #1A3F75 0%, #0F766E 100%)',
-            boxShadow: '0 8px 24px rgba(26,63,117,.28)',
-          }}
-          aria-hidden="true"
-        >
-          <svg width="28" height="28" viewBox="0 0 16 16" fill="none">
-            <circle cx="6" cy="8" r="4.5" stroke="white" strokeWidth="1.5" fill="none" opacity="0.9" />
-            <circle cx="10" cy="8" r="4.5" stroke="white" strokeWidth="1.5" fill="none" opacity="0.6" />
-            <path d="M10 6h1.5v2H10" stroke="white" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-
-        <TextEffect
-          as="h1"
-          per="word"
-          preset={shouldReduce ? 'fade' : 'fade-in-blur'}
-          className="font-jakarta font-extrabold text-3xl mb-3 text-midnight"
-          style={{ letterSpacing: '-0.03em' }}
-        >
-          Fundora
-        </TextEffect>
-        <p className="text-base leading-relaxed max-w-sm mx-auto mb-6" style={{ color: 'var(--muted)' }}>
-          Milestone-based USDC grants with onchain evidence, reviewer votes, and transparent payouts — built on Arc.
-        </p>
-
-        <div className="flex flex-wrap gap-2 justify-center mb-8">
-          {features.map(({ icon, label, color }) => (
-            <span
-              key={label}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border"
-              style={{ background: 'var(--warm-bg-2)', color, borderColor: 'var(--border)' }}
-            >
-              {icon}
-              {label}
-            </span>
-          ))}
-        </div>
-
-        <div className="flex flex-col items-center gap-3">
-          <ConnectKitButton label="Connect Wallet to Get Started" />
-          {onOpenApplyAdmin && (
-            <button
-              id="hero-apply-admin-btn"
-              onClick={onOpenApplyAdmin}
-              className="text-xs font-semibold flex items-center gap-1.5 transition-all hover:opacity-80 py-1 px-3 rounded-full border btn-focus"
-              style={{
-                color: 'var(--brand)',
-                borderColor: 'var(--brand-border)',
-                background: 'var(--brand-light)',
-              }}
-            >
-              <ShieldCheck size={13} aria-hidden="true" />
-              Apply as a Grant Admin
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Legacy Grants Stats Strip ─────────────────────────────────────────────────
-function StatsStrip({ grants }: { grants: Grant[] }) {
-  const total = grants.length
-  const active = grants.filter(g => g.status === 1).length
-  const done = grants.filter(g => g.status === 2).length
-  const tvlRaw = grants.reduce((s, g) => s + BigInt(g.totalAmount), 0n)
-  const tvlDollars = tvlRaw / 1_000_000n
-
-  const stats = [
-    { label: 'Total Grants', value: total.toString(), color: 'var(--brand)' },
-    { label: 'Active', value: active.toString(), color: 'var(--teal)' },
-    { label: 'Completed', value: done.toString(), color: 'var(--teal)' },
-    { label: 'Total USDC', value: `$${tvlDollars.toString()}`, color: 'var(--amber)' },
-  ]
-
-  if (total === 0) return null
-
-  return (
-    <div
-      className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-2xl p-4 border"
-      style={{ background: 'var(--warm-surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}
-    >
-      {stats.map(({ label, value, color }) => (
-        <div key={label} className="text-center">
-          <div className="font-jakarta font-bold text-xl tabular-nums" style={{ color }}>
-            {value}
-          </div>
-          <div className="label-caps mt-0.5">{label}</div>
-        </div>
-      ))}
-    </div>
-  )
-}
+type View = 'landing' | 'events' | 'event-detail' | 'participant' | 'reviewer' | 'organizer'
 
 // ── Role banner ───────────────────────────────────────────────────────────────
 function RoleBanner({ isAdmin, isReviewer }: { isAdmin: boolean; isReviewer: boolean }) {
@@ -310,16 +183,15 @@ function NetworkToggle({ chainId }: { chainId: number | undefined }) {
 // ── Main App Component ────────────────────────────────────────────────────────
 export default function App() {
   const { address, isConnected, chainId } = useAccount()
-  const activeChainId = useActiveChainId()
-  const [view, setView] = useState<View>('events')
-  const [selectedGrant, setSelectedGrant] = useState<Grant | null>(null)
-  const [navigating, setNavigating] = useState<string | null>(null)
-
-  // Legacy Grants State
-  // Grant search/filter state (reserved for toolbar wiring in a future phase)
-  const [_grantSearch, _setGrantSearch] = useState('')
-  const [_grantStatusFilter, _setGrantStatusFilter] = useState<'all' | 'active' | 'pending' | 'completed' | 'cancelled'>('all')
-  const { grants, refetch: refetchGrants } = useGrants()
+  const [view, setView] = useState<View>(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const h = window.location.hash.replace('#', '')
+      if (['landing', 'events', 'participant', 'reviewer', 'organizer'].includes(h)) {
+        return h as View
+      }
+    }
+    return 'landing'
+  })
 
   const { data: _contractAdmin } = useContractAdmin()
   const { data: isReviewer } = useIsReviewer(address)
@@ -406,21 +278,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleSelectGrant = (grant: Grant) => {
-    setNavigating(grant.id.toString())
-    setTimeout(() => {
-      setSelectedGrant(grant)
-      setView('detail')
-      setNavigating(null)
-    }, 80)
-  }
-
-  const handleBackToGrants = () => {
-    setSelectedGrant(null)
-    setView('grants')
-    refetchGrants()
-  }
-
   // ── Phase 3: Organizer Create Wizard ──────────────────────────────────────
   const [organizerWizardOpen, setOrganizerWizardOpen] = useState(false)
 
@@ -499,6 +356,28 @@ export default function App() {
       {/* Main View Port */}
       <main id="main-content" className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
         <AnimatePresence mode="wait" initial={false}>
+          {view === 'landing' && (
+            <motion.div
+              key="landing-page"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+            >
+              <LandingPage
+                onNavigate={(targetView) => {
+                  setView(targetView as View)
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
+                onSelectEvent={(eventId) => {
+                  handleSelectEvent(eventId)
+                }}
+                onOpenOrganizerWizard={() => {
+                  setOrganizerTypeModalOpen(true)
+                }}
+              />
+            </motion.div>
+          )}
           {/* ═════════════════════════════════════════════════════════════════════
               VIEW 1: PUBLIC EVENT DIRECTORY (Phase 2 Default)
           ══════════════════════════════════════════════════════════════════════ */}
@@ -1012,81 +891,6 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* ═════════════════════════════════════════════════════════════════════
-              VIEW 6 & 7: LEGACY MICROGRANTS & ADMIN (Fully preserved!)
-          ══════════════════════════════════════════════════════════════════════ */}
-          {(view === 'grants' || view === 'detail' || view === 'admin') && (
-            <motion.div
-              key="legacy-grants"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-6"
-            >
-              {view === 'detail' && selectedGrant ? (
-                <GrantDetail
-                  grant={selectedGrant}
-                  onBack={handleBackToGrants}
-                  onRefresh={refetchGrants}
-                  isAdmin={isAdmin}
-                  activeChainId={activeChainId}
-                />
-              ) : (
-                <div className="space-y-6">
-                  <div className="flex items-start justify-between flex-wrap gap-3">
-                    <div>
-                      <h1 className="font-jakarta font-extrabold text-2xl mb-1 text-midnight">
-                        {view === 'admin' ? 'Admin Panel' : 'Microgrants Directory'}
-                      </h1>
-                      <p className="text-sm text-slate-600">
-                        {view === 'admin'
-                          ? 'Manage grants, reviewers, and settings.'
-                          : 'Milestone-based 1-to-1 microgrants.'}
-                      </p>
-                    </div>
-
-                    {isAdmin && (
-                      <button
-                        onClick={() => setView(view === 'admin' ? 'grants' : 'admin')}
-                        className="btn btn-focus shrink-0"
-                        style={{
-                          background: view === 'admin' ? 'var(--brand)' : 'var(--warm-surface)',
-                          border: `1px solid ${view === 'admin' ? 'var(--brand)' : 'var(--border)'}`,
-                          color: view === 'admin' ? '#fff' : 'var(--ink)',
-                          padding: '0.5rem 1.125rem',
-                        }}
-                      >
-                        <LayoutGrid size={13} />
-                        {view === 'admin' ? 'Back to Grants' : 'Admin'}
-                      </button>
-                    )}
-                  </div>
-
-                  {view === 'admin' && isAdmin && (
-                    <AdminPanel onGrantCreated={refetchGrants} />
-                  )}
-
-                  {view === 'grants' && (
-                    <>
-                      {grants.length > 0 && <StatsStrip grants={grants} />}
-
-                      {/* Grants Grid */}
-                      <AnimatedGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {grants.map((grant) => (
-                          <GrantCard
-                            key={grant.id.toString()}
-                            grant={grant}
-                            onClick={() => handleSelectGrant(grant)}
-                            isNavigating={navigating === grant.id.toString()}
-                          />
-                        ))}
-                      </AnimatedGroup>
-                    </>
-                  )}
-                </div>
-              )}
-            </motion.div>
-          )}
         </AnimatePresence>
       </main>
 
