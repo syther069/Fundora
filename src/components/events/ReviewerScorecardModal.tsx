@@ -243,10 +243,25 @@ export function ReviewerScorecardModal({
 
   const handleSubmit = useCallback(() => {
     if (isPending || isConfirming || dwellSuccess) return
+    if (!isLive) {
+      saveScorecardDraft(event.id, submissionId, reviewerAddress, {
+        criterionScores,
+        notes,
+        savedAt: Date.now(),
+        submitted: true,
+        onchainScore,
+      })
+      setDwellSuccess(true)
+      setTimeout(() => {
+        setDwellSuccess(false)
+        onNext()
+      }, 1200)
+      return
+    }
     const subIdBig = activeSub?.id ?? BigInt(submissionIndex + 1)
     const notesHash = keccak256(toHex(notes || ''))
     submitReview(eventIdBig, subIdBig, onchainScore, notesHash)
-  }, [isPending, isConfirming, dwellSuccess, activeSub, submissionIndex, notes, onchainScore, eventIdBig, submitReview])
+  }, [isLive, isPending, isConfirming, dwellSuccess, event.id, submissionId, reviewerAddress, criterionScores, activeSub, submissionIndex, notes, onchainScore, eventIdBig, submitReview, onNext])
 
   // Dwell on success then advance — defer initial setState to avoid synchronous set-in-effect
   useEffect(() => {

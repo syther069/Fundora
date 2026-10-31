@@ -1,19 +1,21 @@
-import { useReadContract, useReadContracts, useAccount } from 'wagmi'
+import { useReadContract, useReadContracts } from 'wagmi'
 import { useMemo } from 'react'
 import {
   FUNDORA_ABI,
   ARC_TESTNET_ID,
   ARC_MAINNET_ID,
-  SUPPORTED_CHAIN_IDS,
+
   getContractAddress,
 } from '../contracts/fundora'
 
 // Returns the active supported chain ID (testnet or mainnet); defaults to testnet
+import { useMode } from '../context/ModeContext'
 export function useActiveChainId(): number {
-  const { chainId } = useAccount()
-  return chainId !== undefined && (SUPPORTED_CHAIN_IDS as readonly number[]).includes(chainId)
-    ? chainId
-    : ARC_TESTNET_ID
+  const { isLive } = useMode()
+  return isLive ? ARC_MAINNET_ID : ARC_TESTNET_ID
+
+
+
 }
 
 // Re-export for convenience

@@ -17,6 +17,7 @@ import { ARC_MAINNET_ID } from '../contracts/fundora'
 import type { Event, EventStatus as FrontendStatus, Track, RubricCriterion } from '../types/events'
 
 const MAINNET_ADDRESS = getFundoraEventsAddress(ARC_MAINNET_ID)
+const MAX_BATCH_SIZE = 50n // Matches MAX_BATCH_SIZE = 50 in FundoraEvents.sol
 
 // Standalone public client for mainnet reads that bypass the connected wallet's chain.
 // This lets Live mode work regardless of which chain the user is connected to.
@@ -104,14 +105,22 @@ export function useLiveEvents(): LiveEventsResult {
           return
         }
 
-        // 2. Fetch all events in one batch (cap at 100 to be safe)
-        const batchSize = count > 100n ? 100n : count
-        const raw = await mainnetClient.readContract({
-          address: MAINNET_ADDRESS,
-          abi: FUNDORA_EVENTS_ABI,
-          functionName: 'getEventsBatch',
-          args: [0n, batchSize],
-        }) as OnchainEventInfo[]
+        // 2. Fetch events in pages of MAX_BATCH_SIZE (50) to respect FundoraEvents.sol BatchTooLarge guard
+        const pages: Promise<OnchainEventInfo[]>[] = []
+        for (let offset = 0n; offset < count; offset += MAX_BATCH_SIZE) {
+          const remaining = count - offset
+          const limit = remaining > MAX_BATCH_SIZE ? MAX_BATCH_SIZE : remaining
+          pages.push(
+            mainnetClient.readContract({
+              address: MAINNET_ADDRESS,
+              abi: FUNDORA_EVENTS_ABI,
+              functionName: 'getEventsBatch',
+              args: [offset, limit],
+            }) as Promise<OnchainEventInfo[]>,
+          )
+        }
+        const rawPages = await Promise.all(pages)
+        const raw = rawPages.flat()
 
         if (!cancelled) {
           setEvents(raw.map(mapOnchainEvent))
@@ -146,5 +155,6 @@ export function useLiveEventCount() {
     address: MAINNET_ADDRESS,
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'eventCount',
+    chainId: ARC_MAINNET_ID,
   })
 }

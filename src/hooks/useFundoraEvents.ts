@@ -2,7 +2,6 @@ import {
   useReadContract,
   useWriteContract,
   useWaitForTransactionReceipt,
-  useAccount,
 } from 'wagmi'
 import {
   FUNDORA_EVENTS_ABI,
@@ -15,14 +14,17 @@ import { ARC_MAINNET_ID, ARC_TESTNET_ID } from '../contracts/fundora'
 import { useMode } from '../context/ModeContext'
 import type { Address } from 'viem'
 
+function useActiveEventsChainId(): number {
+  const { isLive } = useMode()
+  return isLive ? ARC_MAINNET_ID : ARC_TESTNET_ID
+}
+
 /**
- * Returns the currently active FundoraEvents contract address based on
- * the app's mode (Live vs Demo) and the user's active wallet network.
+ * Returns the currently active FundoraEvents contract address strictly based on
+ * the app's mode (Live = Arc Mainnet 5042, Demo = Arc Testnet 5042002).
  */
 export function useActiveEventsAddress(): `0x${string}` {
-  const { isLive } = useMode()
-  const { chainId } = useAccount()
-  const targetChain = isLive || chainId === ARC_MAINNET_ID ? ARC_MAINNET_ID : ARC_TESTNET_ID
+  const targetChain = useActiveEventsChainId()
   return getFundoraEventsAddress(targetChain)
 }
 
@@ -31,7 +33,8 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 // ── Read hooks ────────────────────────────────────────────────────────────────
 
 export function useEvent(eventId: bigint | undefined) {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   return useReadContract({
@@ -39,12 +42,14 @@ export function useEvent(eventId: bigint | undefined) {
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'getEvent',
     args: eventId !== undefined ? [eventId] : undefined,
+    chainId,
     query: { enabled: !!isValidAddress && eventId !== undefined && eventId > 0n },
   })
 }
 
 export function useEventsBatch(offset: number, limit: number) {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   return useReadContract({
@@ -52,24 +57,28 @@ export function useEventsBatch(offset: number, limit: number) {
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'getEventsBatch',
     args: [BigInt(offset), BigInt(limit)],
+    chainId,
     query: { enabled: !!isValidAddress },
   })
 }
 
 export function useEventCount() {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   return useReadContract({
     address: contractAddress,
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'eventCount',
+    chainId,
     query: { enabled: !!isValidAddress },
   })
 }
 
 export function useSubmission(eventId: bigint | undefined, submissionId: bigint | undefined) {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   return useReadContract({
@@ -77,6 +86,7 @@ export function useSubmission(eventId: bigint | undefined, submissionId: bigint 
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'getSubmission',
     args: eventId !== undefined && submissionId !== undefined ? [eventId, submissionId] : undefined,
+    chainId,
     query: { enabled: !!isValidAddress && !!eventId && !!submissionId },
   })
 }
@@ -86,7 +96,8 @@ export function useSubmission(eventId: bigint | undefined, submissionId: bigint 
  * fetch the full submission if one exists.
  */
 export function useSubmissionByAddress(eventId: bigint | undefined, submitter: Address | undefined) {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   const idResult = useReadContract({
@@ -94,6 +105,7 @@ export function useSubmissionByAddress(eventId: bigint | undefined, submitter: A
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'userSubmissionId',
     args: eventId !== undefined && submitter ? [eventId, submitter] : undefined,
+    chainId,
     query: { enabled: !!isValidAddress && !!eventId && !!submitter },
   })
 
@@ -107,6 +119,7 @@ export function useSubmissionByAddress(eventId: bigint | undefined, submitter: A
     args: eventId !== undefined && submissionId !== undefined && hasSubmission
       ? [eventId, submissionId]
       : undefined,
+    chainId,
     query: { enabled: !!isValidAddress && hasSubmission },
   })
 
@@ -120,7 +133,8 @@ export function useSubmissionByAddress(eventId: bigint | undefined, submitter: A
 }
 
 export function useSubmissionsBatch(eventId: bigint | undefined, offset: number, limit: number) {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   return useReadContract({
@@ -128,12 +142,14 @@ export function useSubmissionsBatch(eventId: bigint | undefined, offset: number,
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'getSubmissionsBatch',
     args: eventId !== undefined ? [eventId, BigInt(offset), BigInt(limit)] : undefined,
+    chainId,
     query: { enabled: !!isValidAddress && !!eventId },
   })
 }
 
 export function usePendingPrizeWithdrawals(address: Address | undefined) {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   return useReadContract({
@@ -141,12 +157,14 @@ export function usePendingPrizeWithdrawals(address: Address | undefined) {
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'pendingPrizeWithdrawals',
     args: address ? [address] : undefined,
+    chainId,
     query: { enabled: !!isValidAddress && !!address },
   })
 }
 
 export function usePendingOrganizerRefunds(address: Address | undefined) {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   return useReadContract({
@@ -154,12 +172,14 @@ export function usePendingOrganizerRefunds(address: Address | undefined) {
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'pendingOrganizerRefunds',
     args: address ? [address] : undefined,
+    chainId,
     query: { enabled: !!isValidAddress && !!address },
   })
 }
 
 export function useIsEventReviewer(eventId: bigint | undefined, address: Address | undefined) {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   return useReadContract({
@@ -167,12 +187,14 @@ export function useIsEventReviewer(eventId: bigint | undefined, address: Address
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'isEventReviewer',
     args: eventId !== undefined && address ? [eventId, address] : undefined,
+    chainId,
     query: { enabled: !!isValidAddress && !!eventId && !!address },
   })
 }
 
 export function useUserSubmissionId(eventId: bigint | undefined, address: Address | undefined) {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   return useReadContract({
@@ -180,18 +202,21 @@ export function useUserSubmissionId(eventId: bigint | undefined, address: Addres
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'userSubmissionId',
     args: eventId !== undefined && address ? [eventId, address] : undefined,
+    chainId,
     query: { enabled: !!isValidAddress && !!eventId && !!address },
   })
 }
 
 export function useEventsPaused() {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   return useReadContract({
     address: contractAddress,
     abi: FUNDORA_EVENTS_ABI,
     functionName: 'paused',
+    chainId,
     query: { enabled: !!isValidAddress },
   })
 }
@@ -201,7 +226,8 @@ export function useGetReview(
   submissionId: bigint | undefined,
   reviewer: Address | undefined,
 ) {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   return useReadContract({
@@ -211,6 +237,7 @@ export function useGetReview(
     args: eventId !== undefined && submissionId !== undefined && reviewer
       ? [eventId, submissionId, reviewer]
       : undefined,
+    chainId,
     query: { enabled: !!isValidAddress && !!eventId && !!submissionId && !!reviewer },
   })
 }
@@ -220,7 +247,8 @@ export function useHasReviewed(
   submissionId: bigint | undefined,
   reviewer: Address | undefined,
 ) {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const isValidAddress = contractAddress && contractAddress !== ZERO_ADDRESS
 
   return useReadContract({
@@ -230,6 +258,7 @@ export function useHasReviewed(
     args: eventId !== undefined && submissionId !== undefined && reviewer
       ? [eventId, submissionId, reviewer]
       : undefined,
+    chainId,
     query: { enabled: !!isValidAddress && !!eventId && !!submissionId && !!reviewer },
   })
 }
@@ -237,9 +266,10 @@ export function useHasReviewed(
 // ── Write hooks ───────────────────────────────────────────────────────────────
 
 function useContractWrite(functionName: string) {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const receipt = useWaitForTransactionReceipt({ hash })
+  const receipt = useWaitForTransactionReceipt({ hash, chainId })
   return {
     write: (args: unknown[]) =>
       writeContract({
@@ -247,6 +277,7 @@ function useContractWrite(functionName: string) {
         abi: FUNDORA_EVENTS_ABI,
         functionName: functionName as never,
         args: args,
+        chainId,
       }),
     hash,
     isPending,
@@ -257,12 +288,11 @@ function useContractWrite(functionName: string) {
 }
 
 export function useCreateEvent(overrideChainId?: number) {
-  const { isLive } = useMode()
-  const { chainId } = useAccount()
-  const targetChain = overrideChainId ?? (isLive ? ARC_MAINNET_ID : (chainId === ARC_MAINNET_ID ? ARC_MAINNET_ID : ARC_TESTNET_ID))
+  const activeChainId = useActiveEventsChainId()
+  const targetChain = overrideChainId ?? activeChainId
   const contractAddress = getFundoraEventsAddress(targetChain)
   const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const receipt = useWaitForTransactionReceipt({ hash })
+  const receipt = useWaitForTransactionReceipt({ hash, chainId: targetChain })
 
   const createEvent = (params: {
     title: string
@@ -310,9 +340,10 @@ export function useSubmitEntry() {
 }
 
 export function useClaimPrize() {
-  const contractAddress = useActiveEventsAddress()
+  const chainId = useActiveEventsChainId()
+  const contractAddress = getFundoraEventsAddress(chainId)
   const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const receipt = useWaitForTransactionReceipt({ hash })
+  const receipt = useWaitForTransactionReceipt({ hash, chainId })
 
   const claimPrize = () => {
     writeContract({
@@ -320,6 +351,7 @@ export function useClaimPrize() {
       abi: FUNDORA_EVENTS_ABI,
       functionName: 'claimPrize',
       args: [],
+      chainId,
     })
   }
 

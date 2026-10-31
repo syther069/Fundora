@@ -97,7 +97,7 @@ export function EventDetailView({ event, submissions, onBack, onOpenSubmitModal 
         <div className="flex items-center gap-2">
           {event.contractAddress && (
             <a
-              href={`https://explorer.testnet.arc.io/address/${event.contractAddress}`}
+              href={`${event.chainId === 5042 ? 'https://explorer.arc.io' : 'https://explorer.testnet.arc.io'}/address/${event.contractAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               className="hidden sm:inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-brand font-mono transition-colors"
@@ -725,7 +725,7 @@ export function EventDetailView({ event, submissions, onBack, onOpenSubmitModal 
                       </span>
                       {winner.claimTxHash && (
                         <a
-                          href={`https://explorer.mainnet.arc.io/tx/${winner.claimTxHash}`}
+                          href={`${event.chainId === 5042 ? 'https://explorer.arc.io' : 'https://explorer.testnet.arc.io'}/tx/${winner.claimTxHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-mono text-[11px] text-slate-500 hover:text-brand flex items-center gap-1"

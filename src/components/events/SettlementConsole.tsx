@@ -74,6 +74,12 @@ export function SettlementConsole({ event, winnerMapping, onSettled }: Settlemen
 
   const handleFinalize = () => {
     if (!canSettle) return
+    if (!isLive) {
+      setSettled(true)
+      setConfirmStep(false)
+      onSettled()
+      return
+    }
     const eventIdBig = (() => {
       try { return BigInt(event.id.replace(/\D/g, '') || '0') } catch { return 0n }
     })()
@@ -85,7 +91,7 @@ export function SettlementConsole({ event, winnerMapping, onSettled }: Settlemen
 
   // Explorer link
   const explorerBase = isLive
-    ? 'https://explorer.mainnet.arc.io/tx/'
+    ? 'https://explorer.arc.io/tx/'
     : 'https://explorer.testnet.arc.io/tx/'
 
   // ── Post-settlement banner ─────────────────────────────────────────────────
