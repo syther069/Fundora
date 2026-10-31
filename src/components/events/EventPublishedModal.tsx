@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
-import { ShieldCheck, Twitter, ArrowRight, X } from 'lucide-react'
+import { ShieldCheck, ArrowRight, X } from 'lucide-react'
+import { XIcon } from '../ui/XIcon'
 import type { Event } from '../../types/events'
 
 interface EventPublishedModalProps {
@@ -18,7 +19,7 @@ export function EventPublishedModal({ event, onClose, onViewEvent }: EventPublis
   const tweetText = `Excited to announce ${event.title} on @FundoraApp with $${formatUsdc(
     event.totalPrizePoolUsdc
   )} USDC ${isNative ? 'verified onchain escrow' : 'prize pool'}! Built on @ArcNetwork. Join and submit your project! 🚀 #ArcBuild`
-  const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
+  const tweetUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
 
   return (
     <div
@@ -96,10 +97,10 @@ export function EventPublishedModal({ event, onClose, onViewEvent }: EventPublis
             href={tweetUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-xs"
+            className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-semibold text-midnight bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-xs"
           >
-            <Twitter size={14} className="text-sky-500" />
-            Share on X
+            <XIcon size={13} className="text-midnight shrink-0" />
+            <span>Share on X</span>
           </a>
 
           <button

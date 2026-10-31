@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { CheckCircle2, Copy, Check, ArrowRight, Twitter, X } from 'lucide-react'
+import { CheckCircle2, Copy, Check, ArrowRight, X } from 'lucide-react'
+import { XIcon } from '../ui/XIcon'
 import type { Submission } from '../../types/events'
 
 interface SubmissionReceiptModalProps {
@@ -25,7 +26,7 @@ export function SubmissionReceiptModal({
   }
 
   const tweetText = `Just submitted "${submission.title}" to ${eventTitle} on @FundoraApp! Built on @ArcNetwork with native USDC escrow. 🚀 #ArcBuild`
-  const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
+  const tweetUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
 
   return (
     <div
@@ -41,52 +42,54 @@ export function SubmissionReceiptModal({
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         className="w-full max-w-lg rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl relative overflow-hidden"
       >
-        {/* Top celebratory gradient bar */}
+        {/* Top Accent Strip */}
         <div
           className="absolute top-0 left-0 right-0 h-2"
-          style={{ background: 'linear-gradient(90deg, #1A3F75 0%, #0F766E 50%, #B45309 100%)' }}
+          style={{ background: 'linear-gradient(90deg, #1A3F75 0%, #0F766E 100%)' }}
         />
 
         {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
-          aria-label="Close receipt modal"
+          aria-label="Close modal"
         >
           <X size={18} />
         </button>
 
-        {/* Header Icon & Title */}
+        {/* Header Icon + Title */}
         <div className="text-center mb-6">
           <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-200 text-teal flex items-center justify-center mx-auto mb-3.5 shadow-sm">
             <CheckCircle2 size={32} />
           </div>
           <h2 id="receipt-title" className="font-jakarta font-extrabold text-2xl text-midnight tracking-tight mb-1">
-            Project Entry Confirmed!
+            Submission Received!
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 max-w-sm mx-auto leading-relaxed">
-            Your project has been recorded and submitted to the evaluation queue for <strong>{eventTitle}</strong>.
+            Your project was submitted to <strong>{eventTitle}</strong>. It is now awaiting reviewer deliberation.
           </p>
         </div>
 
         {/* Receipt Details Card */}
-        <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-4 sm:p-5 mb-6 space-y-3.5 text-xs">
+        <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-4 sm:p-5 mb-4 space-y-3 text-xs">
+          <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/60">
+            <span className="text-slate-500 font-medium">Submission ID:</span>
+            <span className="font-mono font-bold text-midnight">{submission.id}</span>
+          </div>
+
           <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/60">
             <span className="text-slate-500 font-medium">Project Name:</span>
             <span className="font-bold text-midnight font-jakarta">{submission.title}</span>
           </div>
 
           <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/60">
-            <span className="text-slate-500 font-medium">Entry Identifier:</span>
-            <span className="font-mono font-semibold text-slate-700">{submission.id}</span>
-          </div>
-
-          <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/60">
             <span className="text-slate-500 font-medium">Submitted At:</span>
             <span className="font-medium text-slate-700">
               {new Date(submission.submittedAt * 1000).toLocaleString('en-US', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
               })}
             </span>
           </div>
@@ -117,10 +120,10 @@ export function SubmissionReceiptModal({
             href={tweetUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-xs"
+            className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-semibold text-midnight bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-xs"
           >
-            <Twitter size={14} className="text-sky-500" />
-            Share on X
+            <XIcon size={13} className="text-midnight shrink-0" />
+            <span>Share on X</span>
           </a>
 
           {onViewShowcase && (

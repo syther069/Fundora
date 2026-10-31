@@ -3,9 +3,10 @@ import { motion } from 'framer-motion'
 import { useAccount } from 'wagmi'
 import {
   ArrowLeft, ArrowRight, X, ShieldCheck, Github, Globe,
-  Video, Twitter, Plus, Trash2, Sparkles,
+  Video, Plus, Trash2, Sparkles,
   ExternalLink, Loader2
 } from 'lucide-react'
+import { XIcon } from '../ui/XIcon'
 import type { Event, Submission, TeamMember } from '../../types/events'
 import {
   saveSubmissionDraft,
@@ -639,8 +640,8 @@ export function ParticipantSubmitWizard({
                 <>
                   <div>
                     <label className="block text-xs font-bold text-midnight uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                      <Twitter size={14} className="text-sky-500" />
-                      X (Twitter) Post URL *
+                      <XIcon size={13} className="text-midnight shrink-0" />
+                      X Post URL *
                     </label>
                     <input
                       type="url"
@@ -838,7 +839,7 @@ export function ParticipantSubmitWizard({
                   )}
                   {socialPostUrl && (
                     <span className="flex items-center gap-1">
-                      <Twitter size={12} className="text-sky-500" /> Post Verified
+                      <XIcon size={12} className="text-midnight shrink-0" /> Post Verified
                     </span>
                   )}
                 </div>
